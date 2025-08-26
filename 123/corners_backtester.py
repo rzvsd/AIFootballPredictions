@@ -1,22 +1,24 @@
-# advanced_backtester.py
+# corners_backtester.py
 import pandas as pd
 import joblib
 import os
 
 # --- CONFIGURATION ---
 LEAGUE = 'E0'
+CORNER_LINE = 10.5
 STARTING_BANKROLL = 1000
 STAKE = 10
 EDGE_THRESHOLD = 0.05
 
-def run_advanced_backtest():
+def run_corners_backtest():
     """
-    Loads our custom trained model and enhanced data to calculate the TRUE ROI.
+    Loads the trained corners model and historical data to simulate a betting
+    strategy for the Over/Under corners market.
     """
-    print(f"--- Starting Advanced Backtest for League: {LEAGUE} ---")
+    print(f"--- Starting Corners Backtest for League: {LEAGUE} ---")
 
-    # --- 1. Load OUR Custom Assets ---
-    model_path = os.path.join('advanced_models', f'{LEAGUE}_simple_goals_model.pkl')
+    # --- 1. Load Assets ---
+    model_path = os.path.join('advanced_models', f'{LEAGUE}_corners_model.pkl')
     data_path = os.path.join('data', 'enhanced', f'{LEAGUE}_enhanced.csv')
 
     try:
@@ -27,26 +29,27 @@ def run_advanced_backtest():
         print(e)
         return
 
-    print(f"Successfully loaded custom model and {len(df)} matches.")
+    print(f"Successfully loaded corners model and {len(df)} matches.")
 
     # --- 2. Prepare Data ---
-    df['Over2.5'] = ((df['FTHG'] + df['FTAG']) > 2.5).astype(int)
-
-    TARGET_COL = 'Over2.5'
-    ODDS_OVER_COL = 'MaxC>2.5'
-    ODDS_UNDER_COL = 'AvgC<2.5'
+    # We need odds for the corners market. Let's assume the columns are B365C>10.5 and B365C<10.5
+    # If these don't exist, we will get a KeyError and will need to find the correct names.
+    ODDS_OVER_COL = 'B365C>10.5'
+    ODDS_UNDER_COL = 'B365C<10.5'
+    
+    df['Over_10.5_Corners'] = ((df['HC'] + df['AC']) > CORNER_LINE).astype(int)
+    TARGET_COL = 'Over_10.5_Corners'
+    
+    df.dropna(subset=[ODDS_OVER_COL, ODDS_UNDER_COL, TARGET_COL], inplace=True)
     
     features = [
-        'HomeAvgGoalsScored_Last5',
-        'HomeAvgGoalsConceded_Last5',
-        'AwayAvgGoalsScored_Last5',
-        'AwayAvgGoalsConceded_Last5'
+        'HomeAvgShots_Last5', 'AwayAvgShots_Last5',
+        'HomeAvgShotsOnTarget_Last5', 'AwayAvgShotsOnTarget_Last5',
+        'HomeAvgCorners_Last5', 'AwayAvgCorners_Last5',
+        'EloDifference'
     ]
     
-    # --- CRITICAL FIX: Drop rows with missing values ---
-    # This ensures the backtester sees the exact same clean data as the trainer.
-    df.dropna(subset=features + [ODDS_OVER_COL, ODDS_UNDER_COL, TARGET_COL], inplace=True)
-    
+    df.dropna(subset=features, inplace=True)
     X = df[features]
     
     # --- 3. Run Simulation ---
@@ -91,7 +94,7 @@ def run_advanced_backtest():
                 bankroll -= STAKE
 
     # --- 4. Generate Final Report ---
-    print("\n--- Advanced Backtest Complete ---")
+    print("\n--- Corners Backtest Complete ---")
     print(f"League Tested: {LEAGUE}")
     print("-" * 25)
     print(f"Starting Bankroll: {STARTING_BANKROLL:.2f}")
@@ -110,4 +113,4 @@ def run_advanced_backtest():
 
 
 if __name__ == "__main__":
-    run_advanced_backtest()
+    run_corners_backtest()

@@ -1,80 +1,146 @@
 # feature_enhancer.py
+# Build enhanced training data by merging Understat xG into your processed dataset.
+import asyncio
+import argparse
+from pathlib import Path
+from typing import List, Dict, Any
 import pandas as pd
-import os
 
-def create_rolling_averages(df: pd.DataFrame) -> pd.DataFrame:
+# ---------- Config / team name normalization ----------
+
+LEAGUE_KEYS = {
+    "E0": "epl",
+}
+
+# --- THE CORRECTED AND COMPLETE TEAM MAP ---
+# Maps the Understat names (keys) to the football-data.co.uk names (values)
+TEAM_MAP_E0: Dict[str, str] = {
+    "Manchester City": "Man City",
+    "Manchester United": "Man United",
+    "Newcastle United": "Newcastle",
+    "Nottingham Forest": "Nott'm Forest",
+    "Wolverhampton Wanderers": "Wolves",
+    "Brighton and Hove Albion": "Brighton",
+    "Sheffield United": "Sheffield United",
+    "Tottenham Hotspur": "Tottenham",
+    "West Ham United": "West Ham",
+    "Leeds United": "Leeds"
+    # Note: We don't need to map names that are already identical (e.g., "Arsenal")
+}
+
+# ---------- Understat async fetch ----------
+
+async def fetch_understat_league(season: int, league_code: str = "E0") -> pd.DataFrame:
     """
-    Calculates time-series-aware rolling averages for key stats.
-    This function CORRECTLY calculates form without looking into the future.
+    Fetch historical matches with xG from Understat for one season+league.
     """
-    
-    # Ensure data is sorted chronologically
-    # The dayfirst=True argument is important for UK date formats
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
-    df = df.sort_values('Date')
+    import aiohttp
+    from understat import Understat
 
-    teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
-    team_stats = {}
-    new_features = []
+    league_key = LEAGUE_KEYS.get(league_code, "epl")
 
-    for index, row in df.iterrows():
-        home_team = row['HomeTeam']
-        away_team = row['AwayTeam']
+    async with aiohttp.ClientSession() as s:
+        u = Understat(s)
+        matches: List[Dict[str, Any]] = await u.get_league_results(league_key, int(season))
 
-        if home_team not in team_stats:
-            team_stats[home_team] = {'goals_scored': [], 'goals_conceded': []}
-        if away_team not in team_stats:
-            team_stats[away_team] = {'goals_scored': [], 'goals_conceded': []}
+        rows = []
+        for m in matches:
+            dt = (m.get("datetime") or "")[:10]
+            hxg_raw = (m.get("xG") or {}).get("h")
+            axg_raw = (m.get("xG") or {}).get("a")
+            try:
+                hxg = float(hxg_raw) if hxg_raw is not None else None
+            except Exception:
+                hxg = None
+            try:
+                axg = float(axg_raw) if axg_raw is not None else None
+            except Exception:
+                axg = None
 
-        home_avg_gs = pd.Series(team_stats[home_team]['goals_scored']).rolling(window=5, min_periods=1).mean().iloc[-1] if team_stats[home_team]['goals_scored'] else None
-        home_avg_gc = pd.Series(team_stats[home_team]['goals_conceded']).rolling(window=5, min_periods=1).mean().iloc[-1] if team_stats[home_team]['goals_conceded'] else None
-        away_avg_gs = pd.Series(team_stats[away_team]['goals_scored']).rolling(window=5, min_periods=1).mean().iloc[-1] if team_stats[away_team]['goals_scored'] else None
-        away_avg_gc = pd.Series(team_stats[away_team]['goals_conceded']).rolling(window=5, min_periods=1).mean().iloc[-1] if team_stats[away_team]['goals_conceded'] else None
+            rows.append({
+                "Date": dt,
+                "HomeTeam": (m.get("h") or {}).get("title"),
+                "AwayTeam": (m.get("a") or {}).get("title"),
+                "Home_xG": hxg,
+                "Away_xG": axg,
+            })
 
-        new_features.append({
-            'HomeAvgGoalsScored_Last5': home_avg_gs,
-            'HomeAvgGoalsConceded_Last5': home_avg_gc,
-            'AwayAvgGoalsScored_Last5': away_avg_gs,
-            'AwayAvgGoalsConceded_Last5': away_avg_gc
-        })
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return df
 
-        team_stats[home_team]['goals_scored'].append(row['FTHG'])
-        team_stats[home_team]['goals_conceded'].append(row['FTAG'])
-        team_stats[away_team]['goals_scored'].append(row['FTAG'])
-        team_stats[away_team]['goals_conceded'].append(row['FTHG'])
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df = df.dropna(subset=["Date", "HomeTeam", "AwayTeam"])
+        return df
 
-    new_features_df = pd.DataFrame(new_features, index=df.index)
-    df = pd.concat([df, new_features_df], axis=1)
-    
+# ---------- Enhancer (merge + light features) ----------
+
+def normalize_team_names(df: pd.DataFrame, league: str) -> pd.DataFrame:
+    """Apply league-specific team name normalization."""
+    if league == "E0":
+        # We are replacing the Understat names with the base data names
+        df["HomeTeam"] = df["HomeTeam"].replace(TEAM_MAP_E0)
+        df["AwayTeam"] = df["AwayTeam"].replace(TEAM_MAP_E0)
     return df
 
+def merge_xg(base_path: Path, out_path: Path, xg_df: pd.DataFrame, league: str) -> Path:
+    """Merge xG into the base data file and write enhanced CSV."""
+    if not base_path.exists():
+        raise FileNotFoundError(f"Base file not found: {base_path}")
+
+    # Use the RAW data as the base, not the preprocessed one
+    base = pd.read_csv(base_path, parse_dates=["Date"], dayfirst=True)
+    
+    # Normalize names on the xG side to match the base data
+    xg_df = normalize_team_names(xg_df.copy(), league=league)
+
+    # Merge on Date + teams
+    merged = base.merge(xg_df, on=["Date", "HomeTeam", "AwayTeam"], how="left")
+
+    miss = merged["Home_xG"].isna().sum()
+    print(f"Merged rows: {len(merged)} | Missing xG rows after merge: {miss}")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_csv(out_path, index=False)
+    print(f"Wrote enhanced data to → {out_path.resolve()}")
+    return out_path
+
+# ---------- CLI / Main ----------
+
+async def main():
+    ap = argparse.ArgumentParser(description="Enhance raw data with Understat xG.")
+    ap.add_argument("--league", default="E0", help="League code (default: E0 for EPL)")
+    ap.add_argument("--seasons", nargs="+", type=int, default=[2021, 2022, 2023], help="Seasons to fetch")
+    
+    # We will use the RAW data as input and create a new ENHANCED file
+    ap.add_argument("--in_dir", dest="in_dir", default="data/raw", help="Path to raw data directory")
+    ap.add_argument("--out_dir", dest="out_dir", default="data/enhanced", help="Output enhanced CSV directory")
+    
+    args = ap.parse_args()
+
+    league = args.league
+    base_path = Path(args.in_dir) / f"{league}_merged.csv"
+    out_path = Path(args.out_dir) / f"{league}_enhanced_with_xg.csv"
+
+    print(f"Loading raw data for {league} from {base_path}...")
+    if not base_path.exists():
+        raise FileNotFoundError(f"Base file not found: {base_path}")
+
+    all_parts: List[pd.DataFrame] = []
+    for year in args.seasons:
+        print(f"Fetching Understat xG data for {year} season...")
+        season_xg_df = await fetch_understat_league(year, league_code=league)
+        if season_xg_df.empty:
+            print(f"WARNING: No xG rows returned for season {year}. Continuing.")
+        else:
+            all_parts.append(season_xg_df)
+
+    if not all_parts:
+        raise RuntimeError("No xG data fetched. Check network or season values.")
+
+    xg_df = pd.concat(all_parts, ignore_index=True).drop_duplicates()
+
+    merge_xg(base_path=base_path, out_path=out_path, xg_df=xg_df, league=league)
+
 if __name__ == "__main__":
-    
-    LEAGUE = 'E0'
-    raw_data_path = os.path.join('data', 'raw', f'{LEAGUE}_merged.csv')
-    
-    print(f"Loading raw data for {LEAGUE}...")
-    raw_df = pd.read_csv(raw_data_path)
-
-    # --- NEW: Define columns to keep from the raw data ---
-    # We need identifiers, results, and the odds columns we plan to use.
-    columns_to_keep = [
-        'Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG',
-        'MaxC>2.5', 'AvgC<2.5' 
-    ]
-    
-    # Filter the raw dataframe to only keep necessary columns
-    filtered_df = raw_df[columns_to_keep].copy()
-
-    print("Creating non-leaky rolling average features...")
-    enhanced_df = create_rolling_averages(filtered_df)
-
-    # Save the new, enhanced dataframe
-    output_dir = os.path.join('data', 'enhanced')
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f'{LEAGUE}_enhanced.csv')
-    enhanced_df.to_csv(output_path, index=False)
-
-    print(f"\nEnhanced data saved to {output_path}")
-    print("\nShowing the last 5 rows with new features and kept columns:")
-    print(enhanced_df.tail())
+    asyncio.run(main())
