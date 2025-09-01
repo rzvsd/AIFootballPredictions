@@ -15,21 +15,25 @@ def train_hybrid_xgboost_models():
     """
     LEAGUE = 'E0'
     
-    # --- 1. Load FINAL FEATURE Data ---
-    data_path = os.path.join('data', 'enhanced', f'{LEAGUE}_final_features.csv') # <-- UPDATED
-    print(f"Loading final feature data from {data_path}...")
+    # --- 1. Load STRENGTH-ADJUSTED Data ---
+    data_path = os.path.join('data', 'enhanced', f'{LEAGUE}_strength_adj.csv')
+    print(f"Loading strength-adjusted data from {data_path}...")
     df = pd.read_csv(data_path)
 
-    # --- 2. Prepare Data and ULTIMATE Features ---
+    # --- 2. Prepare Data and ENHANCED Features ---
     features = [
-        'HomeAvgGoalsScored_Last5', 'HomeAvgGoalsConceded_Last5',
-        'AwayAvgGoalsScored_Last5', 'AwayAvgGoalsConceded_Last5',
-        'HomeAvgXgFor_Last5', 'HomeAvgXgAgainst_Last5', # <-- ADDED xG
-        'AwayAvgXgFor_Last5', 'AwayAvgXgAgainst_Last5', # <-- ADDED xG
-        'HomeAvgShots_Last5', 'AwayAvgShots_Last5',
-        'HomeAvgShotsOnTarget_Last5', 'AwayAvgShotsOnTarget_Last5',
-        'HomeAvgCorners_Last5', 'AwayAvgCorners_Last5',
-        'EloDifference'
+        # Keep the best of the old
+        'HomeAvgXgFor_Last5', 'HomeAvgXgAgainst_Last5',
+        'AwayAvgXgFor_Last5', 'AwayAvgXgAgainst_Last5',
+        'EloDifference',
+        # Add the new strength-adjusted features
+        'ShotConv_H', 'ShotConv_A',
+        'ShotConvRec_H', 'ShotConvRec_A',
+        'PointsPerGame_H', 'PointsPerGame_A',
+        'CleanSheetStreak_H', 'CleanSheetStreak_A',
+        'xGDiff_H', 'xGDiff_A',
+        'CornersConv_H', 'CornersConv_A',
+        'CornersConvRec_H', 'CornersConvRec_A'
     ]
     
     home_target = 'FTHG'
