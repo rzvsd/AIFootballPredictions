@@ -13,7 +13,7 @@ def train_dixon_coles_model():
     LEAGUE = 'E0'
     
     # --- 1. Load FINAL FEATURE Data ---
-    data_path = os.path.join('data', 'enhanced', f'{LEAGUE}_strength_adj.csv') # <-- UPDATED
+    data_path = os.path.join('data', 'enhanced', f'{LEAGUE}_final_features.csv') # <-- UPDATED
     print(f"Loading final feature data from {data_path}...")
     df = pd.read_csv(data_path)
     df.dropna(inplace=True)

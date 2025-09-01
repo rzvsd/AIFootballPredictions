@@ -7,7 +7,7 @@ def create_rolling_averages(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates time-series-aware rolling averages for all key stats.
     """
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df = df.sort_values('Date')
 
     teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()

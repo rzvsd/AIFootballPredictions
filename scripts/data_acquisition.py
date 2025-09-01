@@ -147,7 +147,7 @@ def parse_arguments():
         "--seasons", 
         nargs="+", 
         required=True, 
-        help="A list of season codes (e.g., 2324 2223)."
+        help="A list of season codes (e.g., 2324 2223 2425)."
     )
     
     parser.add_argument(

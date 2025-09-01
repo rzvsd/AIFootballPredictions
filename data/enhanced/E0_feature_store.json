@@ -1,0 +1,252 @@
+{
+    "Brentford": {
+        "ShotConv": 0.1231513428968519,
+        "ShotConvRec": 0.1046306361218497,
+        "PointsPerGame": 1.1615668851622372,
+        "CleanSheetStreak": 0,
+        "xGDiff": 0.11861560127154,
+        "CornersConv": 0.2963376965553789,
+        "CornersConvRec": 0.2581333144989605,
+        "NumMatches": 113
+    },
+    "Norwich": {
+        "ShotConv": 0.0670391091389124,
+        "ShotConvRec": 0.1250279190747872,
+        "PointsPerGame": 0.5851933854267686,
+        "CleanSheetStreak": 0,
+        "xGDiff": -1.2492713750591005,
+        "CornersConv": 0.1517118587936843,
+        "CornersConvRec": 0.3169051953245264,
+        "NumMatches": 37
+    },
+    "Man United": {
+        "ShotConv": 0.1068117747814618,
+        "ShotConvRec": 0.0904158107694791,
+        "PointsPerGame": 1.5410057098722416,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.3088433133975936,
+        "CornersConv": 0.2797841028384034,
+        "CornersConvRec": 0.2158130712508166,
+        "NumMatches": 113
+    },
+    "Burnley": {
+        "ShotConv": 0.0992665748481936,
+        "ShotConvRec": 0.1156935427400842,
+        "PointsPerGame": 0.7271457990569703,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.8365649445324697,
+        "CornersConv": 0.2545781037967498,
+        "CornersConvRec": 0.2962285232522903,
+        "NumMatches": 75
+    },
+    "Chelsea": {
+        "ShotConv": 0.1418306774600524,
+        "ShotConvRec": 0.1135707647127144,
+        "PointsPerGame": 1.6910254709253814,
+        "CleanSheetStreak": 0,
+        "xGDiff": 0.4490906569304123,
+        "CornersConv": 0.3845719640149083,
+        "CornersConvRec": 0.3325949596456597,
+        "NumMatches": 113
+    },
+    "Everton": {
+        "ShotConv": 0.0792354942203119,
+        "ShotConvRec": 0.0932504081515542,
+        "PointsPerGame": 1.350289326629669,
+        "CleanSheetStreak": 1,
+        "xGDiff": -0.0524589857812072,
+        "CornersConv": 0.2095205205766428,
+        "CornersConvRec": 0.204898384121044,
+        "NumMatches": 113
+    },
+    "Leicester": {
+        "ShotConv": 0.1175225561579888,
+        "ShotConvRec": 0.1130857566929124,
+        "PointsPerGame": 0.8582983175928854,
+        "CleanSheetStreak": 1,
+        "xGDiff": -0.2918444230737216,
+        "CornersConv": 0.349174034267329,
+        "CornersConvRec": 0.2853041977028906,
+        "NumMatches": 75
+    },
+    "Watford": {
+        "ShotConv": 0.0762874757200188,
+        "ShotConvRec": 0.1437843332622225,
+        "PointsPerGame": 0.5259079774148764,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.7160949387207256,
+        "CornersConv": 0.181086568881712,
+        "CornersConvRec": 0.3255443877227318,
+        "NumMatches": 37
+    },
+    "Newcastle": {
+        "ShotConv": 0.1437628962577594,
+        "ShotConvRec": 0.1138268168257892,
+        "PointsPerGame": 1.598797863781535,
+        "CleanSheetStreak": 0,
+        "xGDiff": 0.6034857211436266,
+        "CornersConv": 0.3759832521029488,
+        "CornersConvRec": 0.3063008668515102,
+        "NumMatches": 113
+    },
+    "Tottenham": {
+        "ShotConv": 0.1222820918352215,
+        "ShotConvRec": 0.1398386846678709,
+        "PointsPerGame": 1.511353993939106,
+        "CleanSheetStreak": 0,
+        "xGDiff": 0.0358381122432511,
+        "CornersConv": 0.2878564365071795,
+        "CornersConvRec": 0.2916671234870256,
+        "NumMatches": 113
+    },
+    "Crystal Palace": {
+        "ShotConv": 0.1300908261818391,
+        "ShotConvRec": 0.1263842220403783,
+        "PointsPerGame": 1.362107711695857,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.0495345439530239,
+        "CornersConv": 0.3177299827752888,
+        "CornersConvRec": 0.2881003889925981,
+        "NumMatches": 113
+    },
+    "Liverpool": {
+        "ShotConv": 0.1094842268867023,
+        "ShotConvRec": 0.1144796486392746,
+        "PointsPerGame": 2.023365829942998,
+        "CleanSheetStreak": 0,
+        "xGDiff": 1.1401089235883537,
+        "CornersConv": 0.2949660383843099,
+        "CornersConvRec": 0.3314550316681321,
+        "NumMatches": 113
+    },
+    "Brighton": {
+        "ShotConv": 0.0886670746044503,
+        "ShotConvRec": 0.129568995237013,
+        "PointsPerGame": 1.2030398546323045,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.0280859312543821,
+        "CornersConv": 0.2422082353971206,
+        "CornersConvRec": 0.3537566537383307,
+        "NumMatches": 113
+    },
+    "Aston Villa": {
+        "ShotConv": 0.1497328122475953,
+        "ShotConvRec": 0.1222319883329603,
+        "PointsPerGame": 1.719225518287191,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.0784032557320275,
+        "CornersConv": 0.3245977869178845,
+        "CornersConvRec": 0.3367052896429063,
+        "NumMatches": 113
+    },
+    "Man City": {
+        "ShotConv": 0.1468116003906397,
+        "ShotConvRec": 0.102369383341409,
+        "PointsPerGame": 2.464853758573491,
+        "CleanSheetStreak": 2,
+        "xGDiff": 1.402404684554076,
+        "CornersConv": 0.361838597397935,
+        "CornersConvRec": 0.2413011540908699,
+        "NumMatches": 113
+    },
+    "Leeds": {
+        "ShotConv": 0.1029780692772026,
+        "ShotConvRec": 0.1497018044505241,
+        "PointsPerGame": 0.7787981278428093,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.7231975309846013,
+        "CornersConv": 0.251237741408295,
+        "CornersConvRec": 0.4365333650227911,
+        "NumMatches": 75
+    },
+    "Southampton": {
+        "ShotConv": 0.0857352833139722,
+        "ShotConvRec": 0.1417864714269851,
+        "PointsPerGame": 0.593222089361544,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.6502385095433725,
+        "CornersConv": 0.2070958093123319,
+        "CornersConvRec": 0.3695367649339691,
+        "NumMatches": 75
+    },
+    "Wolves": {
+        "ShotConv": 0.1111549703720859,
+        "ShotConvRec": 0.1183368369755888,
+        "PointsPerGame": 1.1658306165961243,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.6878944637294082,
+        "CornersConv": 0.2905890235352683,
+        "CornersConvRec": 0.3048592505925869,
+        "NumMatches": 113
+    },
+    "Arsenal": {
+        "ShotConv": 0.1438508413157902,
+        "ShotConvRec": 0.0862102967970076,
+        "PointsPerGame": 2.342866217710521,
+        "CleanSheetStreak": 2,
+        "xGDiff": 1.323031077964568,
+        "CornersConv": 0.3986950544574991,
+        "CornersConvRec": 0.2271025789474907,
+        "NumMatches": 113
+    },
+    "West Ham": {
+        "ShotConv": 0.1243445597726542,
+        "ShotConvRec": 0.1211932587085178,
+        "PointsPerGame": 1.287255646008381,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.6113214672257319,
+        "CornersConv": 0.3269125100683788,
+        "CornersConvRec": 0.3614354644420933,
+        "NumMatches": 113
+    },
+    "Bournemouth": {
+        "ShotConv": 0.1019430595021939,
+        "ShotConvRec": 0.1224492717612869,
+        "PointsPerGame": 1.3304535722536657,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.0386692555110004,
+        "CornersConv": 0.2327600115020212,
+        "CornersConvRec": 0.2957913087939486,
+        "NumMatches": 75
+    },
+    "Fulham": {
+        "ShotConv": 0.1038948894197963,
+        "ShotConvRec": 0.1131704462161621,
+        "PointsPerGame": 1.1782773482796427,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.3141945412140732,
+        "CornersConv": 0.2439861991650666,
+        "CornersConvRec": 0.295842540949469,
+        "NumMatches": 75
+    },
+    "Nott'm Forest": {
+        "ShotConv": 0.107079341831206,
+        "ShotConvRec": 0.1360274510096914,
+        "PointsPerGame": 0.8906173997831341,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.0850937036281813,
+        "CornersConv": 0.3256826372491501,
+        "CornersConvRec": 0.2804493709623388,
+        "NumMatches": 75
+    },
+    "Sheffield United": {
+        "ShotConv": 0.096752302142469,
+        "ShotConvRec": 0.1594028964017896,
+        "PointsPerGame": 0.4059868802460239,
+        "CleanSheetStreak": 0,
+        "xGDiff": -0.965630120873162,
+        "CornersConv": 0.2480432440830619,
+        "CornersConvRec": 0.4050358569999904,
+        "NumMatches": 37
+    },
+    "Luton": {
+        "ShotConv": 0.126055786651144,
+        "ShotConvRec": 0.1320303544714962,
+        "PointsPerGame": 0.6726067725070383,
+        "CleanSheetStreak": 0,
+        "xGDiff": -1.202934062649062,
+        "CornersConv": 0.257885165771117,
+        "CornersConvRec": 0.3725184075082758,
+        "NumMatches": 37
+    }
+}

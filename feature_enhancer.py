@@ -110,7 +110,7 @@ def merge_xg(base_path: Path, out_path: Path, xg_df: pd.DataFrame, league: str) 
 async def main():
     ap = argparse.ArgumentParser(description="Enhance raw data with Understat xG.")
     ap.add_argument("--league", default="E0", help="League code (default: E0 for EPL)")
-    ap.add_argument("--seasons", nargs="+", type=int, default=[2021, 2022, 2023], help="Seasons to fetch")
+    ap.add_argument("--seasons", nargs="+", type=int, default=[2021, 2022, 2023, 2024], help="Seasons to fetch")
     
     # We will use the RAW data as input and create a new ENHANCED file
     ap.add_argument("--in_dir", dest="in_dir", default="data/raw", help="Path to raw data directory")
