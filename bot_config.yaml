@@ -1,0 +1,13 @@
+# API Credentials (placeholders - will be replaced by a real odds fetcher)
+api_credentials:
+  odds_url: "https://example.com/api/odds"
+  bet_url: "https://example.com/api/bet"
+
+# Betting Strategy Configuration
+stake_size: 10.0
+probability_threshold: 0.60  # 60%
+edge_requirement: 0.05       # 5%
+
+# Model Configuration
+league: "E0"
+fusion_weight_dc: 0.30 # Weight for Dixon-Coles (Hybrid gets 0.70)
