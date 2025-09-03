@@ -19,8 +19,18 @@ ULTIMATE_FEATURES = [
     'ShotConv_H', 'ShotConv_A', 'ShotConvRec_H', 'ShotConvRec_A',
     'PointsPerGame_H', 'PointsPerGame_A', 'CleanSheetStreak_H', 'CleanSheetStreak_A',
     'xGDiff_H', 'xGDiff_A', 'CornersConv_H', 'CornersConv_A',
-    'CornersConvRec_H', 'CornersConvRec_A', 'NumMatches_H', 'NumMatches_A'
+    'CornersConvRec_H', 'CornersConvRec_A', 'NumMatches_H', 'NumMatches_A',
+    'Elo_H', 'Elo_A', 'EloDiff'
 ]
+
+# Optional opponent-Elo band features (if present)
+ELO_BAND_FEATURES = [
+    'GFvsMid_H', 'GAvsMid_H', 'GFvsHigh_H', 'GAvsHigh_H',
+    'GFvsMid_A', 'GAvsMid_A', 'GFvsHigh_A', 'GAvsHigh_A',
+]
+
+# Expand the ultimate features to include Elo-band features
+ULTIMATE_FEATURES = ULTIMATE_FEATURES + ELO_BAND_FEATURES
 
 # --- TEAM NAME NORMALIZATION MAP ---
 # This map is CRITICAL. It translates API names (left) to your dataset names (right).
@@ -52,6 +62,112 @@ TEAM_NAME_MAP = {
     "Watford":                  "Watford",
     "West Ham United":          "West Ham",
     "Wolverhampton Wanderers":  "Wolves",
+    # Bundesliga (D1)
+    "Bayern Munich":             "Bayern Munich",
+    "Borussia Dortmund":         "Dortmund",
+    "RB Leipzig":                "RB Leipzig",
+    "Bayer Leverkusen":          "Leverkusen",
+    "Borussia Monchengladbach":  "M'gladbach",
+    "Union Berlin":              "Union Berlin",
+    "SC Freiburg":               "Freiburg",
+    "VfB Stuttgart":             "Stuttgart",
+    "VfL Wolfsburg":             "Wolfsburg",
+    "Werder Bremen":             "Werder Bremen",
+    "Eintracht Frankfurt":       "Ein Frankfurt",
+    "1. FC Koln":                "FC Koln",
+    "1. FSV Mainz 05":           "Mainz",
+    "TSG Hoffenheim":            "Hoffenheim",
+    "Hertha BSC":                "Hertha",
+    "FC Augsburg":               "Augsburg",
+    "VfL Bochum":                "Bochum",
+    "Arminia Bielefeld":         "Bielefeld",
+    "Greuther Furth":            "Greuther Furth",
+    "SV Darmstadt 98":           "Darmstadt",
+    "1. FC Heidenheim":          "Heidenheim",
+    "Schalke 04":                "Schalke 04",
+    # Ligue 1 (F1)
+    "Paris Saint Germain":       "Paris SG",
+    "AS Monaco":                 "Monaco",
+    "Olympique Marseille":       "Marseille",
+    "Olympique Lyonnais":        "Lyon",
+    "Lille":                     "Lille",
+    "Stade Rennais":             "Rennes",
+    "Stade de Reims":            "Reims",
+    "OGC Nice":                  "Nice",
+    "FC Nantes":                 "Nantes",
+    "Montpellier":               "Montpellier",
+    "RC Lens":                   "Lens",
+    "Strasbourg":                "Strasbourg",
+    "Toulouse FC":               "Toulouse",
+    "FC Lorient":                "Lorient",
+    "St Etienne":                "St Etienne",
+    "Angers":                    "Angers",
+    "Brest":                     "Brest",
+    "Auxerre":                   "Auxerre",
+    "Metz":                      "Metz",
+    "Le Havre":                  "Le Havre",
+    "Clermont Foot":             "Clermont",
+    "Troyes":                    "Troyes",
+    "Bordeaux":                  "Bordeaux",
+    # La Liga (SP1)
+    "Real Madrid":               "Real Madrid",
+    "Barcelona":                 "Barcelona",
+    "Atletico Madrid":           "Ath Madrid",
+    "Athletic Club":             "Ath Bilbao",
+    "Real Sociedad":             "Sociedad",
+    "Sevilla":                   "Sevilla",
+    "Valencia":                  "Valencia",
+    "Villarreal":                "Villarreal",
+    "Real Betis":                "Betis",
+    "Osasuna":                   "Osasuna",
+    "Getafe":                    "Getafe",
+    "Rayo Vallecano":            "Vallecano",
+    "Celta Vigo":                "Celta",
+    "Granada":                   "Granada",
+    "Girona":                    "Girona",
+    "Las Palmas":                "Las Palmas",
+    "Levante":                   "Levante",
+    "Cadiz":                     "Cadiz",
+    "Mallorca":                  "Mallorca",
+    "Elche":                     "Elche",
+    "Espanyol":                  "Espanol",
+    "Deportivo Alaves":          "Alaves",
+    "Real Valladolid":           "Valladolid",
+    # Serie A (I1)
+    "Inter Milan":               "Inter",
+    "Internazionale":            "Inter",
+    "AC Milan":                  "Milan",
+    "Juventus":                  "Juventus",
+    "Napoli":                    "Napoli",
+    "AS Roma":                   "Roma",
+    "SS Lazio":                  "Lazio",
+    "Fiorentina":                "Fiorentina",
+    "Atalanta":                  "Atalanta",
+    "Torino":                    "Torino",
+    "Udinese":                   "Udinese",
+    "Bologna":                   "Bologna",
+    "Empoli":                    "Empoli",
+    "Genoa":                     "Genoa",
+    "Sassuolo":                  "Sassuolo",
+    "Spezia":                    "Spezia",
+    "Hellas Verona":             "Verona",
+    "Salernitana":               "Salernitana",
+    "Monza":                     "Monza",
+    "Frosinone":                 "Frosinone",
+    "Cremonese":                 "Cremonese",
+    "Lecce":                     "Lecce",
+    "Cagliari":                  "Cagliari",
+    "Venezia":                   "Venezia",
+}
+
+# --- DISPERSION AND MATRIX SETTINGS ---
+# Optional per-league Poisson matrix cap (can be overridden in cfg)
+MAX_GOALS_PER_LEAGUE = {
+    'E0': 10,
+    'D1': 9,
+    'F1': 8,
+    'SP1': 9,
+    'I1': 8,
 }
 
 def normalize_team_name(api_name: str) -> str:

@@ -10,10 +10,15 @@ import pandas as pd
 
 LEAGUE_KEYS = {
     "E0": "epl",
+    "D1": "bundesliga",
+    "F1": "ligue-1",
+    "SP1": "la-liga",
+    "I1": "serie-a",
 }
 
-# --- THE CORRECTED AND COMPLETE TEAM MAP ---
-# Maps the Understat names (keys) to the football-data.co.uk names (values)
+# --- TEAM MAPS: Understat -> dataset names per league ---
+# The dataset names come from your processed CSVs; mappings normalize apostrophes/accents.
+
 TEAM_MAP_E0: Dict[str, str] = {
     "Manchester City": "Man City",
     "Manchester United": "Man United",
@@ -26,6 +31,114 @@ TEAM_MAP_E0: Dict[str, str] = {
     "West Ham United": "West Ham",
     "Leeds United": "Leeds"
     # Note: We don't need to map names that are already identical (e.g., "Arsenal")
+}
+
+TEAM_MAP_D1: Dict[str, str] = {
+    "Bayern Munich": "Bayern Munich",
+    "Borussia Dortmund": "Dortmund",
+    "RB Leipzig": "RB Leipzig",
+    "Bayer Leverkusen": "Leverkusen",
+    "Borussia Monchengladbach": "M'gladbach",
+    "Union Berlin": "Union Berlin",
+    "SC Freiburg": "Freiburg",
+    "VfB Stuttgart": "Stuttgart",
+    "VfL Wolfsburg": "Wolfsburg",
+    "Werder Bremen": "Werder Bremen",
+    "Eintracht Frankfurt": "Ein Frankfurt",
+    "1. FC Koln": "FC Koln",
+    "1. FSV Mainz 05": "Mainz",
+    "TSG Hoffenheim": "Hoffenheim",
+    "Hertha BSC": "Hertha",
+    "FC Augsburg": "Augsburg",
+    "VfL Bochum": "Bochum",
+    "Arminia Bielefeld": "Bielefeld",
+    "Greuther Furth": "Greuther Furth",
+    "SV Darmstadt 98": "Darmstadt",
+    "1. FC Heidenheim": "Heidenheim",
+    "Schalke 04": "Schalke 04",
+}
+
+TEAM_MAP_F1: Dict[str, str] = {
+    "Paris Saint Germain": "Paris SG",
+    "AS Monaco": "Monaco",
+    "Olympique Marseille": "Marseille",
+    "Olympique Lyonnais": "Lyon",
+    "Lille": "Lille",
+    "Stade Rennais": "Rennes",
+    "Stade de Reims": "Reims",
+    "OGC Nice": "Nice",
+    "FC Nantes": "Nantes",
+    "Montpellier": "Montpellier",
+    "RC Lens": "Lens",
+    "RC Strasbourg Alsace": "Strasbourg",
+    "Toulouse": "Toulouse",
+    "FC Lorient": "Lorient",
+    "AS Saint-Etienne": "St Etienne",
+    "Angers": "Angers",
+    "Brest": "Brest",
+    "AJ Auxerre": "Auxerre",
+    "Metz": "Metz",
+    "Le Havre": "Le Havre",
+    "Clermont Foot": "Clermont",
+    "Troyes": "Troyes",
+    "Bordeaux": "Bordeaux",
+}
+
+TEAM_MAP_SP1: Dict[str, str] = {
+    "Real Madrid": "Real Madrid",
+    "Barcelona": "Barcelona",
+    "Atletico Madrid": "Ath Madrid",
+    "Athletic Club": "Ath Bilbao",
+    "Real Sociedad": "Sociedad",
+    "Sevilla": "Sevilla",
+    "Valencia": "Valencia",
+    "Villarreal": "Villarreal",
+    "Real Betis": "Betis",
+    "Osasuna": "Osasuna",
+    "Getafe": "Getafe",
+    "Rayo Vallecano": "Vallecano",
+    "Celta Vigo": "Celta",
+    "Granada": "Granada",
+    "Girona": "Girona",
+    "Las Palmas": "Las Palmas",
+    "Levante": "Levante",
+    "Cadiz": "Cadiz",
+    "Mallorca": "Mallorca",
+    "Elche": "Elche",
+    "Espanyol": "Espanol",
+    "Deportivo Alaves": "Alaves",
+    "Real Valladolid": "Valladolid",
+}
+
+TEAM_MAP_I1: Dict[str, str] = {
+    "Inter": "Inter",
+    "Internazionale": "Inter",
+    "AC Milan": "Milan",
+    "Milan": "Milan",
+    "Juventus": "Juventus",
+    "Napoli": "Napoli",
+    "AS Roma": "Roma",
+    "Roma": "Roma",
+    "SS Lazio": "Lazio",
+    "Lazio": "Lazio",
+    "Fiorentina": "Fiorentina",
+    "Atalanta": "Atalanta",
+    "Torino": "Torino",
+    "Udinese": "Udinese",
+    "Bologna": "Bologna",
+    "Empoli": "Empoli",
+    "Genoa": "Genoa",
+    "Sassuolo": "Sassuolo",
+    "Spezia": "Spezia",
+    "Hellas Verona": "Verona",
+    "Verona": "Verona",
+    "Salernitana": "Salernitana",
+    "Monza": "Monza",
+    "Frosinone": "Frosinone",
+    "Cremonese": "Cremonese",
+    "Lecce": "Lecce",
+    "Cagliari": "Cagliari",
+    "Venezia": "Venezia",
 }
 
 # ---------- Understat async fetch ----------
@@ -77,10 +190,17 @@ async def fetch_understat_league(season: int, league_code: str = "E0") -> pd.Dat
 
 def normalize_team_names(df: pd.DataFrame, league: str) -> pd.DataFrame:
     """Apply league-specific team name normalization."""
-    if league == "E0":
-        # We are replacing the Understat names with the base data names
-        df["HomeTeam"] = df["HomeTeam"].replace(TEAM_MAP_E0)
-        df["AwayTeam"] = df["AwayTeam"].replace(TEAM_MAP_E0)
+    maps = {
+        'E0': TEAM_MAP_E0,
+        'D1': TEAM_MAP_D1,
+        'F1': TEAM_MAP_F1,
+        'SP1': TEAM_MAP_SP1,
+        'I1': TEAM_MAP_I1,
+    }
+    m = maps.get(league, {})
+    if m:
+        df["HomeTeam"] = df["HomeTeam"].replace(m)
+        df["AwayTeam"] = df["AwayTeam"].replace(m)
     return df
 
 def merge_xg(base_path: Path, out_path: Path, xg_df: pd.DataFrame, league: str) -> Path:
@@ -120,7 +240,7 @@ async def main():
 
     league = args.league
     base_path = Path(args.in_dir) / f"{league}_merged.csv"
-    out_path = Path(args.out_dir) / f"{league}_enhanced_with_xg.csv"
+    out_path = Path(args.out_dir) / f"{league}_final_features.csv"
 
     print(f"Loading raw data for {league} from {base_path}...")
     if not base_path.exists():

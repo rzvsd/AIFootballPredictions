@@ -17,17 +17,19 @@ from typing import Dict
 
 import requests
 
-from bet_fusion import TEAM_NORMALIZE as _BASE_TEAM_NORMALIZE
+from config import TEAM_NAME_MAP as _TEAM_NAME_MAP
 
-# Extend the normalisation mapping with some common bookmaker variants.
-TEAM_NORMALIZE = {
-    # Short names that frequently appear in bookmaker feeds
+# Build a normalisation mapping to the model's canonical names by
+# combining the project's TEAM_NAME_MAP with common bookmaker variants.
+TEAM_NORMALIZE = {}
+TEAM_NORMALIZE.update(_TEAM_NAME_MAP)  # API -> dataset names
+TEAM_NORMALIZE.update({
+    # Bookmaker short names -> dataset names
     "Man Utd": "Man United",
     "Man City": "Man City",
     "Nottm Forest": "Nott'm Forest",
     "Spurs": "Tottenham",
-}
-TEAM_NORMALIZE.update(_BASE_TEAM_NORMALIZE)
+})
 
 API_URL = os.getenv("BOOKMAKER_API_URL", "https://api.bookmaker.com/odds")
 API_KEY = os.getenv("BOOKMAKER_API_KEY")
@@ -95,4 +97,68 @@ def get_odds(league: str, home_team: str, away_team: str) -> Dict[str, float]:
     return {}
 
 
-__all__ = ["get_odds", "TEAM_NORMALIZE"]
+def get_odds_ou(league: str, home_team: str, away_team: str, line: float) -> Dict[str, float]:
+    """Fetch Over/Under odds for a specific line (e.g., 2.5).
+
+    Returns a dict: {"Over": odd, "Under": odd} or empty dict on failure.
+    """
+    params = {
+        "league": league,
+        "home": _normalize_team(home_team),
+        "away": _normalize_team(away_team),
+        "market": "ou",
+        "line": float(line),
+    }
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(API_URL, params=params, headers=HEADERS, timeout=10)
+            if response.status_code == 429:
+                time.sleep(BACKOFF_SECONDS * attempt)
+                continue
+            response.raise_for_status()
+            data = response.json()
+            odds = data.get("odds", data)
+            return {
+                "Over": odds.get("Over") or odds.get("over") or odds.get("O"),
+                "Under": odds.get("Under") or odds.get("under") or odds.get("U"),
+            }
+        except requests.RequestException as exc:
+            last_error = exc
+            time.sleep(BACKOFF_SECONDS * attempt)
+    if last_error is not None:
+        print(f"Failed to fetch OU odds after {MAX_RETRIES} attempts: {last_error}")
+    return {}
+
+
+def get_odds_interval(league: str, home_team: str, away_team: str, a: int, b: int) -> float | None:
+    """Fetch odds for Total Goals interval a-b inclusive. Returns float or None."""
+    params = {
+        "league": league,
+        "home": _normalize_team(home_team),
+        "away": _normalize_team(away_team),
+        "market": "tg_interval",
+        "from": int(a),
+        "to": int(b),
+    }
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(API_URL, params=params, headers=HEADERS, timeout=10)
+            if response.status_code == 429:
+                time.sleep(BACKOFF_SECONDS * attempt)
+                continue
+            response.raise_for_status()
+            data = response.json()
+            odds = data.get("odds", data)
+            # Expect a single value for the interval
+            return odds.get("odd") or odds.get("value") or odds.get("interval")
+        except requests.RequestException as exc:
+            last_error = exc
+            time.sleep(BACKOFF_SECONDS * attempt)
+    if last_error is not None:
+        print(f"Failed to fetch TG Interval odds after {MAX_RETRIES} attempts: {last_error}")
+    return None
+
+
+__all__ = ["get_odds", "get_odds_ou", "get_odds_interval", "TEAM_NORMALIZE"]
