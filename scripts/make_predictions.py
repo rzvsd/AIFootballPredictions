@@ -170,6 +170,42 @@ def make_predictions(league: str, league_model, league_data: pd.DataFrame, compe
     return league_section
 
 
+# Cleaned version to avoid encoding issues and fix prediction logic
+def make_predictions_clean(league: str, league_model, league_data: pd.DataFrame, competitions: dict) -> str:
+    """Clean output and robust classification logic."""
+    league_section = ""
+    for competition_league, competitions_info in competitions.items():
+        if competition_league != league:
+            continue
+        league_section = f"**{competitions_info['name']}**:\n"
+        for match in competitions_info.get("next_matches", []):
+            home_team = match.get('home_team')
+            away_team = match.get('away_team')
+            if home_team not in league_data['HomeTeam'].values or away_team not in league_data['AwayTeam'].values:
+                continue
+
+            home_team_df = league_data[league_data['HomeTeam'] == home_team]
+            away_team_df = league_data[league_data['AwayTeam'] == away_team]
+
+            numeric_columns = league_data.select_dtypes(include=['number']).columns
+            if 'Over2.5' in numeric_columns:
+                numeric_columns = numeric_columns.drop('Over2.5')
+
+            row_to_predict = prepare_row_to_predict(home_team_df, away_team_df, numeric_columns)
+            X_test = row_to_predict.values
+            y_pred_arr = league_model.predict(X_test)
+            proba = league_model.predict_proba(X_test)[0]
+            pred_label = int(y_pred_arr[0]) if hasattr(y_pred_arr, "__len__") else int(y_pred_arr)
+
+            if pred_label == 1:
+                result = f"Over 2.5 Goals! ({round(proba[1] * 100, 2)}% chance)"
+            else:
+                result = f"Under 2.5 Goals ({round(proba[0] * 100, 2)}% chance)"
+
+            league_section += f"- {home_team} vs {away_team}: {result}\n"
+
+    return league_section
+
 def main(input_leagues_models_dir: str, input_data_predict_dir: str, final_predictions_out_file: str, next_matches: str):
     """Main function that handles the entire prediction process.
     
@@ -181,12 +217,23 @@ def main(input_leagues_models_dir: str, input_data_predict_dir: str, final_predi
     """
     try:
         print("Loading JSON file with upcoming matches...\n")
-        with open(next_matches, 'r', encoding='utf-16') as json_file:
-            competitions = json.load(json_file)
+        try:
+            with open(next_matches, 'r', encoding='utf-8') as json_file:
+                competitions = json.load(json_file)
+        except UnicodeError:
+            with open(next_matches, 'r', encoding='utf-16') as json_file:
+                competitions = json.load(json_file)
     except Exception as e:
         raise Exception(f"Error loading JSON file: {e}")
 
     predictions_message = f"🎯 **AI Football Predictions: Will There Be Over 2.5 Goals?** 🎯\n\nCheck out the latest predictions for the upcoming football matches! We've analyzed the data and here are our thoughts:\n PREDICTIONS DONE: {datetime.now().strftime('%Y-%m-%d')} \n\n"
+
+    # Clean header override (ASCII-only)
+    predictions_message = (
+        "AI Football Predictions: Over 2.5 Goals?\n\n"
+        "Check out the latest predictions for upcoming matches.\n"
+        f"Generated on: {datetime.now().strftime('%Y-%m-%d')}\n\n"
+    )
 
     for league in VALID_LEAGUES:
         print(f"----------------------------------")
@@ -202,7 +249,7 @@ def main(input_leagues_models_dir: str, input_data_predict_dir: str, final_predi
         league_data = load_league_data(data_path)
         print(f"Loaded model and data for {league}.")
         print(f"Predicting matches for {league}...")
-        league_section = make_predictions(league, league_model, league_data, competitions)
+        league_section = make_predictions_clean(league, league_model, league_data, competitions)
         print(f"Predictions made for {league}.")
         predictions_message += league_section + "\n"
 

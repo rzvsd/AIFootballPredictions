@@ -1,0 +1,58 @@
+{
+  "fixtures": [
+    {
+      "date": "2025-08-31",
+      "home": "FC Koln",
+      "away": "Freiburg",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Dortmund",
+      "away": "Union Berlin",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Wolfsburg",
+      "away": "Mainz",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Augsburg",
+      "away": "Bayern Munich",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Werder Bremen",
+      "away": "Leverkusen",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Hoffenheim",
+      "away": "Ein Frankfurt",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "RB Leipzig",
+      "away": "Heidenheim",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Stuttgart",
+      "away": "M'gladbach",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-29",
+      "home": "Hamburger SV",
+      "away": "St Pauli",
+      "markets": {}
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 # betting_bot.py (Final, Config-Driven Version)
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -12,12 +13,44 @@ import joblib
 import numpy as np
 from scipy.stats import poisson
 
-# --- CONFIGURATION LOADER ---
-CONFIG_PATH = Path(__file__).parent / "bot_config.yaml"
+# Ensure project root is importable when running as a script
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR.parent) not in sys.path:
+    sys.path.append(str(_SCRIPT_DIR.parent))
 
-def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
+import config
+from bet_fusion import (
+    generate_market_book,
+    attach_value_metrics,
+    BankrollManager,
+)
+
+# --- CONFIGURATION LOADER ---
+def _find_config_path() -> Path:
+    """Locate bot_config.yaml in common locations.
+
+    Search order:
+      1) repo root (one level up from this script)
+      2) this script's directory
+      3) current working directory
+    Falls back to script dir path even if missing (so a clear error occurs).
+    """
+    script_dir = Path(__file__).resolve().parent
+    candidates = [
+        script_dir.parent / "bot_config.yaml",
+        script_dir / "bot_config.yaml",
+        Path.cwd() / "bot_config.yaml",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return script_dir / "bot_config.yaml"
+
+
+def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     """Load bot configuration from a YAML file and apply environment overrides."""
-    with open(path, "r", encoding="utf-8") as f:
+    cfg_path = Path(path) if path else _find_config_path()
+    with open(cfg_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
 
     # API URLs
@@ -37,17 +70,10 @@ def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
     
     return config
 
-# --- HELPER & PREDICTION FUNCTIONS (from bet_fusion.py) ---
-# Note: These are simplified for this script. A real implementation would import them.
-TEAM_NORMALIZE = {
-    "Manchester City": "Man City", "Manchester United": "Man United", "Newcastle United": "Newcastle",
-    "Nottingham Forest": "Nott'm Forest", "Wolverhampton Wanderers": "Wolves", "Tottenham Hotspur": "Tottenham",
-    "Brighton and Hove Albion": "Brighton", "West Ham United": "West Ham", "AFC Bournemouth": "Bournemouth",
-    "Sheffield Utd": "Sheffield United",
-}
+# --- HELPER & PREDICTION FUNCTIONS ---
+# Use shared team-name normalization from config to ensure one source of truth.
 def norm_team(x: str) -> str:
-    s = str(x).strip()
-    return TEAM_NORMALIZE.get(s, s)
+    return config.normalize_team_name(str(x).strip())
 
 def score_matrix_from_mus(mu_h, mu_a):
     hg = np.arange(0, 11); ag = np.arange(0, 11)
@@ -61,6 +87,7 @@ def derive_all_market_probabilities(P):
     return {"p_H": home, "p_D": draw, "p_A": away}
 
 def get_features_for_match(features_df, home, away):
+    # Legacy helper (unused after fusion integration). Kept for reference.
     try:
         h = features_df[features_df["HomeTeam"] == home].tail(1).iloc[0]
         a = features_df[features_df["AwayTeam"] == away].tail(1).iloc[0]
@@ -74,76 +101,38 @@ def get_features_for_match(features_df, home, away):
     except IndexError:
         return None
 
-# --- MAIN BOT LOGIC ---
-def generate_predictions(config: Dict[str, Any]) -> pd.DataFrame:
-    """Generate match probabilities using the fusion logic."""
-    league = config['league']
-    dc_model = joblib.load(os.path.join("advanced_models", f"{league}_dixon_coles_model.pkl"))
-    xgb_home = joblib.load(os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl"))
-    xgb_away = joblib.load(os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl"))
-    features_df = pd.read_csv(os.path.join("data", "enhanced", f"{league}_strength_adj.csv"))
-    fixtures = pd.read_csv(os.path.join("data", "fixtures", f"{league}_weekly_fixtures.csv"))
-
-    rows = []
-    for _, row in fixtures.iterrows():
-        home = norm_team(row["home_team"])
-        away = norm_team(row["away_team"])
-        
-        # Get Hybrid Prediction
-        match_features = get_features_for_match(features_df, home, away)
-        if match_features is None: continue
-        mu_h_hyb = float(xgb_home.predict(match_features)[0])
-        mu_a_hyb = float(xgb_away.predict(match_features)[0])
-        
-        # Get DC Prediction
-        try:
-            mu_h_dc = float(dc_model.predict(pd.DataFrame({'team':[home],'opponent':[away],'home':[1]})).values[0])
-            mu_a_dc = float(dc_model.predict(pd.DataFrame({'team':[away],'opponent':[home],'home':[0]})).values[0])
-        except Exception:
-            mu_h_dc, mu_a_dc = None, None
-
-        # Fuse
-        if mu_h_dc is not None:
-            P_dc = score_matrix_from_mus(mu_h_dc, mu_a_dc)
-            P_hyb = score_matrix_from_mus(mu_h_hyb, mu_a_hyb)
-            P = config['fusion_weight_dc'] * P_dc + (1.0 - config['fusion_weight_dc']) * P_hyb
-        else:
-            P = score_matrix_from_mus(mu_h_hyb, mu_a_hyb)
-
-        probs = derive_all_market_probabilities(P)
-        rows.append({"home": home, "away": away, **probs})
-
-    return pd.DataFrame(rows)
-
 def main() -> None:
     """Entry point for the betting bot."""
     config = load_config()
     print("--- Betting Bot Started with Configuration ---")
     print(config)
     
-    predictions = generate_predictions(config)
-    if predictions.empty:
+    market_df = generate_market_book(config)
+    if market_df.empty:
         print("\nNo predictions available.")
         return
 
-    print("\n--- Analyzing Opportunities ---")
-    for _, match in predictions.iterrows():
-        home, away, prob_home = match["home"], match["away"], match["p_H"]
-        
-        # This is where the real odds fetcher would go
-        # For now, we use a placeholder
-        odds = 2.0 # Placeholder odds
-        
-        implied_prob = 1 / odds
-        edge = prob_home - implied_prob
-        
-        print(f"{home} vs {away}: Model Prob={prob_home:.2%}, Odds={odds:.2f} (Implied: {implied_prob:.2%}), Edge={edge:.2%}")
-        
-        if prob_home >= config['probability_threshold'] and edge >= config['edge_requirement']:
-            print(f"  -> VALUE BET FOUND! Placing bet on {home}...")
-            # In a real system, you would call a place_bet() function here
-        else:
-            print("  -> No value.")
+    df_val = attach_value_metrics(market_df, use_placeholders=True)
+    # Simple thresholds for demo; can be moved to config['thresholds']
+    thresholds = {
+        '1X2': {'min_prob': 0.55, 'min_edge': 0.03},
+        'DC': {'min_prob': 0.75, 'min_edge': 0.02},
+        'OU': {'min_prob': 0.58, 'min_edge': 0.02},
+        'TG Interval': {'min_prob': 0.30, 'min_edge': 0.05},
+    }
+    def base_key(m):
+        return m.split()[0] if m.startswith('OU ') else m
+    picks = df_val[
+        df_val.apply(lambda r: (r['prob'] >= thresholds.get(base_key(r['market']), thresholds['1X2'])['min_prob']) and (r['edge'] >= thresholds.get(base_key(r['market']), thresholds['1X2'])['min_edge']), axis=1)
+    ].copy()
+    if picks.empty:
+        print("\nNo value picks under current thresholds.")
+        return
+    picks.sort_values(['EV','prob'], ascending=[False, False], inplace=True)
+    top = picks.head(15)
+    print("\n--- Top Picks (placeholder odds) ---")
+    for _, r in top.iterrows():
+        print(f"{r['date']}  {r['home']} vs {r['away']} | {r['market']} {r['outcome']}  p={r['prob']:.2%}  odds={r['odds']:.2f}  edge={r['edge']:.2%}  EV={r['EV']:.2f}")
 
 
 if __name__ == "__main__":

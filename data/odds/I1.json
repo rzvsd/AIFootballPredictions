@@ -1,0 +1,64 @@
+{
+  "fixtures": [
+    {
+      "date": "2025-08-31",
+      "home": "Inter",
+      "away": "Udinese",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Lazio",
+      "away": "Verona",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Genoa",
+      "away": "Juventus",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Torino",
+      "away": "Fiorentina",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Napoli",
+      "away": "Cagliari",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Pisa",
+      "away": "Roma",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Bologna",
+      "away": "Como",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Parma",
+      "away": "Atalanta",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-29",
+      "home": "Lecce",
+      "away": "Milan",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-29",
+      "home": "Cremonese",
+      "away": "Sassuolo",
+      "markets": {}
+    }
+  ]
+}

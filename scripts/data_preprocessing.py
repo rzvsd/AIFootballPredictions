@@ -28,7 +28,12 @@ import argparse
 import pandas as pd
 import numpy as np
 import scipy.cluster.hierarchy as sch
-from mrmr import mrmr_classif
+# mRMR is optional; if unavailable we fall back to variance-based selection
+try:
+    from mrmr import mrmr_classif  # type: ignore
+    HAS_MRMR = True
+except Exception:
+    HAS_MRMR = False
 from sklearn.preprocessing import StandardScaler
 
 def parse_arguments():
@@ -289,7 +294,12 @@ def preprocess_and_save_csv(input_folder, output_folder, num_features, missing_t
         print("Missing values handled.")
 
         # Feature Selection
-        selected_features = feature_selection(df, num_features=num_features, clustering_threshold=clustering_threshold)
+        try:
+            selected_features = feature_selection(df, num_features=num_features, clustering_threshold=clustering_threshold)
+        except Exception as e:
+            print(f"Feature selection failed ({e}); using variance-based fallback.")
+            num_df = df.select_dtypes(include=[np.number]).drop(columns=['Over2.5'], errors='ignore')
+            selected_features = list(num_df.var().sort_values(ascending=False).head(max(1, num_features)).index)
         print(f"Number of selected features: {len(selected_features)}")
         print("Selected features after clustering:", selected_features)
         
