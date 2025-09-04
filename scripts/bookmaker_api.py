@@ -19,6 +19,13 @@ import requests
 
 from config import TEAM_NAME_MAP as _TEAM_NAME_MAP
 
+# Load .env if present so env keys (e.g., BOOKMAKER_API_URL, BOT_ODDS_MODE) are available
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
+
 # Build a normalisation mapping to the model's canonical names by
 # combining the project's TEAM_NAME_MAP with common bookmaker variants.
 TEAM_NORMALIZE = {}
@@ -36,6 +43,51 @@ API_KEY = os.getenv("BOOKMAKER_API_KEY")
 HEADERS = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 2
+
+# Local odds support
+ODDS_MODE = os.getenv("BOT_ODDS_MODE", "local").lower()  # 'local' or 'api'
+ODDS_DIR = os.getenv("BOT_ODDS_DIR", os.path.join("data", "odds"))
+
+
+def _load_local_odds(league: str) -> dict:
+    """Load local odds JSON for a league. Schema:
+    {
+      "fixtures": [
+        {
+          "date": "YYYY-MM-DD" (optional),
+          "home": "Team",
+          "away": "Team",
+          "markets": {
+            "1X2": {"home": 2.1, "draw": 3.4, "away": 3.6},
+            "OU": {"2.5": {"Over": 1.95, "Under": 1.85}},
+            "TG": {"0-3": 2.8, "1-3": 2.6, "2-4": 3.0, "2-5": 3.4, "3-6": 3.6}
+          }
+        }, ...
+      ]
+    }
+    """
+    path = os.path.join(ODDS_DIR, f"{league}.json")
+    try:
+        if os.path.exists(path):
+            import json
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f) or {}
+    except Exception:
+        return {}
+    return {}
+
+
+def _find_fixture_local(league: str, home: str, away: str) -> dict | None:
+    data = _load_local_odds(league)
+    fixtures = data.get("fixtures", [])
+    home_n = _normalize_team(home)
+    away_n = _normalize_team(away)
+    for fx in fixtures:
+        h = _normalize_team(str(fx.get("home", "")))
+        a = _normalize_team(str(fx.get("away", "")))
+        if h == home_n and a == away_n:
+            return fx
+    return None
 
 
 def _normalize_team(name: str) -> str:
@@ -65,6 +117,15 @@ def get_odds(league: str, home_team: str, away_team: str) -> Dict[str, float]:
         Dictionary with odds for ``home``, ``draw`` and ``away`` outcomes. An
         empty dictionary is returned if the API call ultimately fails.
     """
+
+    # Local odds first (if enabled)
+    if ODDS_MODE == "local":
+        fx = _find_fixture_local(league, home_team, away_team)
+        if fx:
+            mk = (fx.get("markets") or {}).get("1X2") or {}
+            return {"home": mk.get("home"), "draw": mk.get("draw"), "away": mk.get("away")}
+        else:
+            return {}
 
     params = {
         "league": league,
@@ -102,6 +163,15 @@ def get_odds_ou(league: str, home_team: str, away_team: str, line: float) -> Dic
 
     Returns a dict: {"Over": odd, "Under": odd} or empty dict on failure.
     """
+    # Local odds
+    if ODDS_MODE == "local":
+        fx = _find_fixture_local(league, home_team, away_team)
+        if fx:
+            ou = ((fx.get("markets") or {}).get("OU") or {}).get(f"{float(line):.1f}") or {}
+            return {"Over": ou.get("Over"), "Under": ou.get("Under")}
+        else:
+            return {}
+
     params = {
         "league": league,
         "home": _normalize_team(home_team),
@@ -133,6 +203,16 @@ def get_odds_ou(league: str, home_team: str, away_team: str, line: float) -> Dic
 
 def get_odds_interval(league: str, home_team: str, away_team: str, a: int, b: int) -> float | None:
     """Fetch odds for Total Goals interval a-b inclusive. Returns float or None."""
+    # Local odds
+    if ODDS_MODE == "local":
+        fx = _find_fixture_local(league, home_team, away_team)
+        if fx:
+            tg = ((fx.get("markets") or {}).get("TG") or {})
+            val = tg.get(f"{a}-{b}")
+            return float(val) if val is not None else None
+        else:
+            return None
+
     params = {
         "league": league,
         "home": _normalize_team(home_team),

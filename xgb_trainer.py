@@ -5,17 +5,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from xgboost import XGBRegressor
-
-
-ULTIMATE_FEATURES = [
-    'ShotConv_H', 'ShotConv_A', 'ShotConvRec_H', 'ShotConvRec_A',
-    'PointsPerGame_H', 'PointsPerGame_A', 'CleanSheetStreak_H', 'CleanSheetStreak_A',
-    'xGDiff_H', 'xGDiff_A', 'CornersConv_H', 'CornersConv_A',
-    'CornersConvRec_H', 'CornersConvRec_A', 'NumMatches_H', 'NumMatches_A',
-    'Elo_H', 'Elo_A', 'EloDiff',
-    'GFvsMid_H', 'GAvsMid_H', 'GFvsHigh_H', 'GAvsHigh_H',
-    'GFvsMid_A', 'GAvsMid_A', 'GFvsHigh_A', 'GAvsHigh_A'
-]
+import config
 
 
 def _build_fallback_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -53,7 +43,8 @@ def _build_fallback_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
-                               elo_k: float = 20.0, elo_home_adv: float = 60.0) -> pd.DataFrame:
+                               elo_k: float = 20.0, elo_home_adv: float = 60.0,
+                               elo_similarity_sigma: float = 50.0) -> pd.DataFrame:
     """Compute per-match pre-game EWMA (home/away splits) and Elo for each row."""
     d = df.copy()
     if 'Date' in d.columns:
@@ -68,8 +59,12 @@ def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
     elo = {}
     # pre-match lists
     cols = ['xg_home_EWMA','xga_home_EWMA','ppg_home_EWMA','xg_away_EWMA','xga_away_EWMA','ppg_away_EWMA','Elo_H','Elo_A','EloDiff',
-            'GFvsMid_H','GAvsMid_H','GFvsHigh_H','GAvsHigh_H','GFvsMid_A','GAvsMid_A','GFvsHigh_A','GAvsHigh_A']
+            'GFvsMid_H','GAvsMid_H','GFvsHigh_H','GAvsHigh_H','GFvsMid_A','GAvsMid_A','GFvsHigh_A','GAvsHigh_A',
+            'GFvsSim_H','GAvsSim_H','GFvsSim_A','GAvsSim_A']
     store = {c: [] for c in cols}
+    # Per-team histories for kernel similarity (separate home/away)
+    hist_home: dict[str, list[tuple[float,float,float]]] = {}
+    hist_away: dict[str, list[tuple[float,float,float]]] = {}
     for _, r in d.iterrows():
         home = str(r['HomeTeam']); away = str(r['AwayTeam'])
         # init state if needed
@@ -102,6 +97,30 @@ def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
         store['GAvsMid_A'].append(state[away]['a_ga_mid'])
         store['GFvsHigh_A'].append(state[away]['a_gf_high'])
         store['GAvsHigh_A'].append(state[away]['a_ga_high'])
+        # kernel similarity features (based on opponent's pre-match Elo)
+        import math
+        def kernel_mean(hist: list[tuple[float,float,float]] | None, center: float, sigma: float) -> tuple[float,float]:
+            if not hist:
+                return (0.0, 0.0)
+            wsum = 0.0; gf_sum = 0.0; ga_sum = 0.0
+            inv2s2 = 1.0 / (2.0 * max(sigma, 1e-6) * max(sigma, 1e-6))
+            for opp_elo, gf, ga in hist:
+                w = math.exp(- (opp_elo - center)**2 * inv2s2)
+                wsum += w; gf_sum += w * float(gf); ga_sum += w * float(ga)
+            if wsum <= 0:
+                return (0.0, 0.0)
+            return (gf_sum/wsum, ga_sum/wsum)
+        # home vs similar away Elo
+        hhist = hist_home.get(home)
+        k_gf_h, k_ga_h = kernel_mean(hhist, ea, float(elo_similarity_sigma))
+        store['GFvsSim_H'].append(k_gf_h)
+        store['GAvsSim_H'].append(k_ga_h)
+        # away vs similar home Elo
+        ahist = hist_away.get(away)
+        k_gf_a, k_ga_a = kernel_mean(ahist, eh, float(elo_similarity_sigma))
+        store['GFvsSim_A'].append(k_gf_a)
+        store['GAvsSim_A'].append(k_ga_a)
+
         # update after match
         try:
             fthg = float(r['FTHG']); ftag = float(r['FTAG'])
@@ -130,6 +149,9 @@ def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
         elif eh > 1800.0:
             state[away]['a_gf_high'] = (1-alpha)*state[away]['a_gf_high'] + alpha*ftag
             state[away]['a_ga_high'] = (1-alpha)*state[away]['a_ga_high'] + alpha*fthg
+        # append to histories for kernel sim
+        hist_home.setdefault(home, []).append((ea, fthg, ftag))
+        hist_away.setdefault(away, []).append((eh, ftag, fthg))
     # attach
     for c in cols:
         d[c] = store[c]
@@ -163,34 +185,60 @@ def train_xgb_models_for_league(league: str) -> None:
                 print('Warning: could not align with raw file to get labels (missing keys).')
         else:
             print(f'Warning: raw file not found for labels: {raw_path}')
-    # Compute per-match EWMA and Elo
-    d_feats = _compute_ewma_elo_prematch(df, half_life_matches=5, elo_k=20.0, elo_home_adv=60.0)
+    # Compute per-match EWMA and Elo (with per-league Elo-sim sigma)
+    sigma = float(getattr(config, 'ELO_SIM_SIGMA_PER_LEAGUE', {}).get(league, 50.0))
+    d_feats = _compute_ewma_elo_prematch(df, half_life_matches=5, elo_k=20.0, elo_home_adv=60.0, elo_similarity_sigma=sigma)
     # Build features consistent with inference mapping
     X = pd.DataFrame(index=d_feats.index)
+    # Directional EWMAs
     X['ShotConv_H'] = d_feats['xg_home_EWMA']
-    X['ShotConv_A'] = d_feats['xg_away_EWMA']
     X['ShotConvRec_H'] = d_feats['xga_home_EWMA']
-    X['ShotConvRec_A'] = d_feats['xga_away_EWMA']
     X['PointsPerGame_H'] = d_feats['ppg_home_EWMA']
+    X['ShotConv_A'] = d_feats['xg_away_EWMA']
+    X['ShotConvRec_A'] = d_feats['xga_away_EWMA']
     X['PointsPerGame_A'] = d_feats['ppg_away_EWMA']
-    X['CleanSheetStreak_H'] = 0.0
-    X['CleanSheetStreak_A'] = 0.0
+    # Derived diffs
     X['xGDiff_H'] = X['ShotConv_H'] - X['ShotConvRec_H']
     X['xGDiff_A'] = X['ShotConv_A'] - X['ShotConvRec_A']
+    # Stabilizers / placeholders (directional)
+    X['CleanSheetStreak_H'] = 0.0
+    X['CleanSheetStreak_A'] = 0.0
     X['CornersConv_H'] = 0.0
     X['CornersConv_A'] = 0.0
     X['CornersConvRec_H'] = 0.0
     X['CornersConvRec_A'] = 0.0
     X['NumMatches_H'] = 20.0
     X['NumMatches_A'] = 20.0
+    # Elo core
     X['Elo_H'] = d_feats['Elo_H']
     X['Elo_A'] = d_feats['Elo_A']
     X['EloDiff'] = d_feats['EloDiff']
-    # Ensure all expected columns exist
-    for col in ULTIMATE_FEATURES:
+    # Elo-band features
+    for k in ['GFvsMid_H','GAvsMid_H','GFvsHigh_H','GAvsHigh_H','GFvsMid_A','GAvsMid_A','GFvsHigh_A','GAvsHigh_A']:
+        X[k] = d_feats.get(k, 0.0)
+    # Elo-similarity dynamic features
+    for k in ['GFvsSim_H','GAvsSim_H','GFvsSim_A','GAvsSim_A']:
+        X[k] = d_feats.get(k, 0.0)
+
+    # Strict directional subsets
+    home_cols = [
+        'ShotConv_H','ShotConvRec_H','PointsPerGame_H','xGDiff_H',
+        'CornersConv_H','CornersConvRec_H','NumMatches_H',
+        'Elo_H','Elo_A','EloDiff',
+        'GFvsMid_H','GAvsMid_H','GFvsHigh_H','GAvsHigh_H',
+        'GFvsSim_H','GAvsSim_H'
+    ]
+    away_cols = [
+        'ShotConv_A','ShotConvRec_A','PointsPerGame_A','xGDiff_A',
+        'CornersConv_A','CornersConvRec_A','NumMatches_A',
+        'Elo_H','Elo_A','EloDiff',
+        'GFvsMid_A','GAvsMid_A','GFvsHigh_A','GAvsHigh_A',
+        'GFvsSim_A','GAvsSim_A'
+    ]
+    # Ensure required columns exist
+    for col in set(home_cols + away_cols):
         if col not in X.columns:
             X[col] = 0.0
-    X = X[ULTIMATE_FEATURES]
     y_home = df.get('FTHG')
     y_away = df.get('FTAG')
 
@@ -199,15 +247,16 @@ def train_xgb_models_for_league(league: str) -> None:
     train_df['FTHG'] = y_home.values if hasattr(y_home, 'values') else y_home
     train_df['FTAG'] = y_away.values if hasattr(y_away, 'values') else y_away
     train_df = train_df.dropna(subset=['FTHG','FTAG'])
-    X = train_df[ULTIMATE_FEATURES].astype(float).fillna(0.0)
     y_home = train_df['FTHG'].astype(float)
     y_away = train_df['FTAG'].astype(float)
-
-    print(f"Training XGB for {league}: {len(X)} samples, {X.shape[1]} features")
+    Xf = train_df.drop(columns=['FTHG','FTAG'], errors='ignore').astype(float).fillna(0.0)
+    X_home = Xf[home_cols]
+    X_away = Xf[away_cols]
+    print(f"Training XGB for {league}: home={X_home.shape[1]} feats, away={X_away.shape[1]} feats, samples={len(X_home)}")
     home_model = XGBRegressor(objective='reg:squarederror', n_estimators=220, learning_rate=0.06, max_depth=5, subsample=0.9, colsample_bytree=0.9, random_state=42)
     away_model = XGBRegressor(objective='reg:squarederror', n_estimators=220, learning_rate=0.06, max_depth=5, subsample=0.9, colsample_bytree=0.9, random_state=42)
-    home_model.fit(X, y_home)
-    away_model.fit(X, y_away)
+    home_model.fit(X_home, y_home)
+    away_model.fit(X_away, y_away)
 
     out_dir = 'advanced_models'
     os.makedirs(out_dir, exist_ok=True)
@@ -225,3 +274,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

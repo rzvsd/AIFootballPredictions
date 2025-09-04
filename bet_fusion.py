@@ -24,6 +24,7 @@ import difflib
 
 # Import our custom modules
 from scripts import bookmaker_api
+import xgb_trainer
 import config
 import feature_store
 
@@ -115,6 +116,50 @@ def _oneXtwo_from_matrix(P: np.ndarray) -> Dict[str, float]:
     draw = float(np.diag(P).sum())
     away = float(np.triu(P, 1).sum())
     return {"p_H": home, "p_D": draw, "p_A": away}
+
+# ---------------------------
+# Calibration guards
+# ---------------------------
+
+def _model_predict_binary(model, p: np.ndarray) -> np.ndarray:
+    try:
+        from sklearn.isotonic import IsotonicRegression
+        from sklearn.linear_model import LogisticRegression
+    except Exception:
+        IsotonicRegression = object  # type: ignore
+        LogisticRegression = object  # type: ignore
+    if hasattr(model, 'predict') and model.__class__.__name__ == 'IsotonicRegression':
+        return np.clip(model.predict(p), 1e-6, 1-1e-6)
+    if hasattr(model, 'predict_proba') and model.__class__.__name__ == 'LogisticRegression':
+        return model.predict_proba(p.reshape(-1,1))[:,1]
+    # Fallback: identity
+    return p
+
+
+def _is_degenerate_calibrator_1x2(cal: Dict[str, object]) -> bool:
+    """Return True if the 1X2 calibrator maps inputs to near-constants (degenerate)."""
+    try:
+        if not cal or not all(k in cal for k in ('H','D','A')):
+            return True
+        grid = np.linspace(0.01, 0.99, 25).astype(float)
+        stds = []
+        for k in ('H','D','A'):
+            preds = _model_predict_binary(cal[k], grid.reshape(-1,1).ravel())
+            stds.append(float(np.nanstd(preds)))
+        # If all three vary less than threshold, consider degenerate
+        return all(s < 1e-2 for s in stds)
+    except Exception:
+        return True
+
+
+def _is_degenerate_calibrator_binary(model: object) -> bool:
+    """Return True if a single binary calibrator (isotonic/platt) is near-constant."""
+    try:
+        grid = np.linspace(0.01, 0.99, 25).astype(float)
+        preds = _model_predict_binary(model, grid.reshape(-1,1).ravel())
+        return float(np.nanstd(preds)) < 1e-2
+    except Exception:
+        return True
 
 # ---------------------------
 # Market evaluation helpers
@@ -359,6 +404,32 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         elo_k=float(cfg.get('elo_k', 20.0)),
         elo_home_adv=float(cfg.get('elo_home_adv', 60.0))
     )
+    # Build per-team Elo-similarity histories from processed data (for dynamic features)
+    try:
+        proc_path = os.path.join('data','processed', f'{league}_merged_preprocessed.csv')
+        df_pro = pd.read_csv(proc_path)
+        d_elos = xgb_trainer._compute_ewma_elo_prematch(
+            df_pro, half_life_matches=int(cfg.get('half_life_matches', 5)),
+            elo_k=float(cfg.get('elo_k', 20.0)), elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
+            elo_similarity_sigma=float(cfg.get('elo_similarity_sigma', config.ELO_SIM_SIGMA_PER_LEAGUE.get(league, 50.0)))
+        )
+        hist_home: dict[str, list[tuple[float,float,float]]] = {}
+        hist_away: dict[str, list[tuple[float,float,float]]] = {}
+        for _, rr in d_elos.iterrows():
+            try:
+                home_t = str(rr['HomeTeam']); away_t = str(rr['AwayTeam'])
+                eh = float(rr['Elo_H']); ea = float(rr['Elo_A'])
+                fthg = float(rr.get('FTHG', pd.NA)) if 'FTHG' in rr else None
+                ftag = float(rr.get('FTAG', pd.NA)) if 'FTAG' in rr else None
+                if fthg is None or ftag is None or pd.isna(fthg) or pd.isna(ftag):
+                    continue
+                hist_home.setdefault(home_t, []).append((ea, fthg, ftag))
+                hist_away.setdefault(away_t, []).append((eh, ftag, fthg))
+            except Exception:
+                continue
+    except Exception:
+        hist_home = {}
+        hist_away = {}
 
     # Fixtures with fallbacks
     fixtures, source = _fixtures_with_fallbacks(league_code=league)
@@ -375,8 +446,50 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         feat_row = _feature_row_from_snapshot(snap, home, away)
         if feat_row is None:
             continue
-        mu_h_xgb = float(xgb_home.predict(feat_row)[0])
-        mu_a_xgb = float(xgb_away.predict(feat_row)[0])
+        # Inject Elo-similarity dynamic features if history available
+        try:
+            import math
+            sigma = float(cfg.get('elo_similarity_sigma', config.ELO_SIM_SIGMA_PER_LEAGUE.get(league, 50.0)))
+            def kernel_mean(hist, center):
+                if not hist:
+                    return (0.0, 0.0)
+                inv2s2 = 1.0/(2.0*max(sigma,1e-6)*max(sigma,1e-6))
+                wsum=0.0; gf_sum=0.0; ga_sum=0.0
+                for opp_elo, gf, ga in hist:
+                    w = math.exp(- (opp_elo-center)**2 * inv2s2)
+                    wsum += w; gf_sum += w*float(gf); ga_sum += w*float(ga)
+                if wsum<=0: return (0.0,0.0)
+                return (gf_sum/wsum, ga_sum/wsum)
+            # current pre-match Elo from features
+            eh_cur = float(feat_row['Elo_H'].iloc[0]) if 'Elo_H' in feat_row.columns else None
+            ea_cur = float(feat_row['Elo_A'].iloc[0]) if 'Elo_A' in feat_row.columns else None
+            if ea_cur is not None:
+                gf_h, ga_h = kernel_mean(hist_home.get(home), ea_cur)
+                feat_row['GFvsSim_H'] = [gf_h]
+                feat_row['GAvsSim_H'] = [ga_h]
+            if eh_cur is not None:
+                gf_a, ga_a = kernel_mean(hist_away.get(away), eh_cur)
+                feat_row['GFvsSim_A'] = [gf_a]
+                feat_row['GAvsSim_A'] = [ga_a]
+        except Exception:
+            # fallback zeros if something goes wrong
+            for k in ('GFvsSim_H','GAvsSim_H','GFvsSim_A','GAvsSim_A'):
+                if k not in feat_row.columns:
+                    feat_row[k] = [0.0]
+        mu_h_xgb = _predict_xgb(xgb_home, feat_row)
+        mu_a_xgb = _predict_xgb(xgb_away, feat_row)
+        # Optional per-league priors: blend XGB means with league baselines
+        priors = (cfg.get('league_priors') or {}).get(league)
+        if priors:
+            try:
+                w = float(priors.get('weight', 0.0))
+                mh = priors.get('mu_home', None)
+                ma = priors.get('mu_away', None)
+                if w > 0.0 and mh is not None and ma is not None:
+                    mu_h_xgb = (1.0 - w) * mu_h_xgb + w * float(mh)
+                    mu_a_xgb = (1.0 - w) * mu_a_xgb + w * float(ma)
+            except Exception:
+                pass
         P = _score_matrix(mu_h_xgb, mu_a_xgb, max_goals=max_goals, trim_epsilon=float(cfg.get('tail_epsilon', 0.0)))
 
         probs = _oneXtwo_from_matrix(P)
@@ -392,6 +505,7 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
     Markets include 1X2, Double Chance, Over/Under (configurable lines), and total-goal intervals.
     """
     league = cfg.get('league', 'E0')
+    use_calibration = bool(cfg.get('use_calibration', True))
     max_goals = int(cfg.get('max_goals', config.MAX_GOALS_PER_LEAGUE.get(league, 10)))
 
     # Parse market config
@@ -438,8 +552,8 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
         feat_row = _feature_row_from_snapshot(snap, home, away)
         if feat_row is None:
             continue
-        mu_h_xgb = float(xgb_home.predict(feat_row)[0])
-        mu_a_xgb = float(xgb_away.predict(feat_row)[0])
+        mu_h_xgb = _predict_xgb(xgb_home, feat_row)
+        mu_a_xgb = _predict_xgb(xgb_away, feat_row)
         P = _score_matrix(mu_h_xgb, mu_a_xgb, max_goals=max_goals, trim_epsilon=float(cfg.get('tail_epsilon', 0.0)))
 
         markets = _evaluate_all_markets(P, ou_lines=ou_lines, intervals=intervals)
@@ -450,16 +564,31 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
             cal1 = load_calibrators(cal1_path)
         except Exception:
             cal1 = None
-        if cal1:
+        if use_calibration and cal1 and not _is_degenerate_calibrator_1x2(cal1):
             arr = np.array([[markets['1X2']['H'], markets['1X2']['D'], markets['1X2']['A']]])
             arr_cal = apply_calibration_1x2(arr, cal1)[0]
             markets['1X2'] = {'H': float(arr_cal[0]), 'D': float(arr_cal[1]), 'A': float(arr_cal[2])}
+        elif cal1:
+            # Skip degenerate calibrator
+            pass
+        # Optional shrinkage toward neutral for stability
+        try:
+            shrink_1x2 = float(cfg.get('calibration_shrink', {}).get('oneX2', 0.0))
+        except Exception:
+            shrink_1x2 = 0.0
+        if shrink_1x2 > 0:
+            prior = 1.0/3.0
+            markets['1X2'] = {
+                'H': (1.0 - shrink_1x2) * markets['1X2']['H'] + shrink_1x2 * prior,
+                'D': (1.0 - shrink_1x2) * markets['1X2']['D'] + shrink_1x2 * prior,
+                'A': (1.0 - shrink_1x2) * markets['1X2']['A'] + shrink_1x2 * prior,
+            }
         try:
             calou_path = os.path.join('calibrators', f"{league}_ou25.pkl")
             calou = load_calibrators(calou_path)
         except Exception:
             calou = None
-        if calou and 'ou25' in calou and '2.5' in markets['OU']:
+        if use_calibration and calou and 'ou25' in calou and '2.5' in markets['OU'] and not _is_degenerate_calibrator_binary(calou.get('ou25')):
             model = calou['ou25']
             from sklearn.isotonic import IsotonicRegression
             from sklearn.linear_model import LogisticRegression
@@ -471,6 +600,20 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
             else:
                 cal_over = float(over_p[0])
             markets['OU']['2.5'] = {'Over': cal_over, 'Under': float(max(0.0, 1.0 - cal_over))}
+        elif calou:
+            # Skip degenerate OU calibrator
+            pass
+        # Optional shrinkage toward 50/50 for OU 2.5
+        try:
+            shrink_ou = float(cfg.get('calibration_shrink', {}).get('ou25', 0.0))
+        except Exception:
+            shrink_ou = 0.0
+        if shrink_ou > 0 and '2.5' in markets['OU']:
+            pO = markets['OU']['2.5']['Over']
+            pU = markets['OU']['2.5']['Under']
+            pO = (1.0 - shrink_ou) * pO + shrink_ou * 0.5
+            pU = 1.0 - pO
+            markets['OU']['2.5'] = {'Over': float(pO), 'Under': float(pU)}
         # Flatten to rows
         # 1X2
         for k, v in markets["1X2"].items():
@@ -721,3 +864,32 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+def _predict_xgb(model, feat_df: pd.DataFrame) -> float:
+    """Predict with XGB model using model's known feature names if available to avoid name mismatch."""
+    try:
+        names = getattr(model, 'feature_names_in_', None)
+        if names is None:
+            try:
+                names = model.get_booster().feature_names
+            except Exception:
+                names = None
+        if names is not None:
+            # ensure order and subset strictly to expected names
+            cols = [c for c in names if c in feat_df.columns]
+            X = feat_df[cols].values
+        else:
+            X = feat_df.values
+        y = model.predict(X)
+        return float(y[0] if hasattr(y, '__len__') else y)
+    except Exception:
+        # Fallback: try slicing first n features if model exposes n_features_in_
+        try:
+            n = int(getattr(model, 'n_features_in_', 0))
+            if n > 0:
+                X = feat_df.iloc[:, :n].values
+                y = model.predict(X)
+                return float(y[0] if hasattr(y, '__len__') else y)
+        except Exception:
+            pass
+        y = model.predict(feat_df.values)
+        return float(y[0] if hasattr(y, '__len__') else y)

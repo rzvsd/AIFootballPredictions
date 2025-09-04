@@ -1,0 +1,64 @@
+{
+  "fixtures": [
+    {
+      "date": "2025-08-31",
+      "home": "Vallecano",
+      "away": "Barcelona",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Espanyol",
+      "away": "Osasuna",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Betis",
+      "away": "Ath Bilbao",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Celta",
+      "away": "Villarreal",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Real Madrid",
+      "away": "Mallorca",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Girona",
+      "away": "Sevilla",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "R Oviedo",
+      "away": "Real Sociedad",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Alaves",
+      "away": "Ath Madrid",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-29",
+      "home": "Valencia",
+      "away": "Getafe",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-29",
+      "home": "Elche",
+      "away": "Levante",
+      "markets": {}
+    }
+  ]
+}

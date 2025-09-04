@@ -29,8 +29,13 @@ ELO_BAND_FEATURES = [
     'GFvsMid_A', 'GAvsMid_A', 'GFvsHigh_A', 'GAvsHigh_A',
 ]
 
-# Expand the ultimate features to include Elo-band features
-ULTIMATE_FEATURES = ULTIMATE_FEATURES + ELO_BAND_FEATURES
+# Kernel-similarity features (dynamic performance vs similar-Elo opponents)
+ELO_SIM_FEATURES = [
+    'GFvsSim_H', 'GAvsSim_H', 'GFvsSim_A', 'GAvsSim_A'
+]
+
+# Expand the ultimate features to include Elo-band and Elo-sim features
+ULTIMATE_FEATURES = ULTIMATE_FEATURES + ELO_BAND_FEATURES + ELO_SIM_FEATURES
 
 # --- TEAM NAME NORMALIZATION MAP ---
 # This map is CRITICAL. It translates API names (left) to your dataset names (right).
@@ -168,6 +173,15 @@ MAX_GOALS_PER_LEAGUE = {
     'F1': 8,
     'SP1': 9,
     'I1': 8,
+}
+
+# Gaussian kernel width (sigma) per league for Elo-similarity features
+ELO_SIM_SIGMA_PER_LEAGUE = {
+    'E0': 50.0,
+    'D1': 40.0,
+    'F1': 45.0,
+    'SP1': 55.0,
+    'I1': 45.0,
 }
 
 def normalize_team_name(api_name: str) -> str:
