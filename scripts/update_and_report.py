@@ -43,7 +43,10 @@ def main() -> None:
     ap.add_argument('--export', action='store_true', help='Export per-league CSVs from the report')
     ap.add_argument('--fetch-odds', action='store_true', help='Fetch odds via API-Football into data/odds before report')
     ap.add_argument('--no-calibration', action='store_true', help='Report without applying calibrators')
-    ap.add_argument('--train', action='store_true', help='Retrain XGB models per league before calibration')
+    # Training defaults: enabled by default; use --no-train to skip.
+    # --train is kept for backward compatibility (has no effect if training is already default on)
+    ap.add_argument('--train', action='store_true', help='[compat] Retrain models (default ON)')
+    ap.add_argument('--no-train', action='store_true', help='Skip retraining step')
     ap.add_argument('--skip-download', action='store_true', help='Skip data acquisition (assume raw already updated)')
     ap.add_argument('--skip-preprocess', action='store_true', help='Skip preprocessing (assume processed/enhanced ready)')
     args = ap.parse_args()
@@ -63,8 +66,14 @@ def main() -> None:
         if run(cmd) != 0:
             print('[warn] Preprocessing step failed. Continuing...')
 
-    # 3) Retrain (optional)
-    if args.train:
+    # 3) Retrain (default: ON unless --no-train)
+    do_train = True
+    if getattr(args, 'no_train', False):
+        do_train = False
+    # legacy flag keeps training on when explicitly requested
+    if getattr(args, 'train', False):
+        do_train = True
+    if do_train:
         for lg in leagues:
             cmd = [exe, 'xgb_trainer.py', '--league', lg]
             if run(cmd) != 0:
