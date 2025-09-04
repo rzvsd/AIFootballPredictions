@@ -75,6 +75,17 @@ def main() -> None:
     if run(cmd) != 0:
         print('[warn] Calibration failed. Continuing to report...')
 
+    # 4.5) Validate fixtures (fail-fast on bad CSV)
+    fx_pairs: List[str] = []
+    for pair in args.fixtures_csv:
+        if '=' in pair:
+            fx_pairs.append(pair)
+    if fx_pairs:
+        cmd = [exe, '-m', 'scripts.fixtures_doctor', '--fixtures-csv', *fx_pairs]
+        if run(cmd) != 0:
+            print('[error] Fixtures validation failed. Aborting pipeline.')
+            sys.exit(1)
+
     # 5) Odds fetch (optional)
     if args.fetch_odds:
         for lg in leagues:
@@ -91,10 +102,6 @@ def main() -> None:
             _ = run(cmd)
 
     # 6) Report
-    fx_pairs: List[str] = []
-    for pair in args.fixtures_csv:
-        if '=' in pair:
-            fx_pairs.append(pair)
     rep_cmd = [exe, '-m', 'scripts.multi_league_report', '--leagues', *leagues, '--select', args.select]
     if args.no_calibration:
         rep_cmd.append('--no-calibration')
