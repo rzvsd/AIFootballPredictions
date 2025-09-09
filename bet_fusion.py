@@ -27,6 +27,7 @@ from scripts import bookmaker_api
 import xgb_trainer
 import config
 import feature_store
+import team_registry
 
 # --- CONFIGURATION LOADER ---
 CONFIG_PATH = Path(__file__).parent / "bot_config.yaml"
@@ -109,6 +110,23 @@ def _score_matrix(mu_h: float, mu_a: float, max_goals: int = 10, trim_epsilon: f
         s2 = P.sum()
         if s2 > 0:
             P /= s2
+    return P
+def _score_matrix_negbin(mu_h: float, mu_a: float, k_h: float, k_a: float, max_goals: int = 10) -> np.ndarray:
+    """Negative Binomial goal matrix with dispersion k (r)."""
+    def nb_pmf_vec(mu: float, k: float, n: int) -> np.ndarray:
+        mu = max(1e-9, float(mu)); k = max(1e-6, float(k))
+        p = k / (k + mu)
+        xs = np.arange(0, n+1, dtype=float)
+        from math import lgamma
+        logC = [lgamma(x + k) - lgamma(k) - lgamma(x + 1.0) for x in xs]
+        logpmf = np.array(logC) + xs * np.log(max(1e-12, 1.0 - p)) + k * np.log(max(1e-12, p))
+        pmf = np.exp(logpmf - np.max(logpmf))
+        pmf = pmf / pmf.sum()
+        return pmf
+    ph = nb_pmf_vec(mu_h, k_h, max_goals)
+    pa = nb_pmf_vec(mu_a, k_a, max_goals)
+    P = np.outer(ph, pa)
+    P = P / P.sum()
     return P
 
 def _oneXtwo_from_matrix(P: np.ndarray) -> Dict[str, float]:
@@ -246,6 +264,13 @@ def _fused_matrix(mu_h_xgb: float, mu_a_xgb: float,
     P = w_dc * P_dc + (1.0 - w_dc) * P_xgb
     P /= P.sum()
     return P
+def _score_from_cfg(mu_h: float, mu_a: float, cfg: Dict[str, Any], league: str, max_goals: int) -> np.ndarray:
+    od = (cfg.get('overdispersion') or {})
+    method = str(od.get('method','poisson')).lower()
+    if method == 'negbin':
+        k = float(od.get('k', 6.0))
+        return _score_matrix_negbin(mu_h, mu_a, k_h=k, k_a=k, max_goals=max_goals)
+    return _score_matrix(mu_h, mu_a, max_goals=max_goals, trim_epsilon=float(cfg.get('tail_epsilon', 0.0)))
 
 def _feature_row_from_snapshot(stats: pd.DataFrame, home: str, away: str) -> Optional[pd.DataFrame]:
     """Build feature row in the order config.ULTIMATE_FEATURES expects using a team snapshot."""
@@ -442,6 +467,11 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         # Normalize to dataset names
         home = config.normalize_team_name(home_api)
         away = config.normalize_team_name(away_api)
+        try:
+            hid = team_registry.get_team_id(league, home)
+            aid = team_registry.get_team_id(league, away)
+        except Exception:
+            hid = None; aid = None
 
         feat_row = _feature_row_from_snapshot(snap, home, away)
         if feat_row is None:
@@ -490,7 +520,7 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
                     mu_a_xgb = (1.0 - w) * mu_a_xgb + w * float(ma)
             except Exception:
                 pass
-        P = _score_matrix(mu_h_xgb, mu_a_xgb, max_goals=max_goals, trim_epsilon=float(cfg.get('tail_epsilon', 0.0)))
+        P = _score_from_cfg(mu_h_xgb, mu_a_xgb, cfg, league, max_goals)
 
         probs = _oneXtwo_from_matrix(P)
         out.append({"date": date_val, "home": home, "away": away, **probs})
@@ -552,9 +582,8 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
         feat_row = _feature_row_from_snapshot(snap, home, away)
         if feat_row is None:
             continue
-        mu_h_xgb = _predict_xgb(xgb_home, feat_row)
-        mu_a_xgb = _predict_xgb(xgb_away, feat_row)
-        P = _score_matrix(mu_h_xgb, mu_a_xgb, max_goals=max_goals, trim_epsilon=float(cfg.get('tail_epsilon', 0.0)))
+        mu_h, mu_a, _ = _predict_goals_mu(cfg, league, feat_row, xgb_home, xgb_away)
+        P = _score_from_cfg(mu_h, mu_a, cfg, league, max_goals)
 
         markets = _evaluate_all_markets(P, ou_lines=ou_lines, intervals=intervals)
         # Apply calibration if available
@@ -614,20 +643,49 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
             pO = (1.0 - shrink_ou) * pO + shrink_ou * 0.5
             pU = 1.0 - pO
             markets['OU']['2.5'] = {'Over': float(pO), 'Under': float(pU)}
+        # TG Interval calibration (optional)
+        cal_tg = None
+        try:
+            from calibrators import load_calibrators
+            cal_tg = load_calibrators(os.path.join('calibrators', f"{league}_tg.pkl"))
+        except Exception:
+            cal_tg = None
+        if cal_tg and isinstance(markets.get('Intervals'), dict):
+            ints_cal = {}
+            for iv, pv in markets['Intervals'].items():
+                model = cal_tg.get(iv)
+                if model is None:
+                    ints_cal[iv] = pv
+                    continue
+                try:
+                    from sklearn.isotonic import IsotonicRegression
+                    from sklearn.linear_model import LogisticRegression
+                    x = np.array([pv], dtype=float)
+                    if isinstance(model, IsotonicRegression):
+                        y = float(np.clip(model.predict(x)[0], 1e-6, 1-1e-6))
+                    elif isinstance(model, LogisticRegression):
+                        y = float(model.predict_proba(x.reshape(-1,1))[0,1])
+                    else:
+                        y = pv
+                except Exception:
+                    y = pv
+                ints_cal[iv] = y
+            markets['Intervals'] = ints_cal
+
         # Flatten to rows
         # 1X2
         for k, v in markets["1X2"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "1X2", "outcome": k, "prob": v})
+            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "1X2", "outcome": k, "prob": v})
         # Double Chance
         for k, v in markets["DC"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "DC", "outcome": k, "prob": v})
+            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "DC", "outcome": k, "prob": v})
         # Over/Under
         for line, kv in markets["OU"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
-            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
+            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
+            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
         # Intervals
         for iv, pv in markets["Intervals"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "TG Interval", "outcome": iv, "prob": pv})
+            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "TG Interval", "outcome": iv, "prob": pv})
 
     return pd.DataFrame(rows)
 
@@ -704,6 +762,24 @@ def attach_value_metrics(market_df: pd.DataFrame, use_placeholders: bool = True)
         # Edge and EV
         sub2["edge"] = sub2["prob"] - sub2["p_imp_norm"]
         sub2["EV"] = sub2["prob"] * sub2["odds"] - 1.0
+        # If opening/closing odds are present, compute deltas of implied prob
+        if "odds_open" in sub2.columns and "odds_close" in sub2.columns:
+            try:
+                sub2["p_imp_open"] = 1.0 / sub2["odds_open"].astype(float)
+                sub2["p_imp_close"] = 1.0 / sub2["odds_close"].astype(float)
+                if _market_is_exclusive(str(market)):
+                    so = sub2["p_imp_open"].sum(); sc = sub2["p_imp_close"].sum()
+                    if so > 0:
+                        sub2["p_imp_open_norm"] = sub2["p_imp_open"] / so
+                    if sc > 0:
+                        sub2["p_imp_close_norm"] = sub2["p_imp_close"] / sc
+                else:
+                    sub2["p_imp_open_norm"] = sub2["p_imp_open"]
+                    sub2["p_imp_close_norm"] = sub2["p_imp_close"]
+                if "p_imp_open_norm" in sub2.columns and "p_imp_close_norm" in sub2.columns:
+                    sub2["delta_p_imp"] = sub2["p_imp_close_norm"] - sub2["p_imp_open_norm"]
+            except Exception:
+                pass
         grouped.append(sub2)
     out = pd.concat(grouped, ignore_index=True) if grouped else df
     return out
@@ -729,12 +805,59 @@ def _get_thresholds(cfg: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
                     defaults[k][kk] = float(v[kk])
     return defaults
 
+def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
+    league = cfg.get('league','E0')
+    max_goals = int(cfg.get('max_goals', config.MAX_GOALS_PER_LEAGUE.get(league, 10)))
+    home_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
+    away_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
+    xgb_home = joblib.load(home_path)
+    xgb_away = joblib.load(away_path)
+    enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
+    snap = feature_store.build_snapshot(
+        enhanced_csv=enh_path,
+        as_of=None,
+        half_life_matches=int(cfg.get('half_life_matches', 5)),
+        elo_k=float(cfg.get('elo_k', 20.0)),
+        elo_home_adv=float(cfg.get('elo_home_adv', 60.0))
+    )
+    fixtures, _ = _fixtures_with_fallbacks(league_code=league)
+    out = {}
+    for _, r in fixtures.iterrows():
+        home_api = str(r.get("home_team", r.get("home_team_api", ""))).strip()
+        away_api = str(r.get("away_team", r.get("away_team_api", ""))).strip()
+        date_val = r.get("date")
+        home = config.normalize_team_name(home_api)
+        away = config.normalize_team_name(away_api)
+        feat_row = _feature_row_from_snapshot(snap, home, away)
+        if feat_row is None:
+            continue
+        mu_h = _predict_xgb(xgb_home, feat_row)
+        mu_a = _predict_xgb(xgb_away, feat_row)
+        P = _score_from_cfg(mu_h, mu_a, cfg, league, max_goals)
+        dist = _goals_distribution(P)
+        n = len(dist)
+        csum = np.cumsum(dist)
+        best = (0, n-1, 1e9)
+        for a in range(n):
+            for b in range(a, n):
+                mass = csum[b] - (csum[a-1] if a>0 else 0.0)
+                if mass >= level:
+                    if (b-a) < best[2]:
+                        best = (a,b,b-a)
+                    break
+        a,b,_ = best
+        out[(str(date_val), home, away)] = f"{a}-{b}"
+    return out
+
 
 def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool) -> pd.DataFrame:
     if df.empty:
         return df
     out = df.copy()
     out['odds'] = None
+    # Optional opening/closing odds for movement analysis
+    out['odds_open'] = None
+    out['odds_close'] = None
     for (date, home, away), sub_idx in out.groupby(['date','home','away']).groups.items():
         idx = list(sub_idx)
         # Pre-fetch 1X2 when --with-odds
@@ -755,6 +878,21 @@ def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool) -> pd.Data
                     out.at[i,'odds'] = float(odds1x2['draw'])
                 elif o == 'A' and odds1x2.get('away'):
                     out.at[i,'odds'] = float(odds1x2['away'])
+                # opening/closing if provided
+                op = odds1x2.get('_open') or {}
+                cl = odds1x2.get('_close') or {}
+                if o == 'H' and op.get('home'):
+                    out.at[i,'odds_open'] = float(op['home'])
+                if o == 'D' and op.get('draw'):
+                    out.at[i,'odds_open'] = float(op['draw'])
+                if o == 'A' and op.get('away'):
+                    out.at[i,'odds_open'] = float(op['away'])
+                if o == 'H' and cl.get('home'):
+                    out.at[i,'odds_close'] = float(cl['home'])
+                if o == 'D' and cl.get('draw'):
+                    out.at[i,'odds_close'] = float(cl['draw'])
+                if o == 'A' and cl.get('away'):
+                    out.at[i,'odds_close'] = float(cl['away'])
             elif m.startswith('OU ') and with_odds:
                 try:
                     line = float(m.split(' ',1)[1])
@@ -763,6 +901,12 @@ def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool) -> pd.Data
                     ou_odds = {}
                 if o in ('Over','Under') and ou_odds.get(o):
                     out.at[i,'odds'] = float(ou_odds[o])
+                    op = ou_odds.get('_open') or {}
+                    cl = ou_odds.get('_close') or {}
+                    if op.get(o):
+                        out.at[i,'odds_open'] = float(op[o])
+                    if cl.get(o):
+                        out.at[i,'odds_close'] = float(cl[o])
             elif m == 'TG Interval' and with_odds:
                 try:
                     a_str, b_str = o.split('-')
@@ -824,6 +968,22 @@ def main() -> None:
     for _, r in show.iterrows():
         print(f"{r['date']}  {r['home']} vs {r['away']} | {r['market']} {r['outcome']}  p={float(r['prob']):.2%}  odds={float(r['odds']):.2f}  edge={float(r['edge']):.2%}  EV={float(r['EV']):.2f}")
 
+    # Portfolio risk control (correlation-aware throttling)
+    def _compute_cluster_key(row) -> tuple:
+        # cluster by date (day) + market base by default
+        d = str(row.get('date'))[:10]
+        m = _market_base(str(row.get('market','')))
+        return (d, m)
+    portfolio_cfg = cfg.get('portfolio', {}) or {}
+    throttle = bool(portfolio_cfg.get('throttle', True))
+    min_mult = float(portfolio_cfg.get('min_mult', 0.4))
+    mode = str(portfolio_cfg.get('throttle_mode','sqrt')).lower()  # 'sqrt' or 'linear'
+    # Precompute cluster sizes
+    clusters = {}
+    for _, r in show.iterrows():
+        k = _compute_cluster_key(r)
+        clusters[k] = clusters.get(k, 0) + 1
+
     # Log bets (optional)
     if cfg.get('log_bets', True):
         bm = BankrollManager()
@@ -845,6 +1005,15 @@ def main() -> None:
                 stake = max(0.0, min(bm.bankroll, bm.bankroll * k_frac * f_star))
             else:
                 stake = min(flat_stake, bm.bankroll)
+            # Apply portfolio throttle multiplier based on cluster size
+            if throttle:
+                k = _compute_cluster_key(r)
+                n = max(1, clusters.get(k, 1))
+                if mode == 'linear':
+                    mult = max(min_mult, 1.0 / float(n))
+                else:
+                    mult = max(min_mult, 1.0 / float(n)**0.5)
+                stake *= mult
             if stake <= 0:
                 continue
             bm.log_bet(
@@ -893,3 +1062,45 @@ def _predict_xgb(model, feat_df: pd.DataFrame) -> float:
             pass
         y = model.predict(feat_df.values)
         return float(y[0] if hasattr(y, '__len__') else y)
+
+
+# --- Probabilistic model integration (Phase 3) ---
+_PROB_MODEL_CACHE: Dict[str, dict] = {}
+
+def _load_prob_models(league: str) -> dict:
+    if league in _PROB_MODEL_CACHE:
+        return _PROB_MODEL_CACHE[league]
+    models = {}
+    # NGBoost Poisson models
+    try:
+        hp = Path('advanced_models') / f'{league}_ngb_poisson_home.pkl'
+        ap = Path('advanced_models') / f'{league}_ngb_poisson_away.pkl'
+        if hp.exists() and ap.exists():
+            models['ngb_poisson_home'] = joblib.load(hp)
+            models['ngb_poisson_away'] = joblib.load(ap)
+    except Exception:
+        pass
+    _PROB_MODEL_CACHE[league] = models
+    return models
+
+
+def _predict_goals_mu(cfg: Dict[str, Any], league: str, feat_row: pd.DataFrame,
+                      xgb_home_model, xgb_away_model) -> tuple[float, float, str]:
+    pm = (cfg.get('prob_model') or {})
+    enabled = bool(pm.get('enabled', False))
+    kind = str(pm.get('kind','')).lower()
+    if enabled and kind in ('ngboost_poisson','ngb_poisson','ngb_pois'):
+        models = _load_prob_models(league)
+        mH = models.get('ngb_poisson_home'); mA = models.get('ngb_poisson_away')
+        if mH is not None and mA is not None:
+            try:
+                # NGBoost predict returns expectation under Poisson dist by default via .predict
+                mu_h = float(mH.predict(feat_row)[0])
+                mu_a = float(mA.predict(feat_row)[0])
+                # Guard against non-positive
+                mu_h = max(0.05, mu_h); mu_a = max(0.05, mu_a)
+                return mu_h, mu_a, 'ngb_poisson'
+            except Exception:
+                pass
+    # Fallback to XGB
+    return _predict_xgb(xgb_home_model, feat_row), _predict_xgb(xgb_away_model, feat_row), 'xgb'

@@ -1,38 +1,117 @@
-# Repository Guidelines
+defaults:
+  permissions:
+    workspace: read-write
+    network: false
+    git: ask
+  env:
+    - name: DRY_RUN
+      value: "1"
+    - name: REPORTS_DIR
+      value: "reports"
 
-## Project Structure & Modules
-- Root: model training, prediction, and betting utilities in Python.
-- `scripts/`: pipeline steps (acquisition, preprocessing, training, calibration, reporting, bot).
-- `advanced_models/`: trained XGB models per league (`{LEAGUE}_ultimate_xgb_{home,away}.pkl`).
-- `data/`: `raw/`, `processed/`, `enhanced/`, `odds/`, `store/`, runtime outputs (`bankroll.json`, `bets_log.csv`).
-- `reports/`: generated round/picks CSVs.
-- `config.py`, `bot_config.yaml`: league, features, and runtime configuration.
+agents:
+  - name: phase1_reliability_features
+    description: Canonical Team IDs, Absences MVP (o sursă), Odds movement MVP. Produce rapoarte în reports/.
+    permissions: { workspace: read-write, network: true, git: ask }
+    env:
+      - name: LEAGUES
+        value: "E0,D1,F1,SP1,I1"
+      - name: ABSENCE_SOURCE
+        value: "transfermarkt"
+    tasks:
+      - name: git-state
+        run: |
+          git status --porcelain
+          git branch --show-current
+      - name: name-map-sample
+        run: |
+          mkdir -p "%REPORTS_DIR%" || true
+          python - << "PY"
+          import glob, json, pandas as pd
+          from pathlib import Path
+          files = glob.glob('data/fixtures/*.csv')
+          out = {}
+          for f in files[:10]:
+              try:
+                  df = pd.read_csv(f)
+                  out[Path(f).name] = {
+                    "home_sample": df["home_team"].dropna().unique().tolist()[:10],
+                    "away_sample": df["away_team"].dropna().unique().tolist()[:10],
+                  }
+              except Exception as e:
+                  out[Path(f).name] = {"error": str(e)}
+          Path("reports/phase1_name_samples.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+          print("report: reports/phase1_name_samples.json")
+          PY
+      - name: absences-fetch-mvp
+        run: |
+          python scripts/absences/fetch_transfermarkt.py --leagues "%LEAGUES%" --out "data/absences/latest.json"
+      - name: odds-movement-mvp
+        run: |
+          python scripts/odds/ingest_open_close.py --leagues "%LEAGUES%" --out "data/odds/open_close.csv"
 
-## Build, Test & Dev Commands
-- Acquire raw: `python -m scripts.data_acquisition --leagues E0 I1 SP1 F1 D1 --seasons 2425 2324`.
-- Preprocess: `python -m scripts.data_preprocessing --raw_data_input_dir data/raw --processed_data_output_dir data/processed`.
-- Train XGB per league: `python xgb_trainer.py --league E0`.
-- Calibrate: `python -m scripts.calibrate_league --league E0 D1 F1 I1 SP1`.
-- Weekly orchestration: `python -m scripts.update_and_report --leagues E0 D1 F1 I1 SP1 --season-codes 2425 --export` (add `--fetch-odds` for live odds).
-- Report only: `python -m scripts.multi_league_report --leagues E0 D1 --export`.
+  - name: phase2_uncertainty_calibration
+    description: Overdispersion (NegBin/variance-scaling), TG calibration (isotonic), CRPS metric & raport.
+    permissions: { workspace: read-write, network: false, git: ask }
+    env:
+      - name: YEARS
+        value: "2021,2022,2023,2024,2025"
+    tasks:
+      - name: overdispersion
+        run: |
+          mkdir -p "%REPORTS_DIR%" || true
+          python scripts/uncertainty/overdispersion_proto.py --years "%YEARS%" --out "reports/overdispersion.json"
+      - name: tg-calibration
+        run: |
+          python scripts/uncertainty/tg_calibrate.py --preds data/preds/latest.csv --out "reports/tg_calib.json"
+      - name: crps
+        run: |
+          python scripts/metrics/compute_crps.py --preds data/preds/latest.csv --truth data/results/latest.csv --out "reports/crps_report.json"
 
-## Coding Style & Naming
-- Python 3.10+, 4‑space indent, type hints where practical.
-- Functions/vars: `snake_case`; classes: `CapWords`; files: `lower_snake.py`.
-- Keep functions small, pure where possible (e.g., helpers in `bet_fusion.py`).
-- Prefer explicit paths and config over globals; reuse `config.normalize_team_name`.
+  - name: phase3_probabilistic_modeling
+    description: NGBoost/TFP prototip + A/B (CRPS, LogLoss). Pregătește feature-flag pentru integrare.
+    permissions: { workspace: read-write, network: false, git: ask }
+    env:
+      - name: LEAGUES
+        value: "E0,D1,F1,SP1,I1"
+    tasks:
+      - name: train-ngboost
+        run: |
+          mkdir -p models || true
+          python scripts/train/ngboost_proto.py --leagues "%LEAGUES%" --out models/ngb_proto.pkl
+      - name: ab-compare
+        run: |
+          python scripts/ab_test/run_ab.py --a engine_current --b engine_ngb --leagues "%LEAGUES%" --out "reports/ab_ngb_vs_current.json"
 
-## Testing Guidelines
-- Add unit tests under `tests/` for: Poisson helpers, market assembly, name normalization, snapshot builder.
-- Keep tests deterministic (seed models/matrices). Target >80% coverage on core helpers.
-- Quick local check: run `scripts.multi_league_report` on a tiny fixtures CSV.
+  - name: phase4_monitoring_dashboard
+    description: Streamlit dashboard (bankroll, P/L, bets, upcoming). Export PNG/CSV demo în reports/.
+    permissions: { workspace: read-write, network: false, git: ask }
+    env:
+      - name: DASH_PORT
+        value: "8501"
+    tasks:
+      - name: build-demo
+        run: |
+          mkdir -p "%REPORTS_DIR%" || true
+          python scripts/dashboard/generate_demo.py --out "reports/dashboard_demo.png"
+      - name: dev-server
+        run: |
+          streamlit run scripts/dashboard/app.py --server.port %DASH_PORT%
 
-## Commit & PR Guidelines
-- Commits: imperative mood, scoped prefix when useful (e.g., `feat(fusion): add OU line parsing`).
-- PRs: clear goal, steps taken, inputs/outputs touched; include sample command and before/after snippet or CSV row.
-- Link issues where applicable; attach screenshots for table outputs.
-
-## Security & Config Tips
-- API keys: set `API_FOOTBALL_KEY` (and/or `API_FOOTBALL_ODDS_KEY`) in environment; never commit secrets.
-- Odds source: default is local (`data/odds/{LEAGUE}.json`). Use `scripts.fetch_odds_api_football` to refresh.
-- Fixtures: place weekly CSVs in `data/fixtures/{LEAGUE}_weekly_fixtures.csv` or use generated `*_manual.csv`.
+  - name: phase5_optimization_automation
+    description: Portfolio risk tuning, absences multi-source, automatizări nightly/weekly/monthly.
+    permissions: { workspace: read-write, network: true, git: ask }
+    env:
+      - name: SCHEDULE_DIR
+        value: ".github/workflows"
+    tasks:
+      - name: risk-tuning
+        run: |
+          python scripts/risk/tune_portfolio.py --in reports/backtest_summary.json --out "reports/risk_tuning.json"
+      - name: absences-merge
+        run: |
+          python scripts/absences/merge_sources.py --inputs data/absences/* --out data/absences/merged.json
+      - name: workflows
+        run: |
+          mkdir -p "%SCHEDULE_DIR%" || true
+          python scripts/automation/gen_schedules.py --out ".github/workflows/pipeline.yml"

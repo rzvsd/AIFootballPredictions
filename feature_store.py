@@ -211,4 +211,39 @@ def build_snapshot(enhanced_csv: str, as_of: str | None = None, half_life_matche
             'corners_allowed_L10': np.nan,
         })
     snap = pd.DataFrame(rows)
+    # Merge Absences/Availability MVP (optional)
+    try:
+        base = os.path.basename(enhanced_csv)
+        league = base.split('_')[0] if '_' in base else base.split('.')[0]
+        abs_path = os.path.join('data','absences', f'{league}_availability.csv')
+        if os.path.exists(abs_path):
+            av = pd.read_csv(abs_path)
+            av['team'] = av['team'].astype(str)
+            if 'date' in av.columns:
+                av['date'] = pd.to_datetime(av['date'], errors='coerce')
+                cutoff = pd.to_datetime(as_of) if as_of else None
+                if cutoff is not None:
+                    av = av[av['date'] <= cutoff]
+            # keep latest per team
+            av = av.sort_values('date' if 'date' in av.columns else 'team')
+            # If positional columns present, compute weighted availability
+            if set(['availability_gk','availability_def','availability_mid','availability_fwd']).issubset(av.columns):
+                av_idx = av.groupby('team').tail(1)[['team','availability_gk','availability_def','availability_mid','availability_fwd']]
+                snap = snap.merge(av_idx, on='team', how='left')
+                # weights (can be overridden later to features)
+                wgk, wdef, wmid, wfwd = 0.15, 0.35, 0.30, 0.20
+                snap['availability_index'] = (
+                    snap.get('availability_gk', 1.0).fillna(1.0) * wgk +
+                    snap.get('availability_def', 1.0).fillna(1.0) * wdef +
+                    snap.get('availability_mid', 1.0).fillna(1.0) * wmid +
+                    snap.get('availability_fwd', 1.0).fillna(1.0) * wfwd
+                )
+            else:
+                av_idx = av.groupby('team').tail(1)[['team','availability_index']]
+                snap = snap.merge(av_idx, on='team', how='left')
+                snap['availability_index'] = snap['availability_index'].fillna(1.0)
+        else:
+            snap['availability_index'] = 1.0
+    except Exception:
+        snap['availability_index'] = 1.0
     return snap

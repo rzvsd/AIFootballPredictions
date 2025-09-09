@@ -19,6 +19,11 @@ elo_home_adv: 40.0
 # Poisson tail trimming (0.0 disables)
 tail_epsilon: 0.0
 
+# Overdispersion head (Phase 2): NegBin performs best on E0
+overdispersion:
+  method: negbin
+  k: 6.0
+
 # Goal intervals to evaluate (inclusive ranges)
 intervals:
   - [0, 3]

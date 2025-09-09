@@ -190,6 +190,7 @@ def main() -> None:
     ap.add_argument('--league', required=True, help='League code (E0,D1,F1,I1,SP1)')
     ap.add_argument('--fixtures-csv', default=None, help='Fixtures CSV to drive matching (preferred)')
     ap.add_argument('--days', type=int, default=7, help='If no CSV, how many days ahead to fetch')
+    ap.add_argument('--tag', choices=['opening','closing'], default='closing', help='Mark snapshot as opening or closing')
     args = ap.parse_args()
 
     lg = args.league
@@ -215,19 +216,71 @@ def main() -> None:
     out_fixtures = []
     for m in mapped:
         odds = _fetch_odds_for_fixture(m.get('fixture_id')) if m.get('fixture_id') else {}
+        # normalize market schema with opening/closing tags
+        def _mk_markets(odds_obj):
+            # Expect odds_obj like {'1X2': {...}, 'OU': {'2.5': {...}}, 'TG': {...}}
+            if not odds_obj:
+                return {}
+            # Nest under selected tag
+            tag = args.tag
+            markets = {}
+            if '1X2' in odds_obj:
+                markets.setdefault('1X2', {})[tag] = {
+                    'home': odds_obj['1X2'].get('home'),
+                    'draw': odds_obj['1X2'].get('draw'),
+                    'away': odds_obj['1X2'].get('away'),
+                }
+            if 'OU' in odds_obj:
+                for ln, kv in (odds_obj['OU'] or {}).items():
+                    markets.setdefault('OU', {}).setdefault(str(ln), {})[tag] = {
+                        'Over': (kv or {}).get('Over'),
+                        'Under': (kv or {}).get('Under'),
+                    }
+            if 'TG' in odds_obj:
+                markets['TG'] = odds_obj['TG']  # keep flat for intervals
+            return markets
+
+        markets = _mk_markets(odds)
         out_fixtures.append({
             'date': m.get('date'),
             'home': m.get('home'),
             'away': m.get('away'),
-            'markets': odds,
+            'markets': markets,
         })
 
     odds_dir = os.getenv('BOT_ODDS_DIR', os.path.join('data','odds'))
     os.makedirs(odds_dir, exist_ok=True)
     path = os.path.join(odds_dir, f"{lg}.json")
+    # Merge with existing file (preserve other tag where present)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            existing = json.load(f) or {}
+        ex_fixtures = existing.get('fixtures', [])
+    except Exception:
+        ex_fixtures = []
+    # index existing by (date, home, away)
+    idx = {(str(it.get('date')), it.get('home'), it.get('away')): it for it in ex_fixtures}
+    for nf in out_fixtures:
+        key = (str(nf.get('date')), nf.get('home'), nf.get('away'))
+        if key in idx:
+            cur = idx[key]
+            cur_mk = cur.get('markets') or {}
+            new_mk = nf.get('markets') or {}
+            # merge 1X2 tag
+            if '1X2' in new_mk:
+                cur_mk.setdefault('1X2', {}).update(new_mk['1X2'])
+            # merge OU tags
+            for ln, kv in (new_mk.get('OU') or {}).items():
+                cur_mk.setdefault('OU', {}).setdefault(ln, {}).update(kv)
+            # TG as-is if present
+            if 'TG' in new_mk:
+                cur_mk['TG'] = new_mk['TG']
+            cur['markets'] = cur_mk
+        else:
+            ex_fixtures.append(nf)
     with open(path, 'w', encoding='utf-8') as f:
-        json.dump({'fixtures': out_fixtures}, f, indent=2)
-    print(f"Saved odds -> {path}  (fixtures: {len(out_fixtures)})")
+        json.dump({'fixtures': ex_fixtures}, f, indent=2)
+    print(f"Saved odds -> {path}  (fixtures: {len(ex_fixtures)})")
 
 
 if __name__ == '__main__':

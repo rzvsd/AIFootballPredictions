@@ -46,6 +46,7 @@ BACKOFF_SECONDS = 2
 
 # Local odds support
 ODDS_MODE = os.getenv("BOT_ODDS_MODE", "local").lower()  # 'local' or 'api'
+ODDS_TAG = os.getenv("BOT_ODDS_TAG", "closing").lower()  # 'opening' or 'closing'
 ODDS_DIR = os.getenv("BOT_ODDS_DIR", os.path.join("data", "odds"))
 
 
@@ -123,6 +124,15 @@ def get_odds(league: str, home_team: str, away_team: str) -> Dict[str, float]:
         fx = _find_fixture_local(league, home_team, away_team)
         if fx:
             mk = (fx.get("markets") or {}).get("1X2") or {}
+            # Support nested opening/closing
+            if any(k in mk for k in ("opening","closing")):
+                op = (mk.get("opening") or {})
+                cl = (mk.get("closing") or {})
+                choose = cl if ODDS_TAG == 'closing' else op if ODDS_TAG == 'opening' else cl or op
+                out = {"home": choose.get("home"), "draw": choose.get("draw"), "away": choose.get("away")}
+                out["_open"] = {"home": op.get("home"), "draw": op.get("draw"), "away": op.get("away")}
+                out["_close"] = {"home": cl.get("home"), "draw": cl.get("draw"), "away": cl.get("away")}
+                return out
             return {"home": mk.get("home"), "draw": mk.get("draw"), "away": mk.get("away")}
         else:
             return {}
@@ -168,6 +178,14 @@ def get_odds_ou(league: str, home_team: str, away_team: str, line: float) -> Dic
         fx = _find_fixture_local(league, home_team, away_team)
         if fx:
             ou = ((fx.get("markets") or {}).get("OU") or {}).get(f"{float(line):.1f}") or {}
+            if any(k in ou for k in ("opening","closing")):
+                op = (ou.get("opening") or {})
+                cl = (ou.get("closing") or {})
+                choose = cl if ODDS_TAG == 'closing' else op if ODDS_TAG == 'opening' else cl or op
+                out = {"Over": choose.get("Over"), "Under": choose.get("Under")}
+                out["_open"] = {"Over": op.get("Over"), "Under": op.get("Under")}
+                out["_close"] = {"Over": cl.get("Over"), "Under": cl.get("Under")}
+                return out
             return {"Over": ou.get("Over"), "Under": ou.get("Under")}
         else:
             return {}

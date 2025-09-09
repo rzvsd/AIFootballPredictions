@@ -103,6 +103,12 @@ def league_report(league: str, fixtures_csv: Optional[str], select: str, use_cal
                 'Edge_1X2': f"{float(p1['edge']):.1%}",
                 'EV_1X2': f"{float(p1['EV']):.2f}",
             })
+            try:
+                if 'delta_p_imp' in g.columns:
+                    d = float(g[(g['market']=='1X2') & (g['outcome']==p1['outcome'])]['delta_p_imp'].iloc[0])
+                    row['Delta_1X2'] = f"{d:+.2%}"
+            except Exception:
+                pass
         else:
             row.update({'Pick_1X2':'-','Prob_1X2':'-','Odds_1X2':'-','Edge_1X2':'-','EV_1X2':'-'})
         if p2 is not None:
@@ -113,6 +119,12 @@ def league_report(league: str, fixtures_csv: Optional[str], select: str, use_cal
                 'Edge_OU': f"{float(p2['edge']):.1%}",
                 'EV_OU': f"{float(p2['EV']):.2f}",
             })
+            try:
+                if 'delta_p_imp' in g.columns:
+                    d = float(g[(g['market']=='OU 2.5') & (g['outcome']==p2['outcome'])]['delta_p_imp'].iloc[0])
+                    row['Delta_OU'] = f"{d:+.2%}"
+            except Exception:
+                pass
         else:
             row.update({'Pick_OU':'-','Prob_OU':'-','Odds_OU':'-','Edge_OU':'-','EV_OU':'-'})
         # TG Interval best
@@ -144,6 +156,18 @@ def league_report(league: str, fixtures_csv: Optional[str], select: str, use_cal
         rows.append(row)
 
     out = pd.DataFrame(rows).sort_values(['Date','Home'])
+    # Attach canonical IDs for export consumers (if present in market book)
+    try:
+        mb_cols = {c.lower(): c for c in df_odds.columns}
+        def _id_lookup(d,h,a):
+            g = df_odds[(df_odds['date'].astype(str)==str(d)) & (df_odds['home'].astype(str)==str(h)) & (df_odds['away'].astype(str)==str(a))]
+            if not g.empty:
+                return int(g.iloc[0].get('home_id')), int(g.iloc[0].get('away_id'))
+            return None, None
+        out['HomeID'] = [ _id_lookup(r['Date'], r['Home'], r['Away'])[0] for _, r in out.iterrows() ]
+        out['AwayID'] = [ _id_lookup(r['Date'], r['Home'], r['Away'])[1] for _, r in out.iterrows() ]
+    except Exception:
+        pass
     return out
 
 
@@ -154,6 +178,7 @@ def main():
     ap.add_argument('--select', choices=['prob','ev'], default='prob', help='Selection mode per market')
     ap.add_argument('--no-calibration', action='store_true', help='Disable calibrators (raw probabilities)')
     ap.add_argument('--export', action='store_true', help='Export per-league CSVs under reports/')
+    ap.add_argument('--bands', action='store_true', help='Show TG uncertainty band (80% shortest interval)')
     args = ap.parse_args()
 
     # Build fixtures map
@@ -171,6 +196,15 @@ def main():
             print('(no fixtures or markets)')
             continue
         any_printed = True
+        # Optional TG bands via fusion
+        if args.bands:
+            import bet_fusion as fusion
+            cfg = fusion.load_config()
+            cfg['league'] = lg
+            tgci = fusion.compute_tg_ci(cfg, level=0.8)
+            def _ci(row):
+                return tgci.get((str(row['Date']), str(row['Home']), str(row['Away']))) or '-'
+            out['CI_TG80'] = out.apply(_ci, axis=1)
         # Build a cleaner, compact display table
         def _pack(row, kind: str) -> str:
             pick = row.get(f'Pick_{kind}')
@@ -192,8 +226,12 @@ def main():
                 'OU 2.5': _pack(r, 'OU'),
                 'TG': _pack(r, 'TG'),
                 'Higher': str(r.get('Higher', '-')),
+                # Optional odds-movement deltas for selected picks
+                'Δ1X2': str(r.get('Delta_1X2','-')),
+                'ΔOU': str(r.get('Delta_OU','-')),
+                'CI_TG80': str(r.get('CI_TG80','-')) if args.bands else '-',
             })
-        disp_cols = ['Date','Home','Away','1X2','OU 2.5','TG','Higher']
+        disp_cols = ['Date','Home','Away','1X2','OU 2.5','TG','Higher','Δ1X2','ΔOU'] + (['CI_TG80'] if args.bands else [])
         try:
             from tabulate import tabulate
             # Prefer a clear box-drawn style; fall back if unsupported
