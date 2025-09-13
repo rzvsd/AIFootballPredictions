@@ -53,6 +53,18 @@
       "home": "Hamburger SV",
       "away": "St Pauli",
       "markets": {}
+    },
+    {
+      "date": "2025-08-30",
+      "home": "Man City",
+      "away": "Everton",
+      "markets": {}
+    },
+    {
+      "date": "2025-08-31",
+      "home": "Man United",
+      "away": "Arsenal",
+      "markets": {}
     }
   ]
 }

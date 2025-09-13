@@ -37,6 +37,25 @@ ELO_SIM_FEATURES = [
 # Expand the ultimate features to include Elo-band and Elo-sim features
 ULTIMATE_FEATURES = ULTIMATE_FEATURES + ELO_BAND_FEATURES + ELO_SIM_FEATURES
 
+# MicroXG enrichment features (possession, corners, absences, and derived rates)
+EXTRA_FEATURES = [
+    # Possession EWMAs (directional)
+    'Possession_H', 'Possession_A',
+    'PossessionRec_H', 'PossessionRec_A',
+    # Corners totals EWMAs (directional)
+    'CornersFor_H', 'CornersFor_A',
+    'CornersAgainst_H', 'CornersAgainst_A',
+    # Availability / absences
+    'Availability_H', 'Availability_A', 'AvailabilityDiff',
+    # xG per possession point (rates)
+    'xGpp_H', 'xGpp_A', 'xGppRec_H', 'xGppRec_A',
+    # xG generated/allowed from corners
+    'xGCorners_H', 'xGCorners_A', 'xGCornersRec_H', 'xGCornersRec_A',
+]
+
+# Final feature order
+ULTIMATE_FEATURES = ULTIMATE_FEATURES + EXTRA_FEATURES
+
 # --- TEAM NAME NORMALIZATION MAP ---
 # This map is CRITICAL. It translates API names (left) to your dataset names (right).
 # This has been pre-filled based on your dataset list and standard API names.

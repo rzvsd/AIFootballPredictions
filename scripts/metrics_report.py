@@ -25,6 +25,7 @@ import pandas as pd
 import feature_store
 import bet_fusion as fusion
 import joblib
+from xgboost import XGBRegressor
 
 
 def read_enhanced(league: str) -> pd.DataFrame:
@@ -84,8 +85,21 @@ def predict_probs(
         return {}, {}, None
     # Load models lazily via fusion's generate_market_book path is heavier; emulate small path
     import joblib, os
-    xgb_home = joblib.load(os.path.join('advanced_models', f'{league}_ultimate_xgb_home.pkl'))
-    xgb_away = joblib.load(os.path.join('advanced_models', f'{league}_ultimate_xgb_away.pkl'))
+    hj = os.path.join('advanced_models', f'{league}_ultimate_xgb_home.json')
+    aj = os.path.join('advanced_models', f'{league}_ultimate_xgb_away.json')
+    hp = os.path.join('advanced_models', f'{league}_ultimate_xgb_home.pkl')
+    ap = os.path.join('advanced_models', f'{league}_ultimate_xgb_away.pkl')
+    def _load(json_path, pkl_path):
+        try:
+            if os.path.exists(json_path):
+                m = XGBRegressor()
+                m.load_model(json_path)
+                return m
+        except Exception:
+            pass
+        return joblib.load(pkl_path)
+    xgb_home = _load(hj, hp)
+    xgb_away = _load(aj, ap)
     # Choose goal means
     if prob_model == 'ngb':
         try:
@@ -295,7 +309,22 @@ def main() -> None:
         print(f"CRPS_TG mean={float(np.nanmean(crps_vals)):.4f} (n={len(crps_vals)})")
 
     if args.out_json:
-        out = {'league': league, 'start': args.start, 'end': args.end, 'calibrated': (not args.no_calibration), 'oneX2': s1, 'ou25': s2}
+        # Include CRPS for total goals to support k optimization
+        crps_mean = float(np.nanmean(crps_vals)) if crps_vals else float('nan')
+        crps_n = int(len(crps_vals)) if crps_vals else 0
+        out = {
+            'league': league,
+            'start': args.start,
+            'end': args.end,
+            'calibrated': (not args.no_calibration),
+            'oneX2': s1,
+            'ou25': s2,
+            'crps_tg_mean': crps_mean,
+            'crps_tg_n': crps_n,
+            'prob_model': args.prob_model,
+            'dist': args.dist,
+            'k': float(args.k),
+        }
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
         with open(args.out_json, 'w', encoding='utf-8') as f:
             json.dump(out, f, indent=2)

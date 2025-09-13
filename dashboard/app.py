@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 import json
 import datetime as dt
 from typing import Dict, List, Tuple
@@ -23,6 +24,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+
+# Ensure project root (parent of this file) is importable: config.py, bet_fusion.py
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import config
 import bet_fusion as fusion
@@ -65,6 +71,14 @@ def load_bets() -> pd.DataFrame:
         return parts[0], parts[0], parts[-1]
     df[['market_base','market_norm','outcome']] = df.apply(lambda r: pd.Series(split_market(r.get('market',''))), axis=1)
     df.rename(columns={'home_team':'home','away_team':'away'}, inplace=True)
+    # Ensure expected columns exist (older logs may miss some)
+    required_cols = ['date','league','home','away','market','odds','stake','model_prob','expected_value','market_base','market_norm','outcome']
+    for c in required_cols:
+        if c not in df.columns:
+            df[c] = np.nan
+    # Types for numeric fields
+    for c in ('odds','stake','model_prob','expected_value'):
+        df[c] = pd.to_numeric(df[c], errors='coerce')
     return df
 
 
@@ -158,7 +172,11 @@ def upcoming_predictions(league: str, top_n: int = 20) -> pd.DataFrame:
     mb = fusion.generate_market_book(cfg)
     if mb.empty:
         return mb
-    df_odds = fusion.attach_value_metrics(fusion._fill_odds_for_df(mb, league, with_odds=False), use_placeholders=True)
+    # Use real odds when available (BOT_ODDS_MODE=local loads data/odds/{LEAGUE}.json)
+    df_odds = fusion.attach_value_metrics(
+        fusion._fill_odds_for_df(mb, league, with_odds=True),
+        use_placeholders=False,
+    )
     # prefer best per market per match
     rows=[]
     for (d,h,a), g in df_odds.groupby(['date','home','away']):
@@ -248,4 +266,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

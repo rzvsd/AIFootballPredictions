@@ -1,0 +1,18 @@
+{
+  "E0": {
+    "tested": [
+      {
+        "k": 4.0,
+        "crps_tg_mean": 1.0356887642736814,
+        "path": "reports\\metrics\\E0_xgb_negbin_k4.json"
+      },
+      {
+        "k": 6.0,
+        "crps_tg_mean": 1.0341255095925999,
+        "path": "reports\\metrics\\E0_xgb_negbin_k6.json"
+      }
+    ],
+    "best_k": 6.0,
+    "best_crps": 1.0341255095925999
+  }
+}

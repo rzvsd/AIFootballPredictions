@@ -17,6 +17,7 @@ import pandas as pd
 import requests
 from requests.exceptions import RequestException
 import joblib
+from xgboost import XGBRegressor
 import numpy as np
 from scipy.stats import poisson
 import math
@@ -277,7 +278,37 @@ def _feature_row_from_snapshot(stats: pd.DataFrame, home: str, away: str) -> Opt
     hs = stats.loc[stats["team"] == home]
     as_ = stats.loc[stats["team"] == away]
     if hs.empty or as_.empty:
-        return None
+        # Fallback: synthesize baseline rows using league medians so we don't drop fixtures
+        try:
+            med = stats.median(numeric_only=True)
+            def make_side(prefix: str) -> pd.DataFrame:
+                row = {
+                    'xg_home_EWMA': float(med.get('xg_home_EWMA', med.get('xg_L5', 1.4))),
+                    'xga_home_EWMA': float(med.get('xga_home_EWMA', med.get('xga_L5', 1.2))),
+                    'xg_away_EWMA': float(med.get('xg_away_EWMA', med.get('xg_L5', 1.2))),
+                    'xga_away_EWMA': float(med.get('xga_away_EWMA', med.get('xga_L5', 1.2))),
+                    'ppg_home_EWMA': float(med.get('ppg_home_EWMA', med.get('gpg_L10', 1.5))),
+                    'ppg_away_EWMA': float(med.get('ppg_away_EWMA', med.get('gpg_L10', 1.3))),
+                    'corners_L10': float(med.get('corners_L10', 0.0)),
+                    'corners_allowed_L10': float(med.get('corners_allowed_L10', 0.0)),
+                    'elo': float(stats['elo'].mean()) if 'elo' in stats.columns else 1500.0,
+                    # Optional band/sim features
+                    'GFvsMid_H': float(med.get('GFvsMid_H', med.get('xg_L5', 1.3))),
+                    'GAvsMid_H': float(med.get('GAvsMid_H', med.get('xga_L5', 1.2))),
+                    'GFvsHigh_H': float(med.get('GFvsHigh_H', med.get('xg_L5', 1.1))),
+                    'GAvsHigh_H': float(med.get('GAvsHigh_H', med.get('xga_L5', 1.3))),
+                    'GFvsMid_A': float(med.get('GFvsMid_A', med.get('xg_L5', 1.1))),
+                    'GAvsMid_A': float(med.get('GAvsMid_A', med.get('xga_L5', 1.2))),
+                    'GFvsHigh_A': float(med.get('GFvsHigh_A', med.get('xg_L5', 1.0))),
+                    'GAvsHigh_A': float(med.get('GAvsHigh_A', med.get('xga_L5', 1.4))),
+                }
+                return pd.DataFrame([row])
+            if hs.empty:
+                hs = make_side('H')
+            if as_.empty:
+                as_ = make_side('A')
+        except Exception:
+            return None
     feat_vals = []
     mapping = {
         # Prefer EWMA home/away splits; fallback to prior columns
@@ -309,9 +340,37 @@ def _feature_row_from_snapshot(stats: pd.DataFrame, home: str, away: str) -> Opt
         'GAvsMid_A':             'GAvsMid_A',
         'GFvsHigh_A':            'GFvsHigh_A',
         'GAvsHigh_A':            'GAvsHigh_A',
+        # New: possession, corners totals, xG per possession, xG from corners
+        'Possession_H':          'possession_home_EWMA',
+        'Possession_A':          'possession_away_EWMA',
+        'PossessionRec_H':       'possession_against_home_EWMA',
+        'PossessionRec_A':       'possession_against_away_EWMA',
+        'CornersFor_H':          'corners_for_home_EWMA',
+        'CornersFor_A':          'corners_for_away_EWMA',
+        'CornersAgainst_H':      'corners_against_home_EWMA',
+        'CornersAgainst_A':      'corners_against_away_EWMA',
+        'xGpp_H':                'xg_pp_home_EWMA',
+        'xGpp_A':                'xg_pp_away_EWMA',
+        'xGppRec_H':             'xg_pp_against_home_EWMA',
+        'xGppRec_A':             'xg_pp_against_away_EWMA',
+        'xGCorners_H':           'xg_from_corners_home_EWMA',
+        'xGCorners_A':           'xg_from_corners_away_EWMA',
+        'xGCornersRec_H':        'xg_from_corners_against_home_EWMA',
+        'xGCornersRec_A':        'xg_from_corners_against_away_EWMA',
     }
     for col in config.ULTIMATE_FEATURES:
         key = mapping.get(col)
+        if col == 'AvailabilityDiff':
+            eh = float(hs.iloc[0].get('availability_index', 1.0))
+            ea = float(as_.iloc[0].get('availability_index', 1.0))
+            feat_vals.append(eh - ea)
+            continue
+        if col == 'Availability_H':
+            feat_vals.append(float(hs.iloc[0].get('availability_index', 1.0)))
+            continue
+        if col == 'Availability_A':
+            feat_vals.append(float(as_.iloc[0].get('availability_index', 1.0)))
+            continue
         if col == 'xGDiff_H':
             val = (float(hs.iloc[0].get('xg_home_EWMA', np.nan)) - float(hs.iloc[0].get('xga_home_EWMA', np.nan)))
             feat_vals.append(val)
@@ -427,7 +486,8 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         as_of=None,
         half_life_matches=int(cfg.get('half_life_matches', 5)),
         elo_k=float(cfg.get('elo_k', 20.0)),
-        elo_home_adv=float(cfg.get('elo_home_adv', 60.0))
+        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
+        micro_agg_path=cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
     )
     # Build per-team Elo-similarity histories from processed data (for dynamic features)
     try:
@@ -457,7 +517,7 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         hist_away = {}
 
     # Fixtures with fallbacks
-    fixtures, source = _fixtures_with_fallbacks(league_code=league)
+    fixtures, source = _fixtures_with_fallbacks(league_code=league, preferred_csv=cfg.get('fixtures_csv'))
 
     out = []
     for _, row in fixtures.iterrows():
@@ -467,6 +527,31 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         # Normalize to dataset names
         home = config.normalize_team_name(home_api)
         away = config.normalize_team_name(away_api)
+        try:
+            hid = team_registry.get_team_id(league, home)
+            aid = team_registry.get_team_id(league, away)
+        except Exception:
+            hid = None
+            aid = None
+        # Canonical IDs if available
+        try:
+            hid = team_registry.get_team_id(league, home)
+            aid = team_registry.get_team_id(league, away)
+        except Exception:
+            hid = None
+            aid = None
+        try:
+            hid = team_registry.get_team_id(league, home)
+            aid = team_registry.get_team_id(league, away)
+        except Exception:
+            hid = None
+            aid = None
+        try:
+            hid = team_registry.get_team_id(league, home)
+            aid = team_registry.get_team_id(league, away)
+        except Exception:
+            hid = None
+            aid = None
         try:
             hid = team_registry.get_team_id(league, home)
             aid = team_registry.get_team_id(league, away)
@@ -520,7 +605,9 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
                     mu_a_xgb = (1.0 - w) * mu_a_xgb + w * float(ma)
             except Exception:
                 pass
-        P = _score_from_cfg(mu_h_xgb, mu_a_xgb, cfg, league, max_goals)
+        # Optionally switch/blend with ShotXG aggregates (MicroXG)
+        mu_h_final, mu_a_final, _src = _blend_mu(cfg, home, away, mu_h_xgb, mu_a_xgb)
+        P = _score_from_cfg(mu_h_final, mu_a_final, cfg, league, max_goals)
 
         probs = _oneXtwo_from_matrix(P)
         out.append({"date": date_val, "home": home, "away": away, **probs})
@@ -555,11 +642,22 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
     if not intervals:
         intervals = DEFAULT_INTERVALS
 
-    # Models (XGB only)
-    home_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
-    away_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
-    xgb_home = joblib.load(home_path)
-    xgb_away = joblib.load(away_path)
+    # Models (XGB only; prefer JSON to avoid pickle warnings)
+    home_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.json")
+    away_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.json")
+    home_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
+    away_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
+    def _load_model(json_path, pkl_path):
+        try:
+            if os.path.exists(json_path):
+                m = XGBRegressor()
+                m.load_model(json_path)
+                return m
+        except Exception:
+            pass
+        return joblib.load(pkl_path)
+    xgb_home = _load_model(home_json, home_pkl)
+    xgb_away = _load_model(away_json, away_pkl)
 
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
     snap = feature_store.build_snapshot(
@@ -583,7 +681,9 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
         if feat_row is None:
             continue
         mu_h, mu_a, _ = _predict_goals_mu(cfg, league, feat_row, xgb_home, xgb_away)
-        P = _score_from_cfg(mu_h, mu_a, cfg, league, max_goals)
+        # Blend with MicroXG if configured
+        mu_h_final, mu_a_final, _src = _blend_mu(cfg, home, away, mu_h, mu_a)
+        P = _score_from_cfg(mu_h_final, mu_a_final, cfg, league, max_goals)
 
         markets = _evaluate_all_markets(P, ou_lines=ou_lines, intervals=intervals)
         # Apply calibration if available
@@ -675,17 +775,17 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
         # Flatten to rows
         # 1X2
         for k, v in markets["1X2"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "1X2", "outcome": k, "prob": v})
+            rows.append({"date": date_val, "home": home, "away": away, "market": "1X2", "outcome": k, "prob": v})
         # Double Chance
         for k, v in markets["DC"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "DC", "outcome": k, "prob": v})
+            rows.append({"date": date_val, "home": home, "away": away, "market": "DC", "outcome": k, "prob": v})
         # Over/Under
         for line, kv in markets["OU"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
-            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
+            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
+            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
         # Intervals
         for iv, pv in markets["Intervals"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "home_id": hid, "away_id": aid, "market": "TG Interval", "outcome": iv, "prob": pv})
+            rows.append({"date": date_val, "home": home, "away": away, "market": "TG Interval", "outcome": iv, "prob": pv})
 
     return pd.DataFrame(rows)
 
@@ -808,19 +908,31 @@ def _get_thresholds(cfg: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
 def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
     league = cfg.get('league','E0')
     max_goals = int(cfg.get('max_goals', config.MAX_GOALS_PER_LEAGUE.get(league, 10)))
-    home_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
-    away_path = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
-    xgb_home = joblib.load(home_path)
-    xgb_away = joblib.load(away_path)
+    home_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.json")
+    away_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.json")
+    home_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
+    away_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
+    def _load_model(json_path, pkl_path):
+        try:
+            if os.path.exists(json_path):
+                m = XGBRegressor()
+                m.load_model(json_path)
+                return m
+        except Exception:
+            pass
+        return joblib.load(pkl_path)
+    xgb_home = _load_model(home_json, home_pkl)
+    xgb_away = _load_model(away_json, away_pkl)
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
     snap = feature_store.build_snapshot(
         enhanced_csv=enh_path,
         as_of=None,
         half_life_matches=int(cfg.get('half_life_matches', 5)),
         elo_k=float(cfg.get('elo_k', 20.0)),
-        elo_home_adv=float(cfg.get('elo_home_adv', 60.0))
+        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
+        micro_agg_path=cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
     )
-    fixtures, _ = _fixtures_with_fallbacks(league_code=league)
+    fixtures, _ = _fixtures_with_fallbacks(league_code=league, preferred_csv=cfg.get('fixtures_csv'))
     out = {}
     for _, r in fixtures.iterrows():
         home_api = str(r.get("home_team", r.get("home_team_api", ""))).strip()
@@ -1031,8 +1143,7 @@ def main() -> None:
         print("Print-only mode: set log_bets=true to record stakes.")
 
 
-if __name__ == "__main__":
-    main()
+# Note: keep __main__ at the end of file so that all helpers are defined before CLI runs
 def _predict_xgb(model, feat_df: pd.DataFrame) -> float:
     """Predict with XGB model using model's known feature names if available to avoid name mismatch."""
     try:
@@ -1066,6 +1177,7 @@ def _predict_xgb(model, feat_df: pd.DataFrame) -> float:
 
 # --- Probabilistic model integration (Phase 3) ---
 _PROB_MODEL_CACHE: Dict[str, dict] = {}
+_MICRO_AGG_CACHE: Dict[str, dict] = {}
 
 def _load_prob_models(league: str) -> dict:
     if league in _PROB_MODEL_CACHE:
@@ -1083,6 +1195,75 @@ def _load_prob_models(league: str) -> dict:
     _PROB_MODEL_CACHE[league] = models
     return models
 
+
+def _load_micro_map(path: str) -> dict:
+    """Load micro aggregates CSV and return mapping (team_std, side) -> xg_for_EWMA.
+
+    Team names are normalized via config.normalize_team_name to match engine names.
+    """
+    if not path:
+        return {}
+    if path in _MICRO_AGG_CACHE:
+        return _MICRO_AGG_CACHE[path]
+    try:
+        import pandas as pd  # local import
+        if not os.path.exists(path):
+            _MICRO_AGG_CACHE[path] = {}
+            return _MICRO_AGG_CACHE[path]
+        df = pd.read_csv(path)
+        # Normalize
+        if 'team' not in df.columns or 'side' not in df.columns:
+            _MICRO_AGG_CACHE[path] = {}
+            return _MICRO_AGG_CACHE[path]
+        try:
+            df['date'] = pd.to_datetime(df.get('date'), errors='coerce')
+        except Exception:
+            pass
+        df['team'] = df['team'].astype(str).map(config.normalize_team_name)
+        # Keep latest per (team, side)
+        df = df.sort_values(['team','side','date'])
+        last = df.groupby(['team','side'], as_index=False).tail(1)
+        m = {}
+        for _, r in last.iterrows():
+            try:
+                key = (str(r['team']), str(r['side']).upper()[:1])
+                val = float(r.get('xg_for_EWMA', r.get('xg_for', 0.0)) or 0.0)
+                if val <= 0:
+                    # fallback to per-match xg_for if EWMA missing/nonpositive
+                    val = float(r.get('xg_for', 0.0) or 0.0)
+                m[key] = max(0.05, val)
+            except Exception:
+                continue
+        _MICRO_AGG_CACHE[path] = m
+        return m
+    except Exception:
+        _MICRO_AGG_CACHE[path] = {}
+        return _MICRO_AGG_CACHE[path]
+
+
+def _blend_mu(cfg: Dict[str, Any], home: str, away: str, mu_h_macro: float, mu_a_macro: float) -> tuple[float, float, str]:
+    src = str(cfg.get('xg_source', 'macro')).lower()
+    if src not in ('macro','micro','blend'):
+        src = 'macro'
+    micro_path = cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
+    micro = _load_micro_map(micro_path) if src in ('micro','blend') else {}
+    mu_h_micro = micro.get((home, 'H'))
+    mu_a_micro = micro.get((away, 'A'))
+    if src == 'micro':
+        if mu_h_micro is not None and mu_a_micro is not None:
+            return float(mu_h_micro), float(mu_a_micro), 'micro'
+        return mu_h_macro, mu_a_macro, 'macro'
+    if src == 'blend':
+        try:
+            w = float(cfg.get('xg_blend_weight', 0.5))
+        except Exception:
+            w = 0.5
+        if mu_h_micro is not None:
+            mu_h_macro = (1.0 - w) * mu_h_macro + w * float(mu_h_micro)
+        if mu_a_micro is not None:
+            mu_a_macro = (1.0 - w) * mu_a_macro + w * float(mu_a_micro)
+        return mu_h_macro, mu_a_macro, 'blend'
+    return mu_h_macro, mu_a_macro, 'macro'
 
 def _predict_goals_mu(cfg: Dict[str, Any], league: str, feat_row: pd.DataFrame,
                       xgb_home_model, xgb_away_model) -> tuple[float, float, str]:
@@ -1104,3 +1285,6 @@ def _predict_goals_mu(cfg: Dict[str, Any], league: str, feat_row: pd.DataFrame,
                 pass
     # Fallback to XGB
     return _predict_xgb(xgb_home_model, feat_row), _predict_xgb(xgb_away_model, feat_row), 'xgb'
+ 
+if __name__ == "__main__":
+    main()

@@ -19,6 +19,7 @@ from typing import Dict, Tuple, Set, Optional
 import pandas as pd
 
 import bet_fusion as fusion
+import config as cfgmod
 
 
 def _read_fixtures_filter(path: str) -> Set[Tuple[str, str, str]]:
@@ -39,8 +40,9 @@ def _read_fixtures_filter(path: str) -> Set[Tuple[str, str, str]]:
         df['_date'] = dd.dt.strftime('%Y-%m-%d')
     except Exception:
         df['_date'] = df[date_col].astype(str)
-    df['_home'] = df[home_col].astype(str).str.strip()
-    df['_away'] = df[away_col].astype(str).str.strip()
+    # Normalize team names to internal canonical names to match market book
+    df['_home'] = df[home_col].astype(str).str.strip().apply(cfgmod.normalize_team_name)
+    df['_away'] = df[away_col].astype(str).str.strip().apply(cfgmod.normalize_team_name)
     return set(df[['_date','_home','_away']].itertuples(index=False, name=None))
 
 
@@ -56,6 +58,8 @@ def _select_pick(group: pd.DataFrame, market_name: str, mode: str) -> Optional[p
 def league_report(league: str, fixtures_csv: Optional[str], select: str, use_calibration: bool) -> pd.DataFrame:
     cfg = fusion.load_config()
     cfg['league'] = league
+    if fixtures_csv:
+        cfg['fixtures_csv'] = fixtures_csv
     if not use_calibration:
         cfg['use_calibration'] = False
     mb = fusion.generate_market_book(cfg)
@@ -242,10 +246,10 @@ def main():
 
         # Legend under the table (short one-liners)
         try:
-            print("\nLegenda:")
-            print("- EV: valoarea așteptată a pariului la cotele afișate.")
-            print("- Higher: piața cu probabilitate mai mare între 1X2 și OU 2.5.")
-            print("- TG: interval de total goluri (ex. 0-3 înseamnă 0 până la 3 goluri).")
+            print("\nLegend:")
+            print("- EV: expected value at displayed odds.")
+            print("- Higher: market with higher probability between 1X2 and OU 2.5.")
+            print("- TG: total-goals interval (e.g., 0-3 means 0 up to 3 goals).")
         except Exception:
             pass
 
@@ -262,3 +266,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -55,8 +55,12 @@ if __name__ == "__main__":
 
 
 # --- New: snapshot builder used by one_click_predictor.py ---
-def build_snapshot(enhanced_csv: str, as_of: str | None = None, half_life_matches: int = 5,
-                   elo_k: float = 20.0, elo_home_adv: float = 60.0) -> pd.DataFrame:
+def build_snapshot(enhanced_csv: str,
+                   as_of: str | None = None,
+                   half_life_matches: int = 5,
+                   elo_k: float = 20.0,
+                   elo_home_adv: float = 60.0,
+                   micro_agg_path: str | None = os.path.join('data','enhanced','micro_agg.csv')) -> pd.DataFrame:
     """
     Build a per-team snapshot DataFrame from an enhanced CSV.
 
@@ -246,4 +250,65 @@ def build_snapshot(enhanced_csv: str, as_of: str | None = None, half_life_matche
             snap['availability_index'] = 1.0
     except Exception:
         snap['availability_index'] = 1.0
+    # Merge micro-aggregate directional EWMAs (possession, corners, xG per poss, xG from corners)
+    try:
+        if micro_agg_path and os.path.exists(micro_agg_path):
+            m = pd.read_csv(micro_agg_path)
+            # Restrict to cutoff if provided
+            if 'date' in m.columns:
+                try:
+                    m['date'] = pd.to_datetime(m['date'], errors='coerce')
+                    if as_of:
+                        cutoff = pd.to_datetime(as_of)
+                        m = m[m['date'] <= cutoff]
+                except Exception:
+                    pass
+            # Latest per team+side
+            m['team'] = m['team'].astype(str)
+            m = m.sort_values(['team','side','date'])
+            last = m.groupby(['team','side'], as_index=False).tail(1)
+            # Build per-team columns
+            def pick(side_val: str, col: str):
+                try:
+                    return last.loc[last['side'].astype(str)==side_val, ['team', col]].rename(columns={col: f"{col}_{'home' if side_val=='H' else 'away'}"})
+                except Exception:
+                    return pd.DataFrame(columns=['team', f"{col}_{'home' if side_val=='H' else 'away'}"])
+            cols_to_merge = [
+                'possession_for_EWMA','possession_against_EWMA',
+                'corners_total_for_EWMA','corners_total_against_EWMA',
+                'xg_for_per_poss_EWMA','xg_against_per_poss_EWMA',
+                'xg_from_corners_for_EWMA','xg_from_corners_against_EWMA'
+            ]
+            add = snap[['team']].copy()
+            for c in cols_to_merge:
+                for side in ('H','A'):
+                    try:
+                        sub = pick(side, c)
+                        add = add.merge(sub, on='team', how='left')
+                    except Exception:
+                        # silently continue if column missing
+                        pass
+            # Rename to consistent snapshot keys used by inference mapping
+            ren = {
+                'possession_for_EWMA_home': 'possession_home_EWMA',
+                'possession_for_EWMA_away': 'possession_away_EWMA',
+                'possession_against_EWMA_home': 'possession_against_home_EWMA',
+                'possession_against_EWMA_away': 'possession_against_away_EWMA',
+                'corners_total_for_EWMA_home': 'corners_for_home_EWMA',
+                'corners_total_for_EWMA_away': 'corners_for_away_EWMA',
+                'corners_total_against_EWMA_home': 'corners_against_home_EWMA',
+                'corners_total_against_EWMA_away': 'corners_against_away_EWMA',
+                'xg_for_per_poss_EWMA_home': 'xg_pp_home_EWMA',
+                'xg_for_per_poss_EWMA_away': 'xg_pp_away_EWMA',
+                'xg_against_per_poss_EWMA_home': 'xg_pp_against_home_EWMA',
+                'xg_against_per_poss_EWMA_away': 'xg_pp_against_away_EWMA',
+                'xg_from_corners_for_EWMA_home': 'xg_from_corners_home_EWMA',
+                'xg_from_corners_for_EWMA_away': 'xg_from_corners_away_EWMA',
+                'xg_from_corners_against_EWMA_home': 'xg_from_corners_against_home_EWMA',
+                'xg_from_corners_against_EWMA_away': 'xg_from_corners_against_away_EWMA',
+            }
+            add = add.rename(columns=ren)
+            snap = snap.merge(add, on='team', how='left')
+    except Exception:
+        pass
     return snap

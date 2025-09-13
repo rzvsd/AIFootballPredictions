@@ -1,0 +1,42 @@
+{
+  "counts": {
+    "train": 16321,
+    "test": 4081
+  },
+  "train_raw": {
+    "auc": 0.9686237843134123,
+    "logloss": 0.17352056020155807,
+    "brier": 0.04993300117829736
+  },
+  "test_raw": {
+    "auc": 0.745960494925897,
+    "logloss": 0.31051774733370663,
+    "brier": 0.08601303506811031
+  },
+  "test_iso": {
+    "auc": 0.7534298092730621,
+    "logloss": 0.29337623503045807,
+    "brier": 0.08355010507933743
+  },
+  "features": [
+    "dist_m",
+    "angle_deg",
+    "X",
+    "Y",
+    "minute",
+    "is_header",
+    "fast_break",
+    "isKeyPass",
+    "situation_DirectFreekick",
+    "situation_FromCorner",
+    "situation_OpenPlay",
+    "situation_Penalty",
+    "situation_SetPiece",
+    "shotType_Head",
+    "shotType_LeftFoot",
+    "shotType_OtherBodyPart",
+    "shotType_RightFoot",
+    "h_a_a",
+    "h_a_h"
+  ]
+}

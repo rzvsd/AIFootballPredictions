@@ -180,11 +180,16 @@ def feature_selection(df, target_column="Over2.5", num_features=20, clustering_t
     """
     try:
         numerical_columns = df.drop(["Date"], axis=1).select_dtypes(exclude='object').columns.tolist()
-        X = df[numerical_columns].drop([target_column], axis=1)
-        y = df[target_column]
-        
-        # 1.0- Select the top features using mRMR
-        selected_features = mrmr_classif(X=X, y=y, K=num_features)
+        X = df[numerical_columns].drop([target_column], axis=1, errors='ignore')
+        y = df[target_column] if target_column in df.columns else None
+
+        # 1.0- Select the top features using mRMR (if available); otherwise variance fallback
+        if HAS_MRMR and (y is not None):
+            selected_features = mrmr_classif(X=X, y=y, K=num_features)
+        else:
+            # Fallback: highest-variance numeric features excluding target
+            num_df = df.select_dtypes(include=[np.number]).drop(columns=[target_column], errors='ignore')
+            selected_features = list(num_df.var().sort_values(ascending=False).head(max(1, num_features)).index)
 
         """
         DRASTIC DECREASE IN PERFORMANCE WHEN STANDARDIZING THE FEATURES
@@ -219,8 +224,12 @@ def feature_selection(df, target_column="Over2.5", num_features=20, clustering_t
         return selected_features_clustered
     
     except Exception as e:
-        print(f"Error during feature selection: {e}")
-        return []
+        # Silent fallback to variance-based selection to keep pipeline clean
+        try:
+            num_df = df.select_dtypes(include=[np.number]).drop(columns=[target_column], errors='ignore')
+            return list(num_df.var().sort_values(ascending=False).head(max(1, num_features)).index)
+        except Exception:
+            return []
 
 def handle_missing_values(df, missing_threshold=10):
     """

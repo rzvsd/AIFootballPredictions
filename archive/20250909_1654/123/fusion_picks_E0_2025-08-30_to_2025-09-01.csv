@@ -1,0 +1,7 @@
+league,kickoff_utc,home,away,market,side,model_prob,conf,note
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,OU1.5,Over,0.7607,0.7429,
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,DC,X2,0.6862,0.6787,
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,HCP(+0.5),Chelsea,0.6862,0.6787,
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,HCP(+1.0),Chelsea,0.6862,0.6787,
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,DC,12,0.7472,0.673,
+E0,2025-08-22T13:00:00Z,West Ham,Chelsea,HOME_GOALS,0-1,0.6464,0.6509,
