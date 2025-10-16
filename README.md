@@ -1,7 +1,7 @@
 ﻿<div align="center">
 
-# AI Football Predictions
 
+Repository: https://github.com/rzvsd/AIFootballPredictions (branches: main, test)
 Hybrid XGBoost + Probabilistic engine for 1X2, OU 2.5 and Total‑Goals intervals, with calibration, odds integration and compact round reports.
 Current highlights:
 - Micro xG (ShotXG) enrichment (possession/corners/xG‑per‑possession/xG‑from‑corners EWMAs)
@@ -448,6 +448,7 @@ This project is for educational purposes. Predictions are uncertain and should n
 
 - Matplotlib missing: ensure `pip install -r requirements.txt` ran in the venv. If a later `pip install` upgraded `numpy` and caused conflicts, pin back with `pip install --force-reinstall --no-deps numpy==1.23.5` and `pip install --no-deps matplotlib==3.8.4`.
 - ModuleNotFoundError: `config` in Streamlit: run `streamlit` from the repo root (so `config.py` is importable). The app also adds the project root to `sys.path` automatically.
+
 
 
 

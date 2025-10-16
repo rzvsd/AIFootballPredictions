@@ -1,5 +1,5 @@
-"""
-Streamlit Dashboard — Monitoring (Phase 4)
+﻿"""
+Streamlit Dashboard â€” Monitoring (Phase 4)
 
 Features:
 - Bankroll and P/L with filters (league/date/market)
@@ -148,7 +148,7 @@ def compute_pnl(df_bets: pd.DataFrame, leagues: List[str]) -> pd.DataFrame:
     for lg in sorted(set([l for l in leagues if isinstance(l,str) and l])):
         res_all.append(load_results_for_league(lg))
     res = pd.concat(res_all, ignore_index=True) if res_all else pd.DataFrame(columns=['date','home','away','_res','_tot'])
-    # Create match key by teams; date match is tricky due to kickoff time — we’ll match by teams first per day window.
+    # Create match key by teams; date match is tricky due to kickoff time â€” weâ€™ll match by teams first per day window.
     bets = df_bets.copy()
     bets['date_d'] = pd.to_datetime(bets['date'], errors='coerce').dt.date
     res['date_d'] = pd.to_datetime(res['Date'], errors='coerce').dt.date
@@ -167,6 +167,22 @@ def compute_pnl(df_bets: pd.DataFrame, leagues: List[str]) -> pd.DataFrame:
 
 
 def upcoming_predictions(league: str, top_n: int = 20) -> pd.DataFrame:
+    # Prefer using saved picks if available for this league (ensures consistency)
+    try:
+        import glob
+        import pandas as pd  # type: ignore
+        paths = sorted(glob.glob(os.path.join('reports', f'{league}_*_picks.csv')))
+        if paths:
+            last = paths[-1]
+            df = pd.read_csv(last)
+            cols = [c for c in ['date','home','away','market','outcome','prob','odds','edge','EV'] if c in df.columns]
+            df = df[cols].copy()
+            for c in ('EV','prob','odds','edge'):
+                if c in df.columns:
+                    df[c] = pd.to_numeric(df[c], errors='coerce')
+            return df.sort_values(['EV','prob'], ascending=[False, False]).head(top_n)
+    except Exception:
+        pass
     cfg = fusion.load_config()
     cfg['league'] = league
     mb = fusion.generate_market_book(cfg)
@@ -177,7 +193,22 @@ def upcoming_predictions(league: str, top_n: int = 20) -> pd.DataFrame:
         fusion._fill_odds_for_df(mb, league, with_odds=True),
         use_placeholders=False,
     )
-    # prefer best per market per match
+    # Extra safety: keep only teams that belong to the selected league
+    try:
+        import pandas as pd  # type: ignore
+        proc = os.path.join('data','processed', f'{league}_merged_preprocessed.csv')
+        raw = os.path.join('data','raw', f'{league}_merged.csv')
+        team_set = set()
+        src = proc if os.path.exists(proc) else raw if os.path.exists(raw) else None
+        if src:
+            df_t = pd.read_csv(src)
+            homes = df_t.get('HomeTeam') if 'HomeTeam' in df_t.columns else pd.Series([], dtype=str)
+            aways = df_t.get('AwayTeam') if 'AwayTeam' in df_t.columns else pd.Series([], dtype=str)
+            team_set = set(homes.dropna().astype(str).map(config.normalize_team_name)) | set(aways.dropna().astype(str).map(config.normalize_team_name))
+        if team_set:
+            df_odds = df_odds[df_odds['home'].astype(str).isin(team_set) & df_odds['away'].astype(str).isin(team_set)]
+    except Exception:
+        pass    # prefer best per market per match
     rows=[]
     for (d,h,a), g in df_odds.groupby(['date','home','away']):
         # pick highest EV among each market base
@@ -203,7 +234,7 @@ def fig_to_png_bytes(fig) -> bytes:
 
 
 def main():
-    st.set_page_config(page_title='Football Predictions — Monitoring', layout='wide')
+    st.set_page_config(page_title='Football Predictions â€” Monitoring', layout='wide')
     st.title('Monitoring Dashboard')
 
     # Sidebar filters
@@ -266,3 +297,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
