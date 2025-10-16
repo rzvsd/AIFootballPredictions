@@ -184,6 +184,30 @@ TEAM_NAME_MAP = {
     "Venezia":                   "Venezia",
 }
 
+# Additional football-data.org name variants (I1)
+TEAM_NAME_MAP.update({
+    "US Lecce": "Lecce",
+    "Cagliari Calcio": "Cagliari",
+    "Bologna FC 1909": "Bologna",
+    "Genoa CFC": "Genoa",
+    "Hellas Verona FC": "Verona",
+    "Juventus FC": "Juventus",
+    "Udinese Calcio": "Udinese",
+    "AC Milan": "Milan",
+    "SS Lazio": "Lazio",
+    "AS Roma": "Roma",
+    "Torino FC": "Torino",
+    "Atalanta BC": "Atalanta",
+    "US Cremonese": "Cremonese",
+    "Parma Calcio 1913": "Parma",
+    "ACF Fiorentina": "Fiorentina",
+    "Como 1907": "Como",
+    "FC Internazionale Milano": "Inter",
+    "US Sassuolo Calcio": "Sassuolo",
+    "SSC Napoli": "Napoli",
+    "AC Pisa 1909": "Pisa",
+})
+
 # --- DISPERSION AND MATRIX SETTINGS ---
 # Optional per-league Poisson matrix cap (can be overridden in cfg)
 MAX_GOALS_PER_LEAGUE = {
@@ -207,3 +231,22 @@ def normalize_team_name(api_name: str) -> str:
     """Uses the map to convert an API team name to your internal model name."""
     # Safely returns the original name if it's not found in the map
     return TEAM_NAME_MAP.get(api_name, api_name)
+
+# Additional football-data.org name variants (D1)
+TEAM_NAME_MAP.update({
+    "FC Bayern München": "Bayern Munich",
+    "Borussia Mönchengladbach": "M'gladbach",
+    "1. FC Köln": "FC Koln",
+    "TSG 1899 Hoffenheim": "Hoffenheim",
+    "SV Werder Bremen": "Werder Bremen",
+    "Bayer 04 Leverkusen": "Leverkusen",
+    "VfL Wolfsburg": "Wolfsburg",
+    "VfB Stuttgart": "Stuttgart",
+    "Eintracht Frankfurt": "Ein Frankfurt",
+    "1. FC Union Berlin": "Union Berlin",
+    "FC Augsburg": "Augsburg",
+    "1. FSV Mainz 05": "Mainz",
+    "Hamburger SV": "Hamburger SV",
+    "FC St. Pauli 1910": "St Pauli",
+    "1. FC Heidenheim 1846": "Heidenheim",
+})

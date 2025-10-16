@@ -1,4 +1,4 @@
-"""
+﻿"""
 Fetch real odds from API-Football and write local odds JSON used by bookmaker_api (ODDS_MODE=local).
 
 Usage examples:
@@ -46,7 +46,12 @@ LEAGUE_IDS = {
 
 
 def _headers() -> Dict[str, str]:
-    key = os.getenv('API_FOOTBALL_ODDS_KEY') or os.getenv('API_FOOTBALL_KEY')
+    # Accept multiple env var names to reduce config friction
+    key = (
+        os.getenv('API_FOOTBALL_ODDS_KEY')
+        or os.getenv('API_FOOTBALL_KEY')
+        or os.getenv('API_FOOTBALL_DATA')  # fallback (legacy var name found in some setups)
+    )
     if not key:
         raise RuntimeError('Missing API key: set API_FOOTBALL_KEY or API_FOOTBALL_ODDS_KEY')
     return {'x-apisports-key': key}
@@ -57,11 +62,11 @@ def _season_for_today() -> int:
     return today.year if today.month >= 8 else today.year - 1
 
 
-def _get_fixtures_from_api(league_id: int, days: int) -> List[Dict]:
+def _get_fixtures_from_api(league_id: int, days: int, season: int | None = None) -> List[Dict]:
     today = dt.date.today()
     params = {
         'league': league_id,
-        'season': _season_for_today(),
+        'season': season or _season_for_today(),
         'from': today.isoformat(),
         'to': (today + dt.timedelta(days=days)).isoformat(),
     }
@@ -81,6 +86,48 @@ def _get_fixtures_from_api(league_id: int, days: int) -> List[Dict]:
     return fixtures
 
 
+def _get_next_fixtures_from_api(league_id: int, next_n: int = 20, season: int | None = None) -> List[Dict]:
+    """Fallback: fetch the next N scheduled fixtures for a league, regardless of the date window.
+
+    Useful when a tight [from, to] range returns nothing due to breaks (e.g., international windows).
+    """
+    params = {
+        'league': league_id,
+        'next': int(next_n),
+    }
+    # Try with explicit season first (some plans require it), then without if empty
+    data = []
+    try:
+        p1 = dict(params)
+        if season:
+            p1['season'] = season
+        else:
+            p1['season'] = _season_for_today()
+        r = requests.get(f"{API_BASE}/fixtures", params=p1, headers=_headers(), timeout=20)
+        r.raise_for_status()
+        data = r.json().get('response', [])
+    except Exception:
+        data = []
+    if not data:
+        try:
+            r2 = requests.get(f"{API_BASE}/fixtures", params=params, headers=_headers(), timeout=20)
+            r2.raise_for_status()
+            data = r2.json().get('response', [])
+        except Exception:
+            data = []
+    out: List[Dict] = []
+    for it in data:
+        fx = it.get('fixture', {})
+        teams = it.get('teams', {})
+        out.append({
+            'fixture_id': fx.get('id'),
+            'date': (fx.get('date') or '')[:10],
+            'home_api': (teams.get('home') or {}).get('name'),
+            'away_api': (teams.get('away') or {}).get('name'),
+        })
+    return out
+
+
 def _read_fixtures_csv(path: str) -> List[Dict]:
     import pandas as pd
     df = pd.read_csv(path)
@@ -98,11 +145,11 @@ def _read_fixtures_csv(path: str) -> List[Dict]:
     return res
 
 
-def _map_names_to_api(fixtures_csv: List[Dict], league_id: int) -> List[Dict]:
+def _map_names_to_api(fixtures_csv: List[Dict], league_id: int, days: int = 10) -> List[Dict]:
     """Map CSV names to API fixtures by fuzzy matching team names/date."""
     import difflib
-    # Pull next 10 days of fixtures to match
-    api_fixtures = _get_fixtures_from_api(league_id, days=10)
+    # Pull upcoming fixtures window to match against
+    api_fixtures = _get_fixtures_from_api(league_id, days=max(1, int(days)))
     out = []
     for row in fixtures_csv:
         hcand = [fx for fx in api_fixtures]
@@ -190,6 +237,7 @@ def main() -> None:
     ap.add_argument('--league', required=True, help='League code (E0,D1,F1,I1,SP1)')
     ap.add_argument('--fixtures-csv', default=None, help='Fixtures CSV to drive matching (preferred)')
     ap.add_argument('--days', type=int, default=7, help='If no CSV, how many days ahead to fetch')
+    ap.add_argument('--season', type=int, default=None, help='Override season start year (e.g., 2025 for 2025-26)')
     ap.add_argument('--tag', choices=['opening','closing'], default='closing', help='Mark snapshot as opening or closing')
     args = ap.parse_args()
 
@@ -201,17 +249,37 @@ def main() -> None:
 
     if args.fixtures_csv:
         csv_rows = _read_fixtures_csv(args.fixtures_csv)
-        mapped = _map_names_to_api(csv_rows, league_id)
+        mapped = _map_names_to_api(csv_rows, league_id, days=args.days)
     else:
-        api_fix = _get_fixtures_from_api(league_id, args.days)
-        mapped = []
-        for fx in api_fix:
-            mapped.append({
+        # Primary: tight date window requested by user
+        api_fix = _get_fixtures_from_api(league_id, args.days, season=args.season)
+        mapped = [
+            {
                 'fixture_id': fx['fixture_id'],
                 'date': fx['date'],
                 'home': config.normalize_team_name(fx['home_api'] or ''),
                 'away': config.normalize_team_name(fx['away_api'] or ''),
-            })
+            }
+            for fx in api_fix
+        ]
+        # Fallback: if empty window (e.g., international break), fetch the next N fixtures
+        if not mapped:
+            try:
+                # Try with season, then without (inside helper)
+                fallback = _get_next_fixtures_from_api(league_id, next_n=max(20, args.days), season=args.season)
+                mapped = [
+                    {
+                        'fixture_id': fx['fixture_id'],
+                        'date': fx['date'],
+                        'home': config.normalize_team_name(fx['home_api'] or ''),
+                        'away': config.normalize_team_name(fx['away_api'] or ''),
+                    }
+                    for fx in fallback
+                ]
+                if mapped:
+                    print(f"[info] No fixtures in next {args.days} days for {lg} (season={args.season or _season_for_today()}). Using 'next' fallback (N={len(mapped)}).")
+            except Exception as e:
+                print(f"[warn] Fallback 'next' fixtures failed for {lg}: {e}")
 
     out_fixtures = []
     for m in mapped:
@@ -258,6 +326,10 @@ def main() -> None:
         ex_fixtures = existing.get('fixtures', [])
     except Exception:
         ex_fixtures = []
+    # When sourcing by days (API), purge entries not in the new mapped keys to avoid stale/cross-league leftovers
+    if not args.fixtures_csv:
+        keep_keys = {(str(m.get('date')), m.get('home'), m.get('away')) for m in mapped}
+        ex_fixtures = [it for it in ex_fixtures if (str(it.get('date')), it.get('home'), it.get('away')) in keep_keys]
     # index existing by (date, home, away)
     idx = {(str(it.get('date')), it.get('home'), it.get('away')): it for it in ex_fixtures}
     for nf in out_fixtures:
@@ -285,3 +357,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+

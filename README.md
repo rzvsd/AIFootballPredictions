@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # AI Football Predictions
 
@@ -12,6 +12,73 @@ Current highlights:
 
 </div>
 
+## One-Command Orchestrator
+
+- Single league: `python predict.py --league E0`
+- Multiple leagues: `python predict.py --leagues E0 D1 F1 I1 SP1`
+- What it does (per league): refresh data (raw->processed), rebuild micro aggregates, fetch real odds, seed absences if missing, (re)train if stale, and print top picks + per‑match summary.
+- Requirements: Python 3.11+, dependencies installed (`pip install -r requirements.txt`), and API key in `.env` (`API_FOOTBALL_KEY=...`).
+- Min‑odds filter: set `BOT_MIN_ODDS=1.6` (default 1.60) to exclude very mici cote din ranking.
+
+- Compact round table in one go:
+
+  `python predict.py --league D1 --days 21 --compact`
+
+  This refreshes data, trains if needed, populates fixtures/odds (with fallback), prints picks, and shows the compact per-match prognostics.
+
+
+
+- All leagues examples:
+
+  `python predict.py --league E0 --days 21 --compact`
+  `python predict.py --league D1 --days 21 --compact`
+  `python predict.py --league F1 --days 21 --compact`
+  `python predict.py --league I1 --days 21 --compact`
+  `python predict.py --league SP1 --days 21 --compact`
+
+- Multi-league (prints a section per league):
+
+  `python predict.py --leagues E0 D1 F1 I1 SP1 --days 21 --compact`
+### Fallbacks and Fixtures (New)
+
+- If the primary odds/fixtures provider (API-Football) returns an empty window, the orchestrator now:
+  1) Generates a weekly fixtures CSV via football-data.org: `data/fixtures/{LEAGUE}_weekly_fixtures.csv`
+  2) Refetches odds using that CSV to align team names and dates
+
+  This removes manual steps when international breaks or plan limits cause empty API-Football responses.
+
+- Team name normalization expanded for Bundesliga (D1) to cover umlaut/variant names (e.g., "FC Bayern München", "1. FC Köln", "Borussia Mönchengladbach").
+
+### Full Round Table
+## Project Status Summary
+
+- One-command orchestrator: `predict.py` refreshes data, builds micro aggregates, fetches odds with fallback, retrains if stale, prints picks and per-match tables. Add `--compact` to print concise prognostics per game.
+- Compact views:
+  - Next round: `python -m scripts.print_best_per_match --by prob` or `predict.py --compact`.
+  - Last round (no leakage):
+    - Date-window mode with final labels (requires `API_FOOTBALL_DATA`): `predict.py --from YYYY-MM-DD --to YYYY-MM-DD --compact`.
+    - Round-based mode (API-Football): `python -m scripts.last_round_report --league SP1 --season 2025`.
+- Fixtures & odds:
+  - Primary odds: API-Football. If empty window, fallback generates weekly fixtures via football-data.org and refetches odds.
+  - Results labels: from football-data.org (date windows) or API-Football rounds (last_round_report).
+- Models & features:
+  - XGBoost goal models (JSON preferred) + NegBin/Poisson score matrix.
+  - ShotXG micro aggregates (Understat optional); proceeds with existing shots if Understat package is unavailable.
+  - Per-league calibrators supported; defaults are safe if missing.
+- Team names: normalization map expanded (Bundesliga umlauts/variants). Additional variants can be added as needed.
+- Known caveats:
+  - An empty weekly fixtures CSV can block API fallbacks; for historical evaluations prefer `last_round_report` or supply a round fixtures CSV.
+  - API plan scope matters: past fixtures/results require appropriate permissions (both for API-Football and football-data.org).
+  - Console may show encoding artifacts for some team names; normalization still works for modeling.
+
+- To print a compact table for the next round (all games; 1X2, OU 2.5, and Total-Goals intervals):
+
+```
+python -m scripts.print_best_per_match --by prob   # or --by ev
+```
+
+- The orchestrator already prints picks and a per-match summary; the command above is handy for exporting/printing the full next-round view.
+
 ## Table of Contents
 
 1. Project Overview
@@ -23,6 +90,26 @@ Current highlights:
 7. Betting Bot
 8. Reporting (Dashboard)
 9. Supported Leagues
+
+
+### Last-Round Evaluation (No Leak, Auto-Results)
+
+- Evaluate the previous round by passing a finished date window together with `--compact`:
+
+  `python predict.py --league SP1 --from 2025-09-13 --to 2025-09-16 --compact`
+
+- Snapshot cutoff (no leakage): features are frozen at the round start using `BOT_SNAPSHOT_AS_OF` or `BOT_FIXTURES_FROM` (automatically set by the orchestrator for `--from/--to`).
+- Results join: if `API_FOOTBALL_DATA` (or `FOOTBALL_DATA_API_KEY`) is set, the compact table appends the final score and correctness labels for each market:
+  `final: 2-1 [OK OK KO]` → 1X2 OK, OU OK, TG KO.
+- Works for all supported leagues (E0, D1, F1, I1, SP1). Replace league and dates as needed.
+- Tip: you can set `BOT_FIXTURES_FROM`/`BOT_FIXTURES_TO` explicitly when running scripts directly (e.g., `python -m scripts.round_prognostics --league D1`).
+- Round-based (API-Football) one-liner (auto-picks last completed round):
+
+```
+python -m scripts.last_round_report --league SP1 --season 2025
+```
+
+This queries `/fixtures/rounds` to get the current round label, falls back to the previous one if needed, fetches finished fixtures (`status=FT-AET-PEN`), freezes features at the earliest kickoff, then prints the compact table with final scores and correctness labels.
 10. Contributing
 11. License
 12. Disclaimer
@@ -62,9 +149,22 @@ Per-league probability calibrators (isotonic/Platt) correct biases. A compact re
 
 ## API Notes
 
-- Keys: set in `.env` or env vars: `API_FOOTBALL_KEY` (and optionally `API_FOOTBALL_ODDS_KEY`).
+- Keys: set in `.env` or env vars: `API_FOOTBALL_KEY` (and optionally `API_FOOTBALL_ODDS_KEY`). For fixtures fallback the orchestrator also accepts `API_FOOTBALL_DATA` (football-data.org token).
 - Season = start year (e.g., 2024 for 2024–2025).
 - Fixture statistics (possession) return only for supported plans and completed matches.
+
+
+- Results (last-round labels): set `API_FOOTBALL_DATA` (or `FOOTBALL_DATA_API_KEY`) to fetch final scores for the requested date window and print correctness labels in the compact table.
+### Odds and Fixtures Behavior (Updated)
+
+- Primary source: API-Football (requires `API_FOOTBALL_KEY`).
+- Fallback source: football-data.org (requires `API_FOOTBALL_DATA`). The orchestrator auto-creates `data/fixtures/{LEAGUE}_weekly_fixtures.csv` and refetches odds mapped to these fixtures when the primary source yields no fixtures in the selected window.
+- You can also run the helper manually if needed:
+
+```
+python -m scripts.gen_weekly_fixtures_from_fd --league D1 --days 21
+python -m scripts.fetch_odds_api_football --league D1 --fixtures-csv data/fixtures/D1_weekly_fixtures.csv --tag closing
+```
 
 ## Bluebook (Quick Facts)
 
@@ -175,6 +275,35 @@ Run the Streamlit app:
 ```
 streamlit run dashboard/app.py
 ```
+
+### If the dashboard shows no data or fails to load
+
+- Verify dependencies are installed: `pip install -r requirements.txt` (includes `streamlit`).
+- Run from the project root: `streamlit run dashboard/app.py` (the app assumes `config.py` and models are importable from CWD).
+- Ensure models and snapshots exist for the league you want to view:
+  - Quick path: `python predict.py --league E0 --days 7` (builds processed data, trains models if stale, fetches odds, and seeds absences).
+- Fixture sources and seasons (important!):
+  - API‑Football requires `season` when using `from`/`to` date windows. Use `--season 2025` in `predict.py` or set `BOT_SEASON=2025`.
+  - Free plans may block `next` and/or recent seasons. In that case the app can use the fallback provider (football‑data.org) to populate fixtures automatically. Set `API_FOOTBALL_DATA` in `.env` and allow outbound DNS/HTTPS to `api.football-data.org`.
+  - If both providers return no fixtures, the dashboard will show “No fixtures available” until a valid source is accessible.
+- Network checklist (lesson learned):
+  - API‑Football: `https://v3.football.api-sports.io/` with header `x-apisports-key`.
+  - Football‑data: `https://api.football-data.org/` with header `X-Auth-Token`.
+  - Confirm connectivity with `Invoke-WebRequest` (PowerShell) or `curl`.
+- Port conflicts: change the port if needed: `streamlit run dashboard/app.py --server.port 8502`.
+- If bet logs are empty, bankroll/P&L tables will be empty by design. Enable logging in `bot_config.yaml` (`log_bets: true`) or via env `BOT_LOG_BETS=1`.
+
+### Fixture automation (zero CSVs) — lessons learned
+
+- Always include `season` for API‑Football when querying a date window (from/to). Example:
+  - `https://v3.football.api-sports.io/fixtures?league=78&season=2025&from=2025-09-12&to=2025-09-15`
+- Free plans may not allow `next` nor recent seasons; add a fallback provider:
+  - Set `API_FOOTBALL_DATA` and allow `api.football-data.org`, then the app/bot will fetch the next round or date window automatically.
+- Environment knobs added to make runs deterministic:
+  - `--season` in `predict.py` (or `BOT_SEASON`) — season start year (e.g., 2025 for 2025–26).
+  - `--from/--to` in `predict.py` (or `BOT_FIXTURES_FROM/BOT_FIXTURES_TO`) — restrict fixtures window.
+  - `BOT_FIXTURES_DAYS` — window length used by automated fixture fallback when `--from/--to` are not provided.
+- Name normalization matters for cross‑provider fixtures. The `TEAM_NAME_MAP` includes common variants (e.g., `FC Internazionale Milano` → `Inter`). If new team names appear, add them there.
 
 ## Overdispersion (Negative Binomial)
 
@@ -319,3 +448,7 @@ This project is for educational purposes. Predictions are uncertain and should n
 
 - Matplotlib missing: ensure `pip install -r requirements.txt` ran in the venv. If a later `pip install` upgraded `numpy` and caused conflicts, pin back with `pip install --force-reinstall --no-deps numpy==1.23.5` and `pip install --no-deps matplotlib==3.8.4`.
 - ModuleNotFoundError: `config` in Streamlit: run `streamlit` from the repo root (so `config.py` is importable). The app also adds the project root to `sys.path` automatically.
+
+
+
+

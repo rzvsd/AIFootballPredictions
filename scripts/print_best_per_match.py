@@ -29,29 +29,33 @@ def _fmt_float(x) -> str:
         return "n/a"
 
 
-def _best_1x2(sub: pd.DataFrame) -> pd.Series | None:
+def _best_1x2(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
     s = sub[sub['market'].astype(str) == '1X2']
     if s.empty:
         return None
-    return s.loc[s['EV'].idxmax()]
+    key = 'EV' if by == 'ev' else 'prob'
+    return s.loc[s[key].idxmax()]
 
 
-def _best_ou(sub: pd.DataFrame) -> pd.Series | None:
+def _best_ou(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
     # Prefer exactly 'OU 2.5' if present, else any OU line by EV
     ou25 = sub[sub['market'].astype(str).eq('OU 2.5')]
     if not ou25.empty:
-        return ou25.loc[ou25['EV'].idxmax()]
+        key = 'EV' if by == 'ev' else 'prob'
+        return ou25.loc[ou25[key].idxmax()]
     ou_any = sub[sub['market'].astype(str).str.startswith('OU ')]
     if ou_any.empty:
         return None
-    return ou_any.loc[ou_any['EV'].idxmax()]
+    key = 'EV' if by == 'ev' else 'prob'
+    return ou_any.loc[ou_any[key].idxmax()]
 
 
-def _best_tg(sub: pd.DataFrame) -> pd.Series | None:
+def _best_tg(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
     tg = sub[sub['market'].astype(str) == 'TG Interval']
     if tg.empty:
         return None
-    return tg.loc[tg['EV'].idxmax()]
+    key = 'EV' if by == 'ev' else 'prob'
+    return tg.loc[tg[key].idxmax()]
 
 
 def _print_rows(rows: List[pd.Series]) -> None:
@@ -78,6 +82,11 @@ def _print_rows(rows: List[pd.Series]) -> None:
 
 
 def main() -> None:
+    import argparse
+    ap = argparse.ArgumentParser(description='Combined best-per-match picks')
+    ap.add_argument('--by', choices=['ev','prob'], default='ev', help='Select best by expected value or by probability')
+    args = ap.parse_args()
+
     cfg = fusion.load_config()
     df = fusion.generate_market_book(cfg)
     if df is None or df.empty:
@@ -92,9 +101,9 @@ def main() -> None:
     out_rows: List[pd.Series] = []
     for (date, home, away), sub in full.groupby(['date','home','away'], dropna=False):
         sub_sorted = sub.sort_values(['EV','prob'], ascending=[False, False]).copy()
-        t_tg = _best_tg(sub_sorted)
-        t_ou = _best_ou(sub_sorted)
-        t_1x2 = _best_1x2(sub_sorted)
+        t_tg = _best_tg(sub_sorted, by=args.by)
+        t_ou = _best_ou(sub_sorted, by=args.by)
+        t_1x2 = _best_1x2(sub_sorted, by=args.by)
         # append in fixed order: TG, OU, 1X2
         for t in (t_tg, t_ou, t_1x2):
             if t is not None:

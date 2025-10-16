@@ -1,5 +1,5 @@
-"""
-bet_fusion.py — Fusion engine and CLI
+﻿"""
+bet_fusion.py â€” Fusion engine and CLI
 
 Exports generate_predictions(config) to compute 1X2 probabilities by fusing
 champion XGB (home/away expected goals) with Dixon-Coles. Also includes a
@@ -54,6 +54,22 @@ def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
         config["kelly_fraction"] = float(os.getenv("BOT_KELLY_FRACTION", config.get("kelly_fraction", 0.25)))
     except Exception:
         config["kelly_fraction"] = 0.25
+    # Min odds filter (drop very low prices)
+    try:
+        config["min_odds"] = float(os.getenv("BOT_MIN_ODDS", config.get("min_odds", 1.6)))
+    except Exception:
+        config["min_odds"] = 1.6
+
+    # League override: allow environment to set the active league
+    try:
+        league_env = os.getenv("BOT_LEAGUE")
+        if league_env:
+            config["league"] = str(league_env).strip().upper()
+        else:
+            # normalize whatever is in YAML
+            config["league"] = str(config.get("league", "E0")).strip().upper()
+    except Exception:
+        config["league"] = str(config.get("league", "E0")).strip().upper()
     return config
 
 # --- BANKROLL & LOGGING (Your new class) ---
@@ -437,17 +453,195 @@ def _read_any_fixture_csv(path: str) -> pd.DataFrame:
 
 def _fixtures_with_fallbacks(league_code: str, preferred_csv: Optional[str] = None) -> tuple[pd.DataFrame, str]:
     tried = []
+    # 1) Explicit CSV provided
     if preferred_csv and os.path.exists(preferred_csv):
         try:
             return _read_any_fixture_csv(preferred_csv), f"from CSV: {preferred_csv}"
         except Exception:
             tried.append(preferred_csv)
+    # 2) Weekly fixtures CSV
     weekly = os.path.join("data", "fixtures", f"{league_code}_weekly_fixtures.csv")
     if os.path.exists(weekly):
         try:
             return _read_any_fixture_csv(weekly), f"from CSV: {weekly}"
         except Exception:
             tried.append(weekly)
+    # 3) Local odds JSON -> derive fixtures
+    try:
+        odds_path = os.path.join("data", "odds", f"{league_code}.json")
+        if os.path.exists(odds_path):
+            with open(odds_path, "r", encoding="utf-8") as f:
+                data = json.load(f) or {}
+            fx_list = data.get("fixtures") or data.get("events") or []
+            recs = []
+            for fx in fx_list:
+                h = str(fx.get("home", "")).strip()
+                a = str(fx.get("away", "")).strip()
+                if not h or not a:
+                    continue
+                d = str(fx.get("date", "")).strip()
+                # normalise to common string format if possible
+                try:
+                    dnorm = pd.to_datetime(d, errors='coerce')
+                    dstr = dnorm.strftime("%Y-%m-%d %H:%M:%S") if pd.notna(dnorm) else None
+                except Exception:
+                    dstr = None
+                recs.append({"date": dstr, "home_team_api": h, "away_team_api": a})
+            if recs:
+                # Filter to teams known to this league (avoid cross-league contamination)
+                try:
+                    filtered = []
+                    for r in recs:
+                        hN = config.normalize_team_name(r["home_team_api"])
+                        aN = config.normalize_team_name(r["away_team_api"])
+                        if team_registry.get_team_id(league_code, hN) and team_registry.get_team_id(league_code, aN):
+                            filtered.append(r)
+                    if filtered:
+                        return pd.DataFrame(filtered), f"from odds JSON: {odds_path} (filtered)"
+                    else:
+                        # All recs were filtered out as out-of-league; treat as no fixtures
+                        return pd.DataFrame(columns=["date","home_team_api","away_team_api"]), f"from odds JSON: {odds_path} (no in-league fixtures)"
+                except Exception:
+                    # Fall back to unfiltered if registry is unavailable
+                    return pd.DataFrame(recs), f"from odds JSON: {odds_path}"
+    except Exception:
+        pass
+    # 4) API-Football fixtures (automation, no CSV needed)
+    try:
+        # Load key from env/.env
+        try:
+            from dotenv import load_dotenv  # type: ignore
+            load_dotenv()
+        except Exception:
+            pass
+        api_key = os.getenv("API_FOOTBALL_ODDS_KEY") or os.getenv("API_FOOTBALL_KEY")
+        if api_key:
+            import requests  # local import
+            # Determine window
+            try:
+                days_env = int(os.getenv("BOT_FIXTURES_DAYS", "10"))
+            except Exception:
+                days_env = 10
+            # Optional explicit window via env
+            dfrom = os.getenv("BOT_FIXTURES_FROM")
+            dto = os.getenv("BOT_FIXTURES_TO")
+            import datetime as _dt
+            today = _dt.date.today()
+            if not dfrom or not dto:
+                dfrom = today.isoformat()
+                dto = (today + _dt.timedelta(days=days_env)).isoformat()
+            # Map league -> API id
+            try:
+                from scripts.fetch_odds_api_football import LEAGUE_IDS, API_BASE  # type: ignore
+                league_id = LEAGUE_IDS.get(league_code)
+                API_BASE_URL = API_BASE
+            except Exception:
+                league_id = None
+                API_BASE_URL = "https://v3.football.api-sports.io"
+            if league_id:
+                # Season (start year)
+                try:
+                    season = int(os.getenv("BOT_SEASON", "0"))
+                except Exception:
+                    season = 0
+                if not season:
+                    season = today.year if today.month >= 8 else today.year - 1
+                headers = {"x-apisports-key": api_key}
+                # Try date window with season
+                resp = []
+                try:
+                    params = {"league": league_id, "season": season, "from": dfrom, "to": dto}
+                    r = requests.get(f"{API_BASE_URL}/fixtures", params=params, headers=headers, timeout=20)
+                    if r.status_code == 200:
+                        resp = r.json().get("response", [])
+                except Exception:
+                    resp = []
+                # If empty, try date window without season (some plans restrict season)
+                if not resp:
+                    try:
+                        params2 = {"league": league_id, "from": dfrom, "to": dto}
+                        r0 = requests.get(f"{API_BASE_URL}/fixtures", params=params2, headers=headers, timeout=20)
+                        if r0.status_code == 200:
+                            resp = r0.json().get("response", [])
+                    except Exception:
+                        pass
+                # Fallback: try "next" fixtures if window empty
+                if not resp:
+                    try:
+                        # Try with season first
+                        params_next = {"league": league_id, "season": season, "next": max(20, days_env)}
+                        r2 = requests.get(f"{API_BASE_URL}/fixtures", params=params_next, headers=headers, timeout=20)
+                        if r2.status_code == 200:
+                            resp = r2.json().get("response", [])
+                        # If still empty, try without season
+                        if not resp:
+                            params_next2 = {"league": league_id, "next": max(20, days_env)}
+                            r3 = requests.get(f"{API_BASE_URL}/fixtures", params=params_next2, headers=headers, timeout=20)
+                            if r3.status_code == 200:
+                                resp = r3.json().get("response", [])
+                    except Exception:
+                        pass
+                recs = []
+                for it in resp or []:
+                    fx = it.get("fixture", {})
+                    t = it.get("teams", {})
+                    dval = str((fx.get("date") or "")[:19]).replace("T", " ")
+                    h = config.normalize_team_name((t.get("home") or {}).get("name") or "")
+                    a = config.normalize_team_name((t.get("away") or {}).get("name") or "")
+                    if h and a:
+                        recs.append({"date": dval, "home_team_api": h, "away_team_api": a})
+                if recs:
+                    return pd.DataFrame(recs), "from API-Football fixtures"
+    except Exception:
+        # Silently continue to manual fallback
+        pass
+    # 5) football-data.org fallback (automation, no CSV needed)
+    try:
+        # Only attempt if token present
+        api_fd = os.getenv("API_FOOTBALL_DATA") or os.getenv("FOOTBALL_DATA_API_KEY")
+        if api_fd:
+            import requests  # local import
+            # Competition IDs mapping (football-data.org)
+            FD_IDS = {'E0': 2021, 'SP1': 2014, 'I1': 2019, 'D1': 2002, 'F1': 2015}
+            comp_id = FD_IDS.get(league_code)
+            if comp_id:
+                # Window
+                dfrom = os.getenv("BOT_FIXTURES_FROM")
+                dto = os.getenv("BOT_FIXTURES_TO")
+                try:
+                    days_env = int(os.getenv("BOT_FIXTURES_DAYS", "10"))
+                except Exception:
+                    days_env = 10
+                import datetime as _dt
+                today = _dt.date.today()
+                if not dfrom or not dto:
+                    dfrom = today.isoformat()
+                    dto = (today + _dt.timedelta(days=days_env)).isoformat()
+                headers = {"X-Auth-Token": api_fd}
+                params = {"dateFrom": dfrom, "dateTo": dto}
+                r = requests.get(
+                    f"https://api.football-data.org/v4/competitions/{comp_id}/matches",
+                    headers=headers,
+                    params=params,
+                    timeout=20,
+                )
+                recs = []
+                if r.status_code == 200:
+                    data = r.json().get("matches", [])
+                    for m in data:
+                        try:
+                            d = str(m.get("utcDate", "").replace("T", " ").replace("Z", "")).strip()
+                            h = config.normalize_team_name((m.get("homeTeam") or {}).get("name") or "")
+                            a = config.normalize_team_name((m.get("awayTeam") or {}).get("name") or "")
+                            if h and a:
+                                recs.append({"date": d, "home_team_api": h, "away_team_api": a})
+                        except Exception:
+                            continue
+                if recs:
+                    return pd.DataFrame(recs), "from football-data.org fixtures"
+    except Exception:
+        pass
+    # 6) Manual CSV (user-editable). Create header only if missing.
     manual = os.path.join("data", "fixtures", f"{league_code}_manual.csv")
     if os.path.exists(manual):
         try:
@@ -458,8 +652,6 @@ def _fixtures_with_fallbacks(league_code: str, preferred_csv: Optional[str] = No
         os.makedirs(os.path.dirname(manual), exist_ok=True)
         with open(manual, "w", encoding="utf-8") as f:
             f.write("date,home,away\n")
-            f.write("2025-08-30 17:00,Man City,Everton\n")
-            f.write("2025-08-31 19:30,Man United,Arsenal\n")
     print(f"[fixtures] No weekly fixtures found. Using/created manual template: {manual}")
     return pd.DataFrame(columns=["date","home_team_api","away_team_api"]), "manual"
 
@@ -481,13 +673,19 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
 
     # Team snapshot (built from enhanced final features)
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
+    # Optional cutoff for snapshot to avoid post-round leakage
+    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    try:
+        as_of_val = str(pd.to_datetime(as_of_env, errors='coerce')) if as_of_env else None
+    except Exception:
+        as_of_val = as_of_env or None
     snap = feature_store.build_snapshot(
         enhanced_csv=enh_path,
-        as_of=None,
+        as_of=as_of_val,
         half_life_matches=int(cfg.get('half_life_matches', 5)),
         elo_k=float(cfg.get('elo_k', 20.0)),
         elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
-        micro_agg_path=cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
+        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
     )
     # Build per-team Elo-similarity histories from processed data (for dynamic features)
     try:
@@ -660,12 +858,19 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
     xgb_away = _load_model(away_json, away_pkl)
 
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
+    # Optional cutoff for snapshot to avoid post-round leakage
+    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    try:
+        as_of_val = str(pd.to_datetime(as_of_env, errors='coerce')) if as_of_env else None
+    except Exception:
+        as_of_val = as_of_env or None
     snap = feature_store.build_snapshot(
         enhanced_csv=enh_path,
-        as_of=None,
+        as_of=as_of_val,
         half_life_matches=int(cfg.get('half_life_matches', 5)),
         elo_k=float(cfg.get('elo_k', 20.0)),
-        elo_home_adv=float(cfg.get('elo_home_adv', 60.0))
+        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
+        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
     )
     fixtures, source = _fixtures_with_fallbacks(league_code=league)
 
@@ -924,13 +1129,19 @@ def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
     xgb_home = _load_model(home_json, home_pkl)
     xgb_away = _load_model(away_json, away_pkl)
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
+    # Optional cutoff for snapshot to avoid post-round leakage
+    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    try:
+        as_of_val = str(pd.to_datetime(as_of_env, errors='coerce')) if as_of_env else None
+    except Exception:
+        as_of_val = as_of_env or None
     snap = feature_store.build_snapshot(
         enhanced_csv=enh_path,
-        as_of=None,
+        as_of=as_of_val,
         half_life_matches=int(cfg.get('half_life_matches', 5)),
         elo_k=float(cfg.get('elo_k', 20.0)),
         elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
-        micro_agg_path=cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
+        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
     )
     fixtures, _ = _fixtures_with_fallbacks(league_code=league, preferred_csv=cfg.get('fixtures_csv'))
     out = {}
@@ -1050,6 +1261,13 @@ def main() -> None:
 
     df_with_odds = _fill_odds_for_df(market_df, cfg.get('league','E0'), with_odds=args.with_odds)
     df_val = attach_value_metrics(df_with_odds, use_placeholders=False)
+    # Filter out very low odds (e.g., < 1.60)
+    try:
+        min_odds = float(cfg.get('min_odds', 1.6))
+    except Exception:
+        min_odds = 1.6
+    if 'odds' in df_val.columns:
+        df_val = df_val[pd.to_numeric(df_val['odds'], errors='coerce') >= float(min_odds)].copy()
 
     thresholds = _get_thresholds(cfg)
     def pass_threshold(row):
@@ -1288,3 +1506,5 @@ def _predict_goals_mu(cfg: Dict[str, Any], league: str, feat_row: pd.DataFrame,
  
 if __name__ == "__main__":
     main()
+
+
