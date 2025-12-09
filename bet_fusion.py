@@ -1044,8 +1044,10 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config()
+    mode = str(cfg.get('mode', 'sim')).lower()
     print("\n--- Hybrid Engine Started ---")
     print(cfg)
+    print(f"MODE: {mode.upper()} (sim = placeholders allowed, live = real odds only)")
 
     market_df = generate_market_book(cfg)
     if market_df.empty:
@@ -1053,8 +1055,9 @@ def main() -> None:
         return
 
     league = cfg.get('league', 'E0')
-    mode = str(cfg.get('mode', 'sim')).lower()
     if mode == 'live':
+        # Live mode: focus on bettable markets only (exclude TG intervals unless feed supports them)
+        market_df = market_df[~market_df['market'].eq('TG Interval')].copy()
         df_with_odds = odds_service.fill_odds_for_df(market_df, league, with_odds=True)
         odds_service.flush_missing_odds_log(league)
         df_val = value_service.attach_value_metrics(

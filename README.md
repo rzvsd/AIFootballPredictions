@@ -164,10 +164,13 @@ Per-league probability calibrators (isotonic/Platt) correct biases. A compact re
   - `engine/market_service.py` (probabilities for 1X2/DC/OU/TG)
   - `engine/odds_service.py` (load odds JSON, fuzzy lookup, missing log)
   - `engine/value_service.py` (attach odds, price_source, edge/EV; EV blank for synth)
+- Modes:
+  - `mode=sim` (default): allows placeholders/synthetic odds for completeness.
+  - `mode=live`: real odds only; no placeholders/synth; rows without odds are dropped; TG intervals excluded unless feed supports them.
 - Fixtures: Understat primary; if Understat fails, fixtures are synthesized from processed data to keep runs alive.
-- Odds: The-Odds-API via `scripts/fetch_odds_toa.py`; missing odds log per league; synthetic odds only when feed is missing.
+- Odds: The-Odds-API via `scripts/fetch_odds_toa.py`; missing odds log per league; synthetic odds only in sim mode.
 - Models: XGBoost saved as JSON (PKL fallback); goals retained in preprocessing so Elo/Form move correctly.
-- Dashboard: Reads reports/engine; shows real vs synth odds; EV blank when odds are synthetic.
+- Dashboard: Reads reports/engine; shows price_source (real vs synth); EV blank when odds are synthetic.
 
 ## Quick Start (Essentials)
 
@@ -269,7 +272,8 @@ Legacy one-click helpers were kept for reference, but the recommended path is `p
 
 - Fixtures fetched from Understat; if Understat returns empty, a mock schedule is synthesized from processed data (team names already normalized).
 - Team stats snapshots are built from `data/processed/{LEAGUE}_merged_preprocessed.csv`; enhanced features used when present.
-- Odds come from The-Odds-API via `scripts/fetch_odds_toa.py`; if missing, prices are synthetic placeholders and logged (`reports/*_missing_odds.log`). Run `python -m scripts.check_odds_alignment --league E0 --days 14` to catch team-name mismatches.
+- Odds come from The-Odds-API via `scripts/fetch_odds_toa.py`; missing odds are logged (`reports/*_missing_odds.log`).
+- Live mode odds flow: markets → `fill_odds_for_df` (odds only, no placeholders) → `attach_value_metrics(use_placeholders=False, synthesize_missing_odds=False)` → drop rows with missing odds. Run `python -m scripts.check_odds_alignment --league E0 --days 14` to catch team-name mismatches.
 
 ## Betting Bot
 
