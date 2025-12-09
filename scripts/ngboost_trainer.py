@@ -18,7 +18,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-import xgb_trainer
+from models import xgb_trainer
 import config
 
 

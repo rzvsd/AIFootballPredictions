@@ -24,9 +24,9 @@ import difflib
 
 # Import our custom modules
 from scripts.fetch_fixtures_understat import load_understat_fixtures
-import xgb_trainer
+from models import xgb_trainer
 import config
-import feature_store
+from data_pipeline import feature_store
 from engine import predictor_service, market_service, odds_service, value_service
 from strategies import load_strategy
 
@@ -221,96 +221,7 @@ def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
         config["mode"] = str(config.get("mode", "sim")).strip().lower()
     return config
 
-# --- BANKROLL & LOGGING (Your new class) ---
-class BankrollManager:
-    """Simple bankroll tracker and logger for bets."""
-    def __init__(self, bankroll_file: str = "data/bankroll.json", log_file: str = "data/bets_log.csv"):
-        self.bankroll_path = Path(bankroll_file)
-        self.log_path = Path(log_file)
-        self.bankroll = self._load_bankroll()
-        print(f"Bankroll initialized at: {self.bankroll:.2f}")
-
-    def _load_bankroll(self) -> float:
-        self.bankroll_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.bankroll_path.exists():
-            with open(self.bankroll_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return float(data.get("bankroll", 1000.0)) # Default to 1000 if not set
-        return 1000.0
-
-    def _save_bankroll(self) -> None:
-        with open(self.bankroll_path, "w", encoding="utf-8") as f:
-            json.dump({"bankroll": self.bankroll}, f)
-
-    def _has_overdue_unsettled(self) -> bool:
-        """Return True if there are unsettled bets older than the guard window."""
-        try:
-            if not self.log_path.exists():
-                return False
-            import pandas as pd  # local import
-            df = pd.read_csv(self.log_path)
-            if df.empty:
-                return False
-            unsettled = df[df['result'].isna() | (df['result'].astype(str).str.strip() == "")]
-            if unsettled.empty:
-                return False
-            days_guard = float(os.getenv("BOT_UNSETTLED_GUARD_DAYS", "2"))
-            if days_guard <= 0:
-                return True
-            cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=days_guard)
-            unsettled['date_dt'] = pd.to_datetime(unsettled['date'], errors='coerce')
-            overdue = unsettled[unsettled['date_dt'] < cutoff]
-            return not overdue.empty
-        except Exception:
-            # Fail-safe: if we cannot determine, block to avoid drain
-            return True
-
-    def log_bet(
-        self,
-        date: str,
-        league: str,
-        home: str,
-        away: str,
-        market: str,
-        selection: str,
-        odds: float,
-        stake: float,
-        prob: float,
-        ev: float,
-    ):
-        """Deduct stake and log the placed bet."""
-        if self._has_overdue_unsettled():
-            print("Warning: Unsettled bets older than guard window; skipping new bet to avoid bankroll drift. Run settle_bets.py.")
-            return
-        if stake > self.bankroll:
-            print(f"Warning: Insufficient bankroll ({self.bankroll:.2f}) for stake ({stake:.2f}). Skipping bet.")
-            return
-        self.bankroll -= stake
-        self._save_bankroll()
-        self._append_log(date, league, home, away, market, selection, odds, stake, prob, ev)
-        print(f"Bet Logged. New bankroll: {self.bankroll:.2f}")
-
-    def _append_log(self, date, league, home, away, market, selection, odds, stake, prob, ev):
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        file_exists = self.log_path.exists()
-        with open(self.log_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(
-                    [
-                        "date",
-                        "league",
-                        "home_team",
-                        "away_team",
-                        "market",
-                        "selection",
-                        "odds",
-                        "stake",
-                        "model_prob",
-                        "expected_value",
-                    ]
-                )
-            writer.writerow([date, league, home, away, market, selection, odds, stake, f"{prob:.4f}", f"{ev:.4f}"])
+from risk.bankroll_manager import BankrollManager
 
 # --- Helper functions used by the fusion engine ---
 def _score_matrix(mu_h: float, mu_a: float, max_goals: int = 10, trim_epsilon: float = 0.0) -> np.ndarray:

@@ -24,7 +24,7 @@ import pandas as pd
 import joblib
 
 import calibrators as cal
-import xgb_trainer as trainer
+from models import xgb_trainer as trainer
 import config
 import bet_fusion as fusion
 

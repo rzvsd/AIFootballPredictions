@@ -17,8 +17,8 @@ import joblib
 from xgboost import XGBRegressor
 
 import config
-import feature_store
-import xgb_trainer
+from data_pipeline import feature_store
+from models import xgb_trainer
 from scripts.fetch_fixtures_understat import load_understat_fixtures
 
 
