@@ -1041,6 +1041,7 @@ def main() -> None:
         return
 
     league = cfg.get('league', 'E0')
+    mode = str(cfg.get('mode', 'sim')).lower()
     if mode == 'live':
         # Live mode: focus on bettable markets only (exclude TG intervals unless feed supports them)
         market_df = market_df[~market_df['market'].eq('TG Interval')].copy()
@@ -1055,7 +1056,7 @@ def main() -> None:
         df_val = df_val[pd.notna(df_val.get('odds'))].copy()
     else:
         df_with_odds = _fill_odds_for_df(market_df, league, with_odds=True)
-    df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
+        df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
         _flush_missing_odds_log(league)
     _log_odds_status(df_val, market_df)
     # Filter out very low odds (e.g., < 1.60)
