@@ -159,21 +159,23 @@ Per-league probability calibrators (isotonic/Platt) correct biases. A compact re
 
 ## Current Status
 
-- Models: XGBoost saved as JSON (no pickle warnings); PKL kept as fallback.
-- Micro‑xG Enrichment: possession, corners, xG/possession, xG from corners (EWMAs) when available.
-- APIs:
-  - Odds: API‑Football (works for upcoming fixtures).
-  - Possession (fixture statistics): API‑Football; requires plan access to target seasons (season = start year).
-- Backtesting: CRPS/LogLoss (scripts/backtest_xg_source.py) and ROI (scripts/roi_backtest.py, 1X2 + OU 2.5).
-- No H2H: model uses team home/away form (EWMAs), Elo (bands/similarity), micro aggregates, corners, absences.
+- Engine split: `bet_fusion.py` delegates to services:
+  - `engine/predictor_service.py` (fixtures, snapshots, score matrices)
+  - `engine/market_service.py` (probabilities for 1X2/DC/OU/TG)
+  - `engine/odds_service.py` (load odds JSON, fuzzy lookup, missing log)
+  - `engine/value_service.py` (attach odds, price_source, edge/EV; EV blank for synth)
+- Fixtures: Understat primary; if Understat fails, fixtures are synthesized from processed data to keep runs alive.
+- Odds: The-Odds-API via `scripts/fetch_odds_toa.py`; missing odds log per league; synthetic odds only when feed is missing.
+- Models: XGBoost saved as JSON (PKL fallback); goals retained in preprocessing so Elo/Form move correctly.
+- Dashboard: Reads reports/engine; shows real vs synth odds; EV blank when odds are synthetic.
 
 ## Quick Start (Essentials)
 
 - Install deps: `pip install -r requirements.txt`
 - Build micro aggregates (from Understat shots):
   - `python -m scripts.build_micro_aggregates --league E0 --shots data/shots/understat_shots.csv --out data/enhanced/micro_agg.csv`
-- Fetch Bet365 odds via football-data (optional but recommended):
-  - `python -m scripts.fetch_odds_fd_simple --leagues E0 D1 F1 I1 SP1 --days 14`
+- Fetch odds via The-Odds-API (set `THE_ODDS_API_KEY` in env or .env):
+  - `python -m scripts.fetch_odds_toa --leagues E0 D1 F1 I1 SP1`
 - Train: `python xgb_trainer.py --league E0`
 - Picks (uses Bet365 odds when available): `python bet_fusion.py --top 20`
 - Combined table (TG, OU, 1X2 per match): `python scripts/print_best_per_match.py`
@@ -265,9 +267,9 @@ Legacy one-click helpers were kept for reference, but the recommended path is `p
 
 ## Fixtures & Odds
 
-- Fixtures are fetched directly from Understat (no manual CSVs or external APIs required).
-- Team stats snapshots are built from `data/processed/{LEAGUE}_merged_preprocessed.csv` if enhanced features are missing.
-- Odds come from football-data.co.uk’s fixtures feed when `scripts/fetch_odds_fd_simple.py` is run; if the feed is unavailable, the engine falls back to deterministic placeholders (2.00/1.90/3.00). Run `python -m scripts.check_odds_alignment --league E0` whenever you want to verify that Bet365 odds lined up with the Understat fixtures.
+- Fixtures fetched from Understat; if Understat returns empty, a mock schedule is synthesized from processed data (team names already normalized).
+- Team stats snapshots are built from `data/processed/{LEAGUE}_merged_preprocessed.csv`; enhanced features used when present.
+- Odds come from The-Odds-API via `scripts/fetch_odds_toa.py`; if missing, prices are synthetic placeholders and logged (`reports/*_missing_odds.log`). Run `python -m scripts.check_odds_alignment --league E0 --days 14` to catch team-name mismatches.
 
 ## Betting Bot
 

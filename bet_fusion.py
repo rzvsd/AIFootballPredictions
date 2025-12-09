@@ -27,6 +27,7 @@ from scripts.fetch_fixtures_understat import load_understat_fixtures
 import xgb_trainer
 import config
 import feature_store
+from engine import predictor_service, market_service, odds_service, value_service
 
 _ODDS_LOOKUP_CACHE: dict[str, tuple[float, str, dict]] = {}
 _MISSING_ODDS: dict[str, set[tuple[str, str, str, str]]] = {}
@@ -658,73 +659,27 @@ def _fixtures_with_fallbacks(league_code: str, preferred_csv: Optional[str] = No
 
 def _load_understat_fixture_frame(league_code: str, cfg: Dict[str, Any]) -> pd.DataFrame:
     """Fetch upcoming fixtures directly from Understat based on the desired horizon."""
-    try:
-        cfg_days = int(cfg.get("fixtures_days", 10))
-    except Exception:
-        cfg_days = 10
-    try:
-        env_days = int(os.getenv("BOT_FIXTURES_DAYS", cfg_days))
-    except Exception:
-        env_days = cfg_days
-    days = env_days if env_days > 0 else cfg_days
-    season_cfg = cfg.get("understat_season")
-    try:
-        season_env = int(os.getenv("BOT_UNDERSTAT_SEASON", "0"))
-    except Exception:
-        season_env = 0
-    season_val = season_env if season_env > 0 else (season_cfg if isinstance(season_cfg, int) else None)
-    df = load_understat_fixtures(league_code, days=days, season=season_val)
-    if df.empty:
-        print(f"[fixtures] Understat returned 0 fixtures for {league_code} (next {days} days).")
-        return pd.DataFrame(columns=["date", "home_team_api", "away_team_api"])
-    if "home" in df.columns:
-        df = df.rename(columns={"home": "home_team_api", "away": "away_team_api"})
-    wanted_cols = ["date", "home_team_api", "away_team_api"]
-    for col in wanted_cols:
-        if col not in df.columns:
-            df[col] = None
-    return df[wanted_cols]
+    return predictor_service._load_understat_fixture_frame(league_code, cfg)
 
 
 def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool = True) -> pd.DataFrame:
-    if df.empty:
-        return df.copy()
-    lookup = _load_odds_lookup(league) if with_odds else {}
-    out = df.copy()
-    odds_vals = []
-    for _, row in out.iterrows():
-        price = None
-        if lookup:
-            price = _lookup_market_odds(
-                lookup,
-                row.get("date"),
-                row.get("home"),
-                row.get("away"),
-                str(row.get("market")),
-                str(row.get("outcome")),
+    out = odds_service.fill_odds_for_df(df, league, with_odds=with_odds)
+    if "odds" in out.columns:
+        # Fill placeholders for missing to keep behavior
+        out["odds"] = out["odds"].fillna(
+            pd.Series(
+                [_placeholder_odds(str(m), str(o)) for m, o in zip(out["market"].astype(str), out["outcome"].astype(str))],
+                index=out.index,
             )
-        if price is None:
-            if lookup:
-                key = _normalize_fixture_key(row.get("date"), row.get("home"), row.get("away"))
-                _MISSING_ODDS.setdefault(league, set()).add(key + (str(row.get("market")),))
-            price = _placeholder_odds(str(row.get("market")), str(row.get("outcome")))
-        odds_vals.append(price)
-    out["odds"] = odds_vals
+        )
     return out
 
 
 def _flush_missing_odds_log(league: str) -> None:
-    missing = _MISSING_ODDS.pop(league, set())
-    if not missing:
-        return
-    Path("reports").mkdir(parents=True, exist_ok=True)
-    ts = pd.Timestamp.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    log_path = Path("reports") / f"{league}_{ts}_missing_odds.log"
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write("date,home,away,market\n")
-        for date, home, away, market in sorted(missing):
-            f.write(f"{date},{home},{away},{market}\n")
-    print(f"[warn] Missing odds for {len(missing)} entries -> {log_path}")
+    try:
+        odds_service.flush_missing_odds_log(league)
+    except Exception:
+        pass
 
 # --- Fusion engine ---
 def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
@@ -875,189 +830,8 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
     Columns: date, home, away, market, outcome, prob
     Markets include 1X2, Double Chance, Over/Under (configurable lines), and total-goal intervals.
     """
-    league = cfg.get('league', 'E0')
-    use_calibration = bool(cfg.get('use_calibration', True))
-    max_goals = int(cfg.get('max_goals', config.MAX_GOALS_PER_LEAGUE.get(league, 10)))
-
-    # Parse market config
-    ou_lines = cfg.get('ou_lines', DEFAULT_OU_LINES)
-    try:
-        ou_lines = [float(x) for x in ou_lines]
-    except Exception:
-        ou_lines = DEFAULT_OU_LINES
-    intervals_cfg = cfg.get('intervals', DEFAULT_INTERVALS)
-    intervals: list[tuple[int, int]] = []
-    for iv in intervals_cfg:
-        try:
-            if isinstance(iv, (list, tuple)) and len(iv) == 2:
-                intervals.append((int(iv[0]), int(iv[1])))
-        except Exception:
-            continue
-    if not intervals:
-        intervals = DEFAULT_INTERVALS
-
-    # Models (XGB only; prefer JSON to avoid pickle warnings)
-    home_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.json")
-    away_json = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.json")
-    home_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_home.pkl")
-    away_pkl = os.path.join("advanced_models", f"{league}_ultimate_xgb_away.pkl")
-    def _load_model(json_path, pkl_path):
-        try:
-            if os.path.exists(json_path):
-                m = XGBRegressor()
-                m.load_model(json_path)
-                return m
-        except Exception:
-            pass
-        return joblib.load(pkl_path)
-    xgb_home = _load_model(home_json, home_pkl)
-    xgb_away = _load_model(away_json, away_pkl)
-
-    fixtures = _load_understat_fixture_frame(league, cfg)
-    if fixtures.empty:
-        return pd.DataFrame(columns=['date','home','away','market','outcome','prob'])
-
-    enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
-    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
-    earliest_fixture = None
-    try:
-        if 'date' in fixtures.columns:
-            earliest_fixture = pd.to_datetime(fixtures['date'], errors='coerce').min()
-    except Exception:
-        earliest_fixture = None
-    try:
-        if as_of_env:
-            as_of_val = str(pd.to_datetime(as_of_env, errors='coerce'))
-        elif pd.notna(earliest_fixture):
-            as_of_val = (earliest_fixture - pd.Timedelta(seconds=1)).isoformat()
-        else:
-            as_of_val = None
-    except Exception:
-        as_of_val = as_of_env or None
-    snap = feature_store.build_snapshot(
-        enhanced_csv=enh_path,
-        as_of=as_of_val,
-        half_life_matches=int(cfg.get('half_life_matches', 5)),
-        elo_k=float(cfg.get('elo_k', 20.0)),
-        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
-        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
-    )
-
-    rows = []
-    for _, r in fixtures.iterrows():
-        home_api = str(r.get("home_team", r.get("home_team_api", ""))).strip()
-        away_api = str(r.get("away_team", r.get("away_team_api", ""))).strip()
-        date_val = r.get("date")
-        home = config.normalize_team_name(home_api)
-        away = config.normalize_team_name(away_api)
-
-        feat_row = _feature_row_from_snapshot(snap, home, away)
-        if feat_row is None:
-            continue
-        mu_h, mu_a, _ = _predict_goals_mu(cfg, league, feat_row, xgb_home, xgb_away)
-        # Blend with MicroXG if configured
-        mu_h_final, mu_a_final, _src = _blend_mu(cfg, home, away, mu_h, mu_a)
-        P = _score_from_cfg(mu_h_final, mu_a_final, cfg, league, max_goals)
-
-        markets = _evaluate_all_markets(P, ou_lines=ou_lines, intervals=intervals)
-        # Apply calibration if available
-        try:
-            from calibrators import load_calibrators, apply_calibration_1x2
-            cal1_path = os.path.join('calibrators', f"{league}_1x2.pkl")
-            cal1 = load_calibrators(cal1_path)
-        except Exception:
-            cal1 = None
-        if use_calibration and cal1 and not _is_degenerate_calibrator_1x2(cal1):
-            arr = np.array([[markets['1X2']['H'], markets['1X2']['D'], markets['1X2']['A']]])
-            arr_cal = apply_calibration_1x2(arr, cal1)[0]
-            markets['1X2'] = {'H': float(arr_cal[0]), 'D': float(arr_cal[1]), 'A': float(arr_cal[2])}
-        elif cal1:
-            # Skip degenerate calibrator
-            pass
-        # Optional shrinkage toward neutral for stability
-        try:
-            shrink_1x2 = float(cfg.get('calibration_shrink', {}).get('oneX2', 0.0))
-        except Exception:
-            shrink_1x2 = 0.0
-        if shrink_1x2 > 0:
-            prior = 1.0/3.0
-            markets['1X2'] = {
-                'H': (1.0 - shrink_1x2) * markets['1X2']['H'] + shrink_1x2 * prior,
-                'D': (1.0 - shrink_1x2) * markets['1X2']['D'] + shrink_1x2 * prior,
-                'A': (1.0 - shrink_1x2) * markets['1X2']['A'] + shrink_1x2 * prior,
-            }
-        try:
-            calou_path = os.path.join('calibrators', f"{league}_ou25.pkl")
-            calou = load_calibrators(calou_path)
-        except Exception:
-            calou = None
-        if use_calibration and calou and 'ou25' in calou and '2.5' in markets['OU'] and not _is_degenerate_calibrator_binary(calou.get('ou25')):
-            model = calou['ou25']
-            from sklearn.isotonic import IsotonicRegression
-            from sklearn.linear_model import LogisticRegression
-            over_p = np.array([markets['OU']['2.5']['Over']])
-            if isinstance(model, IsotonicRegression):
-                cal_over = float(np.clip(model.predict(over_p), 1e-6, 1-1e-6))
-            elif isinstance(model, LogisticRegression):
-                cal_over = float(model.predict_proba(over_p.reshape(-1,1))[:,1][0])
-            else:
-                cal_over = float(over_p[0])
-            markets['OU']['2.5'] = {'Over': cal_over, 'Under': float(max(0.0, 1.0 - cal_over))}
-        elif calou:
-            # Skip degenerate OU calibrator
-            pass
-        # Optional shrinkage toward 50/50 for OU 2.5
-        try:
-            shrink_ou = float(cfg.get('calibration_shrink', {}).get('ou25', 0.0))
-        except Exception:
-            shrink_ou = 0.0
-        if shrink_ou > 0 and '2.5' in markets['OU']:
-            pO = markets['OU']['2.5']['Over']
-            pU = markets['OU']['2.5']['Under']
-            pO = (1.0 - shrink_ou) * pO + shrink_ou * 0.5
-            pU = 1.0 - pO
-            markets['OU']['2.5'] = {'Over': float(pO), 'Under': float(pU)}
-        # TG Interval calibration (optional)
-        cal_tg = None
-        try:
-            from calibrators import load_calibrators
-            cal_tg = load_calibrators(os.path.join('calibrators', f"{league}_tg.pkl"))
-        except Exception:
-            cal_tg = None
-        if cal_tg and isinstance(markets.get('Intervals'), dict):
-            ints_cal = {}
-            for iv, pv in markets['Intervals'].items():
-                model = cal_tg.get(iv)
-                if model is None:
-                    ints_cal[iv] = pv
-                    continue
-                try:
-                    from sklearn.isotonic import IsotonicRegression
-                    from sklearn.linear_model import LogisticRegression
-                    x = np.array([pv], dtype=float)
-                    if isinstance(model, IsotonicRegression):
-                        y = float(np.clip(model.predict(x)[0], 1e-6, 1-1e-6))
-                    elif isinstance(model, LogisticRegression):
-                        y = float(model.predict_proba(x.reshape(-1,1))[0,1])
-                    else:
-                        y = pv
-                except Exception:
-                    y = pv
-                ints_cal[iv] = y
-            markets['Intervals'] = ints_cal
-
-        # Flatten to rows (keep markets separate to avoid duplication)
-        for k, v in markets["1X2"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "1X2", "outcome": k, "prob": v})
-        for k, v in markets["DC"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "DC", "outcome": k, "prob": v})
-        for line, kv in markets["OU"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
-            rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
-        for iv, pv in markets["Intervals"].items():
-            rows.append({"date": date_val, "home": home, "away": away, "market": "TG Interval", "outcome": iv, "prob": pv})
-
-    return pd.DataFrame(rows)
+    preds = predictor_service.get_predictions(cfg)
+    return market_service.build_market_book(preds, cfg)
 
 
 # ---------------------------
@@ -1141,61 +915,14 @@ def attach_value_metrics(
     synth_margin_map: Optional[Dict[str, float]] = None,
 ) -> pd.DataFrame:
     """Attach odds, normalized implied probability, edge and EV to market probabilities."""
-    if market_df.empty:
-        return market_df.copy()
-    df = market_df.copy()
-    synth_margin = _SYNTH_MARGIN_DEFAULT if synth_margin is None else float(synth_margin)
-    margin_map = synth_margin_map or _SYNTH_MARGIN_BY_MARKET
-    placeholder_filled = False
-    # Fair odds (our buy price) based purely on model probability
-    try:
-        df["fair_odds"] = 1.0 / pd.to_numeric(df["prob"], errors="coerce").clip(lower=1e-9)
-    except Exception:
-        df["fair_odds"] = None
-    if "odds" not in df.columns and use_placeholders:
-        df["odds"] = [
-            _placeholder_odds(m, o) for m, o in zip(df["market"].astype(str), df["outcome"].astype(str))
-        ]
-        placeholder_filled = True
-    df["_synthetic_odds"] = False
-    # Group by market per match for normalization
-    grouped = []
-    for (date, home, away, market), sub in df.groupby(["date", "home", "away", "market"], dropna=False):
-        sub2 = sub.copy()
-        sub2["odds"] = pd.to_numeric(sub2["odds"], errors="coerce")
-        if synthesize_missing_odds:
-            sub2 = _synth_odds_for_group(
-                sub2,
-                market,
-                margin_map,
-                synth_margin,
-                force_all=placeholder_filled,
-            )
-        sub2["p_imp"] = 1.0 / sub2["odds"].astype(float)
-        if _market_is_exclusive(market):
-            s = sub2["p_imp"].sum()
-            sub2["p_imp_norm"] = sub2["p_imp"] / s if s > 0 else sub2["p_imp"]
-        else:
-            sub2["p_imp_norm"] = sub2["p_imp"]
-        sub2["edge"] = sub2["prob"] - sub2["p_imp_norm"]
-        sub2["EV"] = sub2["prob"] * sub2["odds"] - 1.0
-        grouped.append(sub2)
-    out = pd.concat(grouped, ignore_index=True) if grouped else df
-    # Label prices
-    try:
-        out["book_odds"] = pd.to_numeric(out["odds"], errors="coerce")
-    except Exception:
-        out["book_odds"] = out.get("odds")
-    out["price_source"] = np.where(out["_synthetic_odds"], "synth", "real")
-    # EV from synthetic odds is misleading; blank it out unless odds are real
-    try:
-        mask_synth = out["price_source"] != "real"
-        if "EV" in out.columns:
-            out.loc[mask_synth, "EV"] = np.nan
-    except Exception:
-        pass
-    out.drop(columns=["_synthetic_odds"], errors="ignore", inplace=True)
-    return out
+    return value_service.attach_value_metrics(
+        market_df,
+        use_placeholders=use_placeholders,
+        synthesize_missing_odds=synthesize_missing_odds,
+        synth_margin=synth_margin,
+        league_code=league_code,
+        synth_margin_map=synth_margin_map,
+    )
 
 
 def _log_odds_status(df: pd.DataFrame, fixtures: pd.DataFrame) -> None:
