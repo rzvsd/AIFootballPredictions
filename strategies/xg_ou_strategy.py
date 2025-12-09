@@ -33,4 +33,4 @@ def generate_candidates(context: Dict[str, Any], df_val: pd.DataFrame) -> List[D
     d = d[pd.to_numeric(d["prob"], errors="coerce") >= min_prob]
     d = d[pd.to_numeric(d["edge"], errors="coerce") >= min_edge]
     d = filter_min_odds(d, min_odds)
-    return to_candidates(d)
+    return to_candidates(d, strategy_name="xg_ou")

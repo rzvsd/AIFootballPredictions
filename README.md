@@ -171,6 +171,21 @@ Per-league probability calibrators (isotonic/Platt) correct biases. A compact re
 - Odds: The-Odds-API via `scripts/fetch_odds_toa.py`; missing odds log per league; synthetic odds only in sim mode.
 - Models: XGBoost saved as JSON (PKL fallback); goals retained in preprocessing so Elo/Form move correctly.
 - Dashboard: Reads reports/engine; shows price_source (real vs synth); EV blank when odds are synthetic.
+- Layout: `engine/`, `strategies/`, `data_pipeline/`, `models/`, `risk/`, `ui/`, root orchestrator `bet_fusion.py`.
+
+### Data shapes (shared language)
+
+- MarketProbDF (from `market_service.build_market_book`):
+  `date, home, away, market, outcome, prob` (optionally league).
+- ValuedMarketDF (after odds + EV):
+  MarketProbDF plus `odds, fair_odds, book_odds, edge, EV, price_source`.
+- PicksDF (strategy output):
+  At least `date, league, home, away, market, outcome, prob, odds, edge, EV, strategy`.
+
+### Strategy conventions
+- Strategies in `strategies/` return PicksDF and set a `strategy` column.
+- Market string format for logging: `"1X2 H"`, `"OU 2.5 Over"`, `"TG Interval 0-3"`, `"DC 1X"`.
+- Bankroll log columns stay: `date, league, home_team, away_team, market, selection, odds, stake, model_prob, expected_value`.
 
 ## Quick Start (Essentials)
 

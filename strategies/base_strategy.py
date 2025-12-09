@@ -22,7 +22,10 @@ def filter_min_odds(df: pd.DataFrame, min_odds: float) -> pd.DataFrame:
     return df[pd.to_numeric(df["odds"], errors="coerce") >= float(min_odds)].copy()
 
 
-def to_candidates(df: pd.DataFrame) -> List[Dict[str, Any]]:
+def to_candidates(df: pd.DataFrame, strategy_name: str | None = None) -> List[Dict[str, Any]]:
     if df.empty:
         return []
-    return df.to_dict(orient="records")
+    d = df.copy()
+    if strategy_name:
+        d["strategy"] = strategy_name
+    return d.to_dict(orient="records")
