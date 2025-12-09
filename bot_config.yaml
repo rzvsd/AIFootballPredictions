@@ -7,6 +7,7 @@ api_credentials:
 stake_size: 10.0
 probability_threshold: 0.60  # legacy (unused by new engine)
 edge_requirement: 0.05       # legacy (unused by new engine)
+mode: sim  # sim or live
 
 # Model Configuration
 league: "E0"
@@ -39,6 +40,31 @@ intervals:
   - [2, 4]
   - [2, 5]
   - [3, 6]
+
+# Strategy toggles and thresholds
+strategies:
+  elo_fav:
+    enabled: true
+    min_prob: 0.52
+    min_edge: 0.01
+    min_odds: 1.6
+    elo_gap: 40
+  xg_ou:
+    enabled: true
+    min_prob: 0.57
+    min_edge: 0.01
+    min_odds: 1.6
+    preferred_line: "2.5"
+  tg_interval:
+    enabled: true   # primarily sim; live odds rarely available
+    min_prob: 0.40
+    min_edge: 0.03
+    min_odds: 1.6
+  underdog_dc:
+    enabled: true
+    max_fav_prob: 0.60
+    min_edge: 0.01
+    min_odds: 1.4
 
 # Tuned thresholds per market (from backtest)
 thresholds:
