@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 import numpy as np
+import config
 
 def build_feature_store():
     LEAGUE = 'E0'
@@ -254,6 +255,8 @@ def build_snapshot(enhanced_csv: str,
     try:
         if micro_agg_path and os.path.exists(micro_agg_path):
             m = pd.read_csv(micro_agg_path)
+            if 'team' in m.columns:
+                m['team'] = m['team'].astype(str).map(config.normalize_team_name)
             # Restrict to cutoff if provided
             if 'date' in m.columns:
                 try:

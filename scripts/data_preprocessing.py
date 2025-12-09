@@ -96,8 +96,8 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
     pd.DataFrame: The DataFrame with new features added.
     """
-    # Convert Date column to datetime format
-    df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
+    # Convert Date column to datetime format (try flexible parsing)
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
     # Create a new column Season based on the Date
     df['Season'] = df['Date'].apply(determine_season)
 
@@ -293,10 +293,9 @@ def preprocess_and_save_csv(input_folder, output_folder, num_features, missing_t
         df = feature_engineering(df)
         print("Feature engineering completed.")
 
-        # Drop useless columns
-        # All the features related to the goals scored in a match, are higly biasing for the model, so we can drop them
-        df = drop_useless_columns(df, ['FTHG', 'FTAG', 'HTHG', 'HTAG'] )
-        print("Useless columns dropped.")
+        # Drop columns we truly do not use (keep goals/results for Elo/form)
+        df = drop_useless_columns(df, ['Referee'])
+        print("Non-essential columns dropped.")
 
         # Handle missing values
         df = handle_missing_values(df, missing_threshold=missing_threshold)
@@ -314,7 +313,16 @@ def preprocess_and_save_csv(input_folder, output_folder, num_features, missing_t
         
         # Create final dataframe with selected features
         categorical_columns = df.select_dtypes(include='object').columns.tolist()
-        df_selected = df[["Date"] + categorical_columns + selected_features + ['Over2.5']]
+
+        # Always keep match identity + outcomes so downstream (Elo/form) works
+        must_keep = []
+        for col in ['Date','Div','HomeTeam','AwayTeam','FTHG','FTAG','FTR','HTHG','HTAG','Season','Over2.5']:
+            if col in df.columns and col not in must_keep:
+                must_keep.append(col)
+
+        # Build final frame: identity/outcomes + selected features
+        keep_features = [c for c in selected_features if c not in must_keep]
+        df_selected = df[must_keep + keep_features]
 
         # Save the preprocessed dataframe
         save_preprocessed_data(df_selected, output_folder, filename)
@@ -342,4 +350,10 @@ if __name__ == "__main__":
     if not os.path.exists(args.processed_data_output_dir):
         os.makedirs(args.processed_data_output_dir)
 
-    preprocess_and_save_csv(args.raw_data_input_dir, args.processed_data_output_dir, args.num_features, args.clustering_threshold)
+    preprocess_and_save_csv(
+        input_folder=args.raw_data_input_dir,
+        output_folder=args.processed_data_output_dir,
+        num_features=args.num_features,
+        missing_threshold=10,
+        clustering_threshold=args.clustering_threshold,
+    )

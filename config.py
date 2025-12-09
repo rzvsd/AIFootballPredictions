@@ -235,8 +235,11 @@ def normalize_team_name(api_name: str) -> str:
 # Additional football-data.org name variants (D1)
 TEAM_NAME_MAP.update({
     "FC Bayern München": "Bayern Munich",
+    "FC Bayern Muenchen": "Bayern Munich",
     "Borussia Mönchengladbach": "M'gladbach",
+    "Borussia Moenchengladbach": "M'gladbach",
     "1. FC Köln": "FC Koln",
+    "1. FC Koeln": "FC Koln",
     "TSG 1899 Hoffenheim": "Hoffenheim",
     "SV Werder Bremen": "Werder Bremen",
     "Bayer 04 Leverkusen": "Leverkusen",

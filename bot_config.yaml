@@ -1,4 +1,4 @@
-﻿# API Credentials (placeholders - will be replaced by a real odds fetcher)
+# Odds placeholders (wire a feed later)
 api_credentials:
   odds_url: "https://example.com/api/odds"
   bet_url: "https://example.com/api/bet"
@@ -44,10 +44,16 @@ intervals:
 thresholds:
   "1X2":
     min_prob: 0.50
-    min_edge: 0.01
+    min_edge: 0.0
+  "DC":
+    min_prob: 0.70
+    min_edge: 0.0
   "OU":
-    min_prob: 0.55
-    min_edge: 0.01
+    min_prob: 0.57
+    min_edge: 0.0
+  "TG Interval":
+    min_prob: 0.40
+    min_edge: 0.0
 
 # Optional: staking and logging
 log_bets: false            # print-only for tests; set true in production

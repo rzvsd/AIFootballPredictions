@@ -12,12 +12,66 @@ Current highlights:
 
 </div>
 
+## Latest Updates
+
+- **Understat Fetcher:** `scripts/fetch_understat_simple.py` now runs concurrent match requests (configurable semaphore), adds a User-Agent, and enforces the Windows selector event loop to prevent hangs.
+- **Understat Fixture Sync:** `predict.py`/`bet_fusion.py` call the Understat fixture helper directly (no API-Football or manual CSV fallbacks). The CLI `scripts/fetch_fixtures_understat.py` remains available for manual snapshots.
+- **Odds Simplification:** Value metrics now use Bet365 prices when available (via `fetch_odds_fd_simple`); if the feed is empty the engine falls back to deterministic placeholders (2.00/1.90/3.00) so runs remain reproducible.
+- **Backdoor Odds:** Added `scripts/fetch_odds_fd_simple.py`, a lightweight downloader for football-data.co.uk's live fixtures feed (Bet365 odds). `predict.py` now runs it automatically so bet_fusion, reports, and dashboards see real prices whenever the CSV is available.
+- **Model Freshness Guard:** `predict.py` now requires both home and away XGB files (JSON/PKL) before skipping a retrain.
+- **Absences/Micro Aggregates:** `xgb_trainer.py` scopes absences by league and `bet_fusion.py` filters micro aggregates by `BOT_SNAPSHOT_AS_OF` (no leakage across leagues or future dates).
+- **Team Normalization:** Added UTF‑8/ASCII Bundesliga variants (e.g., Bayern München, Köln, Mönchengladbach).
+- **Understat Dependencies:** Installed `understat`, `aiohttp`, and helpers so Understat ingestion works without manual setup.
+- **Thresholds:** Updated default betting thresholds and config entries to allow more 1X2/OU/DC candidates while retaining minimum edges.
+- **Reporting:** Added a “match report” table format (see below) outlining the recommended way to present picks per game.
+
+## Bot Blueprint (Capabilities)
+
+1. **Data Acquisition**
+   - Downloads multi-season CSVs from football-data.co.uk via `scripts/data_acquisition.py`.
+   - Processes raw data into `data/processed/{LEAGUE}_merged_preprocessed.csv` with feature selection & clustering.
+2. **Micro Aggregates**
+   - Fetches Understat shots & matches concurrently, builds per-shot aggregates (`scripts.shots_ingest_understat`, `scripts.build_micro_aggregates`).
+   - Persists league-specific micro aggregates (`data/enhanced/{LEAGUE}_micro_agg.csv`).
+3. **Model Training**
+   - `xgb_trainer.py` builds directional EWMA features, Elo, micro-enrichment, absences, and trains XGB regressors (home/away goals) per league.
+   - Saves models in JSON and PKL; predict.py ensures freshness based on retrain window.
+4. **Fixtures (Understat-Only)**
+   - `scripts/fetch_fixtures_understat.py` (and helper functions imported by `predict.py`/`bet_fusion.py`) pull the upcoming schedule straight from Understat using browser headers and normalized team names.
+   - If Understat ever returns an empty window, the engine simply reports “no fixtures”; there are no fragile API fallbacks or manual CSV templates to maintain.
+5. **Bet365 Odds**
+   - `scripts/fetch_odds_fd_simple.py` downloads football-data.co.uk’s `fixtures.csv`, filters it for the supported leagues, and saves Bet365 prices to `data/odds/{LEAGUE}.json`.
+   - `bet_fusion.py` reads those JSON files automatically (per league) and falls back to placeholder odds only when a market isn’t listed.
+6. **Prediction / Betting Engine**
+   - `bet_fusion.py` loads per-league models, blends macro/micro xG, builds Poisson/NegBin score matrices, evaluates 1X2/OU/TG markets, applies calibrators, and ranks bets by EV.
+   - Supports configurable thresholds, staking policies, odds fetching (local or API), and optional bankroll logging.
+7. **Orchestration**
+   - `predict.py` hooks everything: data refresh, micro rebuild, absences seed, conditional retrain, and predictions via `bet_fusion.py` (which now fetches fixtures from Understat on demand and uses deterministic placeholder odds).
+7. **Reporting & Exports**
+   - Picks saved per run (`reports/{LEAGUE}_{timestamp}_picks.csv`).
+   - Dashboard (`dashboard/app.py`) visualizes stats when data/models exist.
+
+## Recommended Output Table
+
+When sharing picks per fixture, use a consolidated table with the following columns:
+
+| Date/Time           | Teams                         | TG Interval                                           | 1X2                                              | Double Chance                    | Over/Under                                          |
+|---------------------|-------------------------------|------------------------------------------------------|--------------------------------------------------|----------------------------------|----------------------------------------------------|
+| 2025-12-06 12:30:00 | Aston Villa FC vs Arsenal FC | TG Interval 0-3 (p=79.7%, odds=3.00, edge=46.36%, EV=1.39) | – (threshold not met)                            | – (threshold not met)            | OU 3.5 Under (p=79.7%, odds=1.90, edge=29.70%, EV=0.51) |
+| 2025-12-06 15:00:00 | Bournemouth vs Chelsea FC    | TG Interval 2-5 (p=63.3%, odds=3.00, edge=29.95%, EV=0.90) | –                                               | –                                | OU 1.5 Over (p=82.1%, odds=1.90, edge=32.09%, EV=0.56)   |
+| 2025-12-15 20:00:00 | Manchester United vs Bournemouth | TG Interval 2-5 (p=63.6%, odds=3.00, edge=30.28%, EV=0.91) | 1X2 A (p=52.3%, odds=2.00, edge=18.92%, EV=0.05) | –                                | OU 1.5 Over (p=77.6%, odds=1.90, edge=27.61%, EV=0.47)   |
+
+Notes:
+- Use “–” when a market doesn’t pass the configured thresholds (probability or edge).
+- Sort rows chronologically; include EV, edge, and implied probability for each showcased pick.
+
+
 ## One-Command Orchestrator
 
 - Single league: `python predict.py --league E0`
 - Multiple leagues: `python predict.py --leagues E0 D1 F1 I1 SP1`
-- What it does (per league): refresh data (raw->processed), rebuild micro aggregates, fetch real odds, seed absences if missing, (re)train if stale, and print top picks + per‑match summary.
-- Requirements: Python 3.11+, dependencies installed (`pip install -r requirements.txt`), and API key in `.env` (`API_FOOTBALL_KEY=...`).
+- What it does (per league): refresh data (raw->processed), rebuild micro aggregates, seed absences if missing, (re)train if stale, and print top picks + per‑match summary (fixtures pulled from Understat automatically).
+- Requirements: Python 3.11+ and `pip install -r requirements.txt`. No external API keys needed.
 - Min‑odds filter: set `BOT_MIN_ODDS=1.6` (default 1.60) to exclude very mici cote din ranking.
 
 - Compact round table in one go:
@@ -52,23 +106,20 @@ Current highlights:
 ### Full Round Table
 ## Project Status Summary
 
-- One-command orchestrator: `predict.py` refreshes data, builds micro aggregates, fetches odds with fallback, retrains if stale, prints picks and per-match tables. Add `--compact` to print concise prognostics per game.
+- One-command orchestrator: `predict.py` refreshes data, builds micro aggregates, retrains if stale, and prints picks + per-match tables. Add `--compact` to print concise prognostics per game.
 - Compact views:
   - Next round: `python -m scripts.print_best_per_match --by prob` or `predict.py --compact`.
-  - Last round (no leakage):
-    - Date-window mode with final labels (requires `API_FOOTBALL_DATA`): `predict.py --from YYYY-MM-DD --to YYYY-MM-DD --compact`.
-    - Round-based mode (API-Football): `python -m scripts.last_round_report --league SP1 --season 2025`.
+  - Historical evaluations currently require manual score joins (the former API-based results mode has been deprecated).
 - Fixtures & odds:
-  - Primary odds: API-Football. If empty window, fallback generates weekly fixtures via football-data.org and refetches odds.
-  - Results labels: from football-data.org (date windows) or API-Football rounds (last_round_report).
+  - Fixtures are sourced exclusively from Understat (async fetch with browser headers).
+  - Odds are deterministic placeholders (2.00/1.90/3.00) until a real feed is wired in again.
 - Models & features:
   - XGBoost goal models (JSON preferred) + NegBin/Poisson score matrix.
   - ShotXG micro aggregates (Understat optional); proceeds with existing shots if Understat package is unavailable.
   - Per-league calibrators supported; defaults are safe if missing.
 - Team names: normalization map expanded (Bundesliga umlauts/variants). Additional variants can be added as needed.
 - Known caveats:
-  - An empty weekly fixtures CSV can block API fallbacks; for historical evaluations prefer `last_round_report` or supply a round fixtures CSV.
-  - API plan scope matters: past fixtures/results require appropriate permissions (both for API-Football and football-data.org).
+  - Placeholder odds mean edge/EV magnitudes are illustrative only; integrate a bookmaker feed if you need real staking decisions.
   - Console may show encoding artifacts for some team names; normalization still works for modeling.
 
 - To print a compact table for the next round (all games; 1X2, OU 2.5, and Total-Goals intervals):
@@ -92,24 +143,6 @@ python -m scripts.print_best_per_match --by prob   # or --by ev
 9. Supported Leagues
 
 
-### Last-Round Evaluation (No Leak, Auto-Results)
-
-- Evaluate the previous round by passing a finished date window together with `--compact`:
-
-  `python predict.py --league SP1 --from 2025-09-13 --to 2025-09-16 --compact`
-
-- Snapshot cutoff (no leakage): features are frozen at the round start using `BOT_SNAPSHOT_AS_OF` or `BOT_FIXTURES_FROM` (automatically set by the orchestrator for `--from/--to`).
-- Results join: if `API_FOOTBALL_DATA` (or `FOOTBALL_DATA_API_KEY`) is set, the compact table appends the final score and correctness labels for each market:
-  `final: 2-1 [OK OK KO]` → 1X2 OK, OU OK, TG KO.
-- Works for all supported leagues (E0, D1, F1, I1, SP1). Replace league and dates as needed.
-- Tip: you can set `BOT_FIXTURES_FROM`/`BOT_FIXTURES_TO` explicitly when running scripts directly (e.g., `python -m scripts.round_prognostics --league D1`).
-- Round-based (API-Football) one-liner (auto-picks last completed round):
-
-```
-python -m scripts.last_round_report --league SP1 --season 2025
-```
-
-This queries `/fixtures/rounds` to get the current round label, falls back to the previous one if needed, fetches finished fixtures (`status=FT-AET-PEN`), freezes features at the earliest kickoff, then prints the compact table with final scores and correctness labels.
 10. Contributing
 11. License
 12. Disclaimer
@@ -137,34 +170,28 @@ Per-league probability calibrators (isotonic/Platt) correct biases. A compact re
 ## Quick Start (Essentials)
 
 - Install deps: `pip install -r requirements.txt`
-- Odds (API‑Football): `python -m scripts.fetch_odds_api_football --league E0 --days 7`
-- Possession (if plan allows):
-  - `python -m scripts.fetch_possession_apifootball --league E0 --season 2024 --dates 2024-08-01,2025-05-31 --out data/processed/E0_possession.csv`
+- Build micro aggregates (from Understat shots):
   - `python -m scripts.build_micro_aggregates --league E0 --shots data/shots/understat_shots.csv --out data/enhanced/micro_agg.csv`
+- Fetch Bet365 odds via football-data (optional but recommended):
+  - `python -m scripts.fetch_odds_fd_simple --leagues E0 D1 F1 I1 SP1 --days 14`
 - Train: `python xgb_trainer.py --league E0`
-- Picks (with odds): `python bet_fusion.py --with-odds --top 20`
+- Picks (uses Bet365 odds when available): `python bet_fusion.py --top 20`
 - Combined table (TG, OU, 1X2 per match): `python scripts/print_best_per_match.py`
 - Backtest metrics: `python -m scripts.backtest_xg_source --league E0 --start 2024-08-01 --end 2025-06-01 --sources micro macro blend --dist negbin --k 4`
 - ROI (flat 1u): `python -m scripts.roi_backtest --league E0 --start 2024-08-01 --end 2025-06-01 --xg-source micro --dist negbin --k 4 --stake-policy flat --stake 1.0 --place both`
 
-## API Notes
+## How to Use the Bot (Daily Ops)
 
-- Keys: set in `.env` or env vars: `API_FOOTBALL_KEY` (and optionally `API_FOOTBALL_ODDS_KEY`). For fixtures fallback the orchestrator also accepts `API_FOOTBALL_DATA` (football-data.org token).
-- Season = start year (e.g., 2024 for 2024–2025).
-- Fixture statistics (possession) return only for supported plans and completed matches.
+- **Refresh historical data (past rounds/years):** `python -m scripts.data_acquisition --leagues E0 D1 F1 I1 SP1 --seasons 2526 2425 2324 --raw_data_output_dir data/raw` followed by `python -m scripts.data_preprocessing --raw_data_input_dir data/raw --processed_data_output_dir data/processed`. This re-downloads football-data.co.uk CSVs for every listed season so the next training run has the full history.
+- **Train/retrain league models:** `python xgb_trainer.py --league E0` (repeat per league). The trainer consumes the processed files created in the previous step, so running it after refreshing data retrains the models on all historical seasons you just ingested.
+- **Update odds + catch team-name mismatches:** `python -m scripts.fetch_odds_fd_simple --leagues E0 D1 F1 I1 SP1 --days 14` to refresh Bet365 prices, then `python -m scripts.check_odds_alignment --league E0 --days 14` (swap the league code as needed). If the script reports warnings, add the missing variants to `config.TEAM_NAME_MAP` and rerun it until everything lines up.
+- **Generate predictions / reports:** `python predict.py --leagues E0 D1 F1 I1 SP1 --days 7 --compact`. The orchestrator pulls Understat fixtures, rebuilds micro aggregates if needed, ensures odds exist (calling the command above when necessary), loads the latest models, and prints/saves the tables described in the Recommended Output section.
 
+## Fixture Behavior
 
-- Results (last-round labels): set `API_FOOTBALL_DATA` (or `FOOTBALL_DATA_API_KEY`) to fetch final scores for the requested date window and print correctness labels in the compact table.
-### Odds and Fixtures Behavior (Updated)
-
-- Primary source: API-Football (requires `API_FOOTBALL_KEY`).
-- Fallback source: football-data.org (requires `API_FOOTBALL_DATA`). The orchestrator auto-creates `data/fixtures/{LEAGUE}_weekly_fixtures.csv` and refetches odds mapped to these fixtures when the primary source yields no fixtures in the selected window.
-- You can also run the helper manually if needed:
-
-```
-python -m scripts.gen_weekly_fixtures_from_fd --league D1 --days 21
-python -m scripts.fetch_odds_api_football --league D1 --fixtures-csv data/fixtures/D1_weekly_fixtures.csv --tag closing
-```
+- No external APIs required. Fixtures are fetched solely from Understat and normalized through `config.TEAM_NAME_MAP`.
+- `scripts/fetch_fixtures_understat.py --leagues E0 D1 F1 I1 SP1 --days 14` mirrors what the orchestrator does internally if you need a manual snapshot (CSV output optional).
+- Odds are synthetic placeholders (2.00/1.90/3.00) until a trusted bookmaker feed is integrated again.
 
 ## Bluebook (Quick Facts)
 
@@ -231,37 +258,16 @@ python scripts/betting_bot.py --league E0
 
 - One-click predictor with manual fixtures:
 
-```
-python one_click_predictor.py --league E0 --fixtures-csv data/fixtures/E0_manual.csv
-```
+Legacy one-click helpers were kept for reference, but the recommended path is `predict.py` (it handles fixture fetches + placeholder odds without extra flags).
 
-- One-click predictor with API fixtures (set key):
-
-```
-$env:API_FOOTBALL_KEY = "your_key"
-python one_click_predictor.py --league E0
-```
-
-- Odds fetch (API‑Football; next 7 days):
-
-```
-python -m scripts.fetch_odds_api_football --league E0 --days 7
-```
-
-- Possession fetch (API‑Football fixture statistics; plan‑gated; season uses start‑year):
-
-```
-python -m scripts.fetch_possession_apifootball --league E0 --season 2024 --dates 2024-08-01,2025-05-31 --out data/processed/E0_possession.csv
-python -m scripts.build_micro_aggregates --shots data/shots/understat_shots.csv --league E0 --out data/enhanced/micro_agg.csv
-```
 
 <!-- Note: legacy Poisson runner archived (run_predictions.py). Use one_click or report tools for the full engine. -->
 
 ## Fixtures & Odds
 
-- If no weekly fixtures exist, a manual template is created at `data/fixtures/{LEAGUE}_manual.csv`.
+- Fixtures are fetched directly from Understat (no manual CSVs or external APIs required).
 - Team stats snapshots are built from `data/processed/{LEAGUE}_merged_preprocessed.csv` if enhanced features are missing.
-- Odds are optional; placeholder odds are used for demos unless configured.
+- Odds come from football-data.co.uk’s fixtures feed when `scripts/fetch_odds_fd_simple.py` is run; if the feed is unavailable, the engine falls back to deterministic placeholders (2.00/1.90/3.00). Run `python -m scripts.check_odds_alignment --league E0` whenever you want to verify that Bet365 odds lined up with the Understat fixtures.
 
 ## Betting Bot
 
@@ -281,28 +287,21 @@ streamlit run dashboard/app.py
 - Verify dependencies are installed: `pip install -r requirements.txt` (includes `streamlit`).
 - Run from the project root: `streamlit run dashboard/app.py` (the app assumes `config.py` and models are importable from CWD).
 - Ensure models and snapshots exist for the league you want to view:
-  - Quick path: `python predict.py --league E0 --days 7` (builds processed data, trains models if stale, fetches odds, and seeds absences).
+  - Quick path: `python predict.py --league E0 --days 7` (builds processed data, trains models if stale, seeds absences, and prints Understat-based picks).
 - Fixture sources and seasons (important!):
-  - API‑Football requires `season` when using `from`/`to` date windows. Use `--season 2025` in `predict.py` or set `BOT_SEASON=2025`.
-  - Free plans may block `next` and/or recent seasons. In that case the app can use the fallback provider (football‑data.org) to populate fixtures automatically. Set `API_FOOTBALL_DATA` in `.env` and allow outbound DNS/HTTPS to `api.football-data.org`.
-  - If both providers return no fixtures, the dashboard will show “No fixtures available” until a valid source is accessible.
-- Network checklist (lesson learned):
-  - API‑Football: `https://v3.football.api-sports.io/` with header `x-apisports-key`.
-  - Football‑data: `https://api.football-data.org/` with header `X-Auth-Token`.
-  - Confirm connectivity with `Invoke-WebRequest` (PowerShell) or `curl`.
+  - Understat uses the season start year (e.g., `--season 2025` for 2025‑26). You can also set `BOT_UNDERSTAT_SEASON`.
+  - If Understat returns no fixtures (off-season), the dashboard will simply report “No fixtures available”.
+- Network checklist:
+  - Ensure outbound HTTPS access to understat.com (the Python package scrapes JSON endpoints).
 - Port conflicts: change the port if needed: `streamlit run dashboard/app.py --server.port 8502`.
 - If bet logs are empty, bankroll/P&L tables will be empty by design. Enable logging in `bot_config.yaml` (`log_bets: true`) or via env `BOT_LOG_BETS=1`.
 
-### Fixture automation (zero CSVs) — lessons learned
+### Understat fixture automation
 
-- Always include `season` for API‑Football when querying a date window (from/to). Example:
-  - `https://v3.football.api-sports.io/fixtures?league=78&season=2025&from=2025-09-12&to=2025-09-15`
-- Free plans may not allow `next` nor recent seasons; add a fallback provider:
-  - Set `API_FOOTBALL_DATA` and allow `api.football-data.org`, then the app/bot will fetch the next round or date window automatically.
+- Manual snapshot: `python -m scripts.fetch_fixtures_understat --leagues E0 D1 F1 I1 SP1 --days 14`
 - Environment knobs added to make runs deterministic:
-  - `--season` in `predict.py` (or `BOT_SEASON`) — season start year (e.g., 2025 for 2025–26).
-  - `--from/--to` in `predict.py` (or `BOT_FIXTURES_FROM/BOT_FIXTURES_TO`) — restrict fixtures window.
-  - `BOT_FIXTURES_DAYS` — window length used by automated fixture fallback when `--from/--to` are not provided.
+  - `--season` in `predict.py` (or `BOT_UNDERSTAT_SEASON`) — season start year.
+  - `BOT_FIXTURES_DAYS` — window length used whenever fixtures are fetched.
 - Name normalization matters for cross‑provider fixtures. The `TEAM_NAME_MAP` includes common variants (e.g., `FC Internazionale Milano` → `Inter`). If new team names appear, add them there.
 
 ## Overdispersion (Negative Binomial)
@@ -410,23 +409,17 @@ BSD-3-Clause (see LICENSE).
 ## Disclaimer
 
 This project is for educational purposes. Predictions are uncertain and should not be the sole basis for financial decisions.
-3) Optional API keys (.env at repo root or environment variables)
-- API_FOOTBALL_KEY=your_key    (used by possession and odds; odds fetcher also reads API_FOOTBALL_ODDS_KEY)
-- API_FOOTBALL_ODDS_KEY=your_key
-
 ## Operational Guide (Local Venv)
 
 - Create and activate venv (Windows PowerShell):
   - `py -3.11 -m venv .venv311`
   - `Set-ExecutionPolicy -Scope Process Bypass; .\\.venv311\\Scripts\\Activate.ps1`
 - Install dependencies: `pip install -r requirements.txt`
-- Set API key (or use `.env`): `$env:API_FOOTBALL_KEY = "your_key"`
-- Fetch odds (real odds saved to `data/odds/{LEAGUE}.json`):
-  - `python -m scripts.fetch_odds_api_football --league E0 --days 7`
 - Build micro aggregates (uses shots + optional possession/corners if present):
   - `python -m scripts.build_micro_aggregates --league E0 --shots data/shots/understat_shots.csv --out data/enhanced/micro_agg.csv`
 - Train per-league models: `python xgb_trainer.py --league E0`
-- Generate picks with odds: `python bet_fusion.py --with-odds --top 20`
+- Fetch Bet365 odds (optional but recommended): `python -m scripts.fetch_odds_fd_simple --leagues E0 D1 F1 I1 SP1 --days 14`
+- Generate picks: `python bet_fusion.py --top 20`
 - Dashboard:
   - Start: `streamlit run dashboard/app.py`
   - Open: http://127.0.0.1:8501
@@ -441,7 +434,7 @@ This project is for educational purposes. Predictions are uncertain and should n
 
 ### Dashboard Notes
 
-- Upcoming Predictions now use real odds when available (BOT_ODDS_MODE=local reads `data/odds/{LEAGUE}.json`).
+- Upcoming Predictions currently use placeholder odds (no bookmaker feed required). Integrate a real feed later by extending `bet_fusion.py`.
 - Bets logging (optional): set `BOT_LOG_BETS=true` before running `bet_fusion.py` to write `data/bets_log.csv` and track bankroll in `data/bankroll.json`.
 
 ### Troubleshooting

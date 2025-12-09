@@ -6,13 +6,12 @@ Usage:
   python predict.py --leagues E0 D1 F1 [--days 7] [--max-age-hours 24] [--retrain-days 7]
 
 What it does:
-  1) Loads API keys from .env if present
-  2) Ensures raw -> processed data is fresh (downloads + preprocesses if stale)
-  3) Best-effort Understat shots fetch + micro aggregates rebuild
-  4) Fetches real odds for upcoming fixtures (API-Football)
-  5) Ensures absences snapshot exists (seeds default if missing)
-  6) Trains models if stale
-  7) Prints top picks and per-match combined table
+  1) Ensures raw -> processed data is fresh (downloads + preprocesses if stale)
+  2) Best-effort Understat shots fetch + micro aggregates rebuild
+  3) Fetches odds from The Odds API (Bet365 preferred) into data/odds/{LEAGUE}.json
+  4) Ensures absences snapshot exists (seeds default if missing)
+  5) Trains models if stale
+  6) Prints top picks and per-match combined table using Understat fixtures + odds
 """
 
 from __future__ import annotations
@@ -24,13 +23,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
-
-try:
-    from dotenv import load_dotenv  # type: ignore
-except Exception:
-    def load_dotenv(*_, **__):
-        return False
-
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -100,43 +92,6 @@ def ensure_micro_aggregates(league: str) -> None:
         print(f"[warn] Could not persist per-league micro aggregates: {e}")
 
 
-def ensure_odds(league: str, days: int, season: Optional[int] = None) -> None:
-    print(f"[step] Fetching odds (API-Football) for {league}, next {days} days")
-    env = os.environ.copy()
-    load_dotenv()
-    env.setdefault("BOT_ODDS_DIR", str(DATA / "odds"))
-    env.setdefault("BOT_ODDS_MODE", "local")
-    Path(env["BOT_ODDS_DIR"]).mkdir(parents=True, exist_ok=True)
-    cmd = [sys.executable, "-m", "scripts.fetch_odds_api_football", "--league", league, "--days", str(days), "--tag", "closing"]
-    if season is not None:
-        cmd += ["--season", str(season)]
-    rc = run(cmd, env=env)  # noqa: E501
-    if rc != 0:
-        print("[warn] odds fetcher returned non-zero; predictions will use placeholders if odds missing")
-        # Fallback: if odds JSON has no fixtures, generate weekly fixtures via football-data.org and refetch with CSV
-        try:
-            odds_path = DATA / "odds" / f"{league}.json"
-            fixtures_count = 0
-            if odds_path.exists():
-                import json as _json
-                try:
-                    data = _json.loads(odds_path.read_text(encoding="utf-8"))
-                    fixtures_count = len(data.get("fixtures", []))
-                except Exception:
-                    fixtures_count = 0
-            if fixtures_count == 0:
-                print(f"[info] No fixtures in odds JSON for {league}. Generating weekly fixtures via football-data.org fallback...")
-                run([sys.executable, "-m", "scripts.gen_weekly_fixtures_from_fd", "--league", league, "--days", str(days)], env=env)
-                fx_csv = str(DATA / "fixtures" / f"{league}_weekly_fixtures.csv")
-                if os.path.exists(fx_csv):
-                    cmd2 = [sys.executable, "-m", "scripts.fetch_odds_api_football", "--league", league, "--fixtures-csv", fx_csv, "--days", str(days), "--tag", "closing"]
-                    if season is not None:
-                        cmd2 += ["--season", str(season)]
-                    run(cmd2, env=env)
-        except Exception as e:
-            print(f"[warn] Fallback odds population failed for {league}: {e}")
-
-
 def ensure_absences_seed(league: str) -> None:
     out_dir = DATA / "absences"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -160,33 +115,55 @@ def ensure_absences_seed(league: str) -> None:
 def ensure_trained(league: str, retrain_days: int) -> None:
     models_dir = ROOT / "advanced_models"
     models_dir.mkdir(parents=True, exist_ok=True)
-    # Find any model file for the league
-    model_files = list(models_dir.glob(f"*{league}*"))
-    needs_train = True
-    if model_files:
-        newest = max(model_files, key=lambda p: p.stat().st_mtime)
-        mtime = dt.datetime.fromtimestamp(newest.stat().st_mtime)
+    # Require both home and away models (JSON preferred, PKL fallback)
+    home_candidates = [
+        models_dir / f"{league}_ultimate_xgb_home.json",
+        models_dir / f"{league}_ultimate_xgb_home.pkl",
+    ]
+    away_candidates = [
+        models_dir / f"{league}_ultimate_xgb_away.json",
+        models_dir / f"{league}_ultimate_xgb_away.pkl",
+    ]
+    def _latest(paths):
+        existing = [p for p in paths if p.exists()]
+        return max(existing, key=lambda p: p.stat().st_mtime) if existing else None
+
+    latest_home = _latest(home_candidates)
+    latest_away = _latest(away_candidates)
+    needs_train = not (latest_home and latest_away)
+
+    if not needs_train:
+        newest_mtime = max(latest_home.stat().st_mtime, latest_away.stat().st_mtime)
+        mtime = dt.datetime.fromtimestamp(newest_mtime)
         needs_train = (dt.datetime.now() - mtime) > dt.timedelta(days=retrain_days)
         if not needs_train:
-            print(f"[ok] Model fresh: {newest.name}")
+            print(f"[ok] Models fresh: {latest_home.name}, {latest_away.name}")
     if needs_train:
         print(f"[step] Training XGB models for {league}")
         run([sys.executable, "xgb_trainer.py", "--league", league])
 
 
+def ensure_odds(league: str) -> None:
+    odds_dir = DATA / "odds"
+    odds_dir.mkdir(parents=True, exist_ok=True)
+    api_key = os.getenv("THE_ODDS_API_KEY")
+    if not api_key:
+        print("[warn] THE_ODDS_API_KEY not set; skipping odds fetch.")
+        return
+    cmd = [sys.executable, "-m", "scripts.fetch_odds_toa", "--leagues", league]
+    run(cmd)
+
+
 def show_predictions(league: str, days: int, season: Optional[int] = None) -> None:
-    # Use bet_fusion top picks (with odds) and also per-match combined table
+    # Use bet_fusion top picks (placeholder odds) and per-match combined table
     env = os.environ.copy()
-    env.setdefault("BOT_ODDS_MODE", "local")
-    # Ensure fusion engine and helpers use the selected league
     env["BOT_LEAGUE"] = league
-    # Pass fixtures horizon to fusion fallbacks
     env["BOT_FIXTURES_DAYS"] = str(days)
     if season is not None:
-        env["BOT_SEASON"] = str(season)
+        env["BOT_UNDERSTAT_SEASON"] = str(season)
     print("\n=== Top Picks (by EV) ===")
-    run([sys.executable, "bet_fusion.py", "--with-odds", "--top", "20"], env=env)
-    print("\n=== Best Per Match (TG, OU 2.5, 1X2) — by highest probability ===")
+    run([sys.executable, "bet_fusion.py", "--top", "20"], env=env)
+    print("\n=== Best Per Match (TG, OU 2.5, 1X2) - by highest probability ===")
     run([sys.executable, "-m", "scripts.print_best_per_match", "--by", "prob"], env=env)
 
 
@@ -195,10 +172,8 @@ def main() -> None:
     group = ap.add_mutually_exclusive_group(required=True)
     group.add_argument("--league", help="League code, e.g., E0, I1, D1, SP1, F1")
     group.add_argument("--leagues", nargs="+", help="Space-separated list of league codes, e.g., E0 D1 F1 I1 SP1")
-    ap.add_argument("--days", type=int, default=7, help="How many days ahead to fetch odds/fixtures (used for odds); fixtures can also use --from/--to")
-    ap.add_argument("--from", dest="from_date", default=None, help="Optional fixtures window start date (YYYY-MM-DD)")
-    ap.add_argument("--to", dest="to_date", default=None, help="Optional fixtures window end date (YYYY-MM-DD)")
-    ap.add_argument("--season", type=int, default=None, help="Season start year for API-Football (e.g., 2025 for 2025-26)")
+    ap.add_argument("--days", type=int, default=7, help="How many days ahead to fetch fixtures from Understat")
+    ap.add_argument("--season", type=int, default=None, help="Optional Understat season start year (e.g., 2025 for 2025-26)")
     ap.add_argument("--max-age-hours", type=int, default=24, help="Max age for processed data before refresh")
     ap.add_argument("--retrain-days", type=int, default=7, help="Retrain models if older than this many days")
     ap.add_argument("--compact", action="store_true", help="Also print compact round prognostics (1X2, OU 2.5, TG)")
@@ -221,8 +196,8 @@ def main() -> None:
         # 2) Micro aggregates (Understat best-effort + enrich)
         ensure_micro_aggregates(league)
 
-        # 3) Odds (include season for API-Football date windows/free plan compatibility)
-        ensure_odds(league, days=args.days, season=args.season)
+        # 3) Odds (The Odds API -> local JSON)
+        ensure_odds(league)
 
         # 4) Absences seed
         ensure_absences_seed(league)
@@ -231,11 +206,6 @@ def main() -> None:
         ensure_trained(league, retrain_days=args.retrain_days)
 
         # 6) Show predictions
-        # Pass fixtures window to fusion fallbacks via environment
-        if args.from_date:
-            os.environ["BOT_FIXTURES_FROM"] = str(args.from_date)
-        if args.to_date:
-            os.environ["BOT_FIXTURES_TO"] = str(args.to_date)
         show_predictions(league, days=args.days, season=args.season)
 
         # Optional: compact per-match prognostics for the next round

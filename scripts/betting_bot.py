@@ -112,7 +112,8 @@ def main() -> None:
         print("\nNo predictions available.")
         return
 
-    df_val = attach_value_metrics(market_df, use_placeholders=True)
+    league = config.get('league', 'E0')
+    df_val = attach_value_metrics(market_df, use_placeholders=True, league_code=league)
     # Simple thresholds for demo; can be moved to config['thresholds']
     thresholds = {
         '1X2': {'min_prob': 0.55, 'min_edge': 0.03},

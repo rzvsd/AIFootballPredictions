@@ -247,10 +247,10 @@ def main() -> None:
         print(f"Unknown league id for {lg}")
         sys.exit(1)
 
-    if args.fixtures_csv:
-        csv_rows = _read_fixtures_csv(args.fixtures_csv)
-        mapped = _map_names_to_api(csv_rows, league_id, days=args.days)
-    else:
+    def _fixtures_from_source() -> List[Dict]:
+        if args.fixtures_csv:
+            csv_rows = _read_fixtures_csv(args.fixtures_csv)
+            return _map_names_to_api(csv_rows, league_id, days=args.days)
         # Primary: tight date window requested by user
         api_fix = _get_fixtures_from_api(league_id, args.days, season=args.season)
         mapped = [
@@ -265,7 +265,6 @@ def main() -> None:
         # Fallback: if empty window (e.g., international break), fetch the next N fixtures
         if not mapped:
             try:
-                # Try with season, then without (inside helper)
                 fallback = _get_next_fixtures_from_api(league_id, next_n=max(20, args.days), season=args.season)
                 mapped = [
                     {
@@ -280,6 +279,9 @@ def main() -> None:
                     print(f"[info] No fixtures in next {args.days} days for {lg} (season={args.season or _season_for_today()}). Using 'next' fallback (N={len(mapped)}).")
             except Exception as e:
                 print(f"[warn] Fallback 'next' fixtures failed for {lg}: {e}")
+        return mapped
+
+    mapped = _fixtures_from_source()
 
     out_fixtures = []
     for m in mapped:
@@ -309,12 +311,13 @@ def main() -> None:
             return markets
 
         markets = _mk_markets(odds)
-        out_fixtures.append({
+        out_entry = {
             'date': m.get('date'),
             'home': m.get('home'),
             'away': m.get('away'),
-            'markets': markets,
-        })
+            'markets': markets or {},
+        }
+        out_fixtures.append(out_entry)
 
     odds_dir = os.getenv('BOT_ODDS_DIR', os.path.join('data','odds'))
     os.makedirs(odds_dir, exist_ok=True)

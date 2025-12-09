@@ -43,9 +43,6 @@ agents:
           Path("reports/name_samples.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
           print("report: reports/name_samples.json")
           PY
-      - name: odds-fetch
-        run: |
-          python scripts/fetch_odds_api_football.py --leagues "%LEAGUES%" --out-dir data/odds || true
 
   - name: phase2_training_and_calibration
     description: Train XGB and compute simple metrics using existing utilities.
@@ -81,5 +78,5 @@ agents:
     tasks:
       - name: weekly-picks
         run: |
-          python one_click_predictor.py --league %LEAGUE% --fixtures-csv data/fixtures/%LEAGUE%_manual.csv
+          python predict.py --league %LEAGUE% --days 7 --compact
 

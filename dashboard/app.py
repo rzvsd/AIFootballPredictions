@@ -30,8 +30,9 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+import glob
+
 import config
-import bet_fusion as fusion
 
 
 def load_bankroll() -> float:
@@ -167,63 +168,72 @@ def compute_pnl(df_bets: pd.DataFrame, leagues: List[str]) -> pd.DataFrame:
 
 
 def upcoming_predictions(league: str, top_n: int = 20) -> pd.DataFrame:
-    # Prefer using saved picks if available for this league (ensures consistency)
-    try:
-        import glob
-        import pandas as pd  # type: ignore
+    """Build shopping-list style view: best 1X2, OU, TG per match using current engine data."""
+    cols = ['date','home','away','market','outcome','prob','fair_odds','book_odds','price_source','odds','edge','EV']
+
+    # Prefer live computation (ensures all matches/markets shown), fallback to latest report if compute fails
+    def _from_engine() -> pd.DataFrame:
+        try:
+            cfg = fusion.load_config()
+            cfg['league'] = league
+            # respect BOT_FIXTURES_DAYS if set; otherwise default inside engine
+            days_env = os.getenv('BOT_FIXTURES_DAYS')
+            if days_env:
+                cfg['fixtures_days'] = int(days_env)
+            df = fusion.generate_market_book(cfg)
+            if df is None or df.empty:
+                return pd.DataFrame(columns=cols)
+            # attach real odds from lookup first
+            df_odds = fusion._fill_odds_for_df(df, league, with_odds=True)
+            df_val = fusion.attach_value_metrics(df_odds, use_placeholders=True, league_code=league)
+            missing = [c for c in cols if c not in df_val.columns]
+            for c in missing:
+                df_val[c] = np.nan
+            return df_val[cols].copy()
+        except Exception:
+            return pd.DataFrame(columns=cols)
+
+    df = _from_engine()
+    if df.empty:
         paths = sorted(glob.glob(os.path.join('reports', f'{league}_*_picks.csv')))
-        if paths:
-            last = paths[-1]
-            df = pd.read_csv(last)
-            cols = [c for c in ['date','home','away','market','outcome','prob','odds','edge','EV'] if c in df.columns]
-            df = df[cols].copy()
-            for c in ('EV','prob','odds','edge'):
-                if c in df.columns:
-                    df[c] = pd.to_numeric(df[c], errors='coerce')
-            return df.sort_values(['EV','prob'], ascending=[False, False]).head(top_n)
-    except Exception:
-        pass
-    cfg = fusion.load_config()
-    cfg['league'] = league
-    mb = fusion.generate_market_book(cfg)
-    if mb.empty:
-        return mb
-    # Use real odds when available (BOT_ODDS_MODE=local loads data/odds/{LEAGUE}.json)
-    df_odds = fusion.attach_value_metrics(
-        fusion._fill_odds_for_df(mb, league, with_odds=True),
-        use_placeholders=False,
-    )
-    # Extra safety: keep only teams that belong to the selected league
-    try:
-        import pandas as pd  # type: ignore
-        proc = os.path.join('data','processed', f'{league}_merged_preprocessed.csv')
-        raw = os.path.join('data','raw', f'{league}_merged.csv')
-        team_set = set()
-        src = proc if os.path.exists(proc) else raw if os.path.exists(raw) else None
-        if src:
-            df_t = pd.read_csv(src)
-            homes = df_t.get('HomeTeam') if 'HomeTeam' in df_t.columns else pd.Series([], dtype=str)
-            aways = df_t.get('AwayTeam') if 'AwayTeam' in df_t.columns else pd.Series([], dtype=str)
-            team_set = set(homes.dropna().astype(str).map(config.normalize_team_name)) | set(aways.dropna().astype(str).map(config.normalize_team_name))
-        if team_set:
-            df_odds = df_odds[df_odds['home'].astype(str).isin(team_set) & df_odds['away'].astype(str).isin(team_set)]
-    except Exception:
-        pass    # prefer best per market per match
-    rows=[]
-    for (d,h,a), g in df_odds.groupby(['date','home','away']):
-        # pick highest EV among each market base
-        def pick(m):
-            gg = g[g['market'].astype(str).str.startswith(m)]
-            if gg.empty: return None
-            return gg.sort_values(['EV','prob'], ascending=[False,False]).iloc[0]
-        p1=pick('1X2'); p2=pick('OU '); p3=pick('TG Interval')
-        for p in (p1,p2,p3):
-            if p is None: continue
-            rows.append({'date': d, 'home': h, 'away': a, 'market': p['market'], 'outcome': p['outcome'], 'prob': float(p['prob']), 'odds': float(p['odds']), 'edge': float(p['edge']), 'EV': float(p['EV'])})
-    out = pd.DataFrame(rows)
+        if not paths:
+            return pd.DataFrame(columns=cols)
+        latest = paths[-1]
+        try:
+            df = pd.read_csv(latest)
+        except Exception:
+            return pd.DataFrame(columns=cols)
+        missing = [c for c in cols if c not in df.columns]
+        for c in missing:
+            df[c] = np.nan
+        df = df[cols].copy()
+
+    for c in ('prob','odds','edge','EV','fair_odds','book_odds'):
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors='coerce')
+
+    # pick best market per match (1X2, OU, TG interval) by highest probability (shopping list)
+    rows = []
+    for (date, home, away), group in df.groupby(['date','home','away']):
+        def pick(prefix: str, exact: bool = False):
+            mask = group['market'].astype(str) == prefix if exact else group['market'].astype(str).str.startswith(prefix)
+            sub = group[mask]
+            if sub.empty:
+                return None
+            return sub.sort_values(['prob','EV'], ascending=[False, False]).iloc[0]
+        selections = [
+            pick('1X2', exact=True),
+            pick('OU '),
+            pick('TG Interval'),
+        ]
+        for sel in selections:
+            if sel is None:
+                continue
+            rows.append(sel.to_dict())
+    out = pd.DataFrame(rows, columns=cols).dropna(subset=['date','home','away','market'])
     if out.empty:
         return out
-    return out.sort_values(['EV','prob'], ascending=[False, False]).head(top_n)
+    return out.sort_values(['date','home','away','market','prob'], ascending=[True, True, True, True, False])
 
 
 def fig_to_png_bytes(fig) -> bytes:
@@ -291,8 +301,135 @@ def main():
             if preds.empty:
                 st.write('No upcoming predictions.')
             else:
-                st.dataframe(preds, use_container_width=True)
-                st.download_button(f'Download {lg} Predictions (CSV)', data=preds.to_csv(index=False).encode('utf-8'), file_name=f'{lg}_predictions.csv', mime='text/csv')
+                display_df = preds.copy()
+                for col in ('prob','edge','odds','EV'):
+                    if col in display_df.columns:
+                        display_df[col] = pd.to_numeric(display_df[col], errors='coerce')
+                if 'edge' in display_df.columns:
+                    display_df['edge'] = display_df['edge'] * 100.0
+
+                def adjust_row(row):
+                    fair = float(row.get('fair_odds', np.nan)) if not pd.isna(row.get('fair_odds')) else np.nan
+                    book = row.get('book_odds', np.nan)
+                    book = float(book) if not pd.isna(book) else np.nan
+                    tag = str(row.get('price_source', '') or '').lower()
+                    if tag not in ('real', 'synth'):
+                        tag = 'synth' if pd.isna(book) else 'real'
+                    ev_val = float(row.get('EV', np.nan)) if (not pd.isna(row.get('EV')) and tag == 'real') else np.nan
+                    return pd.Series({'fair_odds': fair, 'book_odds': book, 'disp_ev': ev_val, 'price_tag': tag})
+
+                display_df = pd.concat([display_df, display_df.apply(adjust_row, axis=1)], axis=1)
+                # Ensure unique columns for Styler and reset index
+                display_df = display_df.loc[:, ~display_df.columns.duplicated()].reset_index(drop=True)
+
+                # Compact per-match view: TG Interval, 1X2, Over/Under side by side
+                def _best_pick(group: pd.DataFrame, predicate) -> pd.Series | None:
+                    sub = group[predicate(group['market'].astype(str))]
+                    if sub.empty:
+                        return None
+                    sort_cols = ['disp_ev' if 'disp_ev' in sub.columns else 'EV', 'prob']
+                    return sub.sort_values(sort_cols, ascending=[False, False]).iloc[0]
+
+                rows = []
+                for (date, home, away), g in preds.groupby(['date','home','away']):
+                    tg = _best_pick(g, lambda s: s.str.startswith('TG Interval'))
+                    one = _best_pick(g, lambda s: s == '1X2')
+                    ou = _best_pick(g, lambda s: s.str.startswith('OU '))
+                    def fmt(row):
+                        if row is None:
+                            return '-'
+                        prob = float(row.get('prob', np.nan))
+                        fair = float(row.get('fair_odds', np.nan))
+                        odds = row.get('book_odds', np.nan)
+                        tag = str(row.get('price_tag','')).upper()
+                        tag_str = f" [{tag}]" if tag else ""
+                        odds_str = f"{float(odds):.2f}" if pd.notna(odds) else "n/a"
+                        fair_str = f"{fair:.2f}+" if pd.notna(fair) else "n/a"
+                        return f"{row['market']} {row['outcome']} | p={prob*100:.1f}% | target>={fair_str} | book={odds_str}{tag_str}"
+                    rows.append({
+                        'Kickoff': pd.to_datetime(date, errors='coerce'),
+                        'Match': f"{home} vs {away}",
+                        'TG Interval': fmt(tg),
+                        '1X2': fmt(one),
+                        'Over/Under': fmt(ou),
+                    })
+                if rows:
+                    match_df = pd.DataFrame(rows).sort_values('Kickoff')
+                    st.markdown('**Per-match best picks (by EV per market)**')
+                    st.dataframe(
+                        match_df,
+                        column_config={
+                            'Kickoff': st.column_config.DatetimeColumn('Kickoff', format='D MMM HH:mm'),
+                            'Match': st.column_config.TextColumn('Match'),
+                            'TG Interval': st.column_config.TextColumn('TG Interval'),
+                            '1X2': st.column_config.TextColumn('1X2'),
+                            'Over/Under': st.column_config.TextColumn('Over/Under'),
+                        },
+                        width='stretch',
+                        hide_index=True,
+                    )
+                # Full list in an expander, grouped view to avoid duplicate rows at top-level
+                with st.expander('Full list (per bet)', expanded=False):
+                    column_cfg = {
+                        'date': st.column_config.DatetimeColumn('Kickoff', format='D MMM HH:mm'),
+                        'home': 'Home Team',
+                        'away': 'Away Team',
+                        'market': st.column_config.TextColumn('Market', help='Type of bet'),
+                        'outcome': st.column_config.TextColumn('Pick', help='Target result'),
+                        'prob': st.column_config.ProgressColumn(
+                            'Probability',
+                            format='%.1f%%',
+                            min_value=0.0,
+                            max_value=1.0,
+                            help='Model confidence',
+                        ),
+                        'fair_odds': st.column_config.NumberColumn('Target/Fair Odds', format='%.2f'),
+                        'book_odds': st.column_config.NumberColumn('Book Odds', format='%.2f'),
+                        'edge': st.column_config.NumberColumn(
+                            'Edge',
+                            format='%.1f%%',
+                            help='Advantage over bookie'
+                        ),
+                        'EV': st.column_config.NumberColumn('EV (raw)', format='%.2f'),
+                        'disp_ev': st.column_config.NumberColumn('EV (fair)', format='%.2f'),
+                        'price_source': st.column_config.TextColumn('Price Source', help='real = feed price, synth = derived fair'),
+                        'price_tag': st.column_config.TextColumn('Price Tag', help='real = feed price, synth = derived fair'),
+                    }
+
+                    def highlight_high_ev(row):
+                        try:
+                            ev_val = float(row.get('disp_ev', 0) or 0)
+                            if ev_val > 1.10:
+                                return ['background-color: #d4edda; color: black'] * len(row)
+                            if ev_val > 0.5:
+                                return ['background-color: #f0f7fb; color: black'] * len(row)
+                        except Exception:
+                            pass
+                        return [''] * len(row)
+
+                    styled = display_df.style.apply(highlight_high_ev, axis=1)
+                    st.dataframe(
+                        styled,
+                        column_config=column_cfg,
+                        width='stretch',
+                        hide_index=True,
+                        height=600,
+                    )
+                    st.download_button(
+                        f'Download {lg} Predictions (CSV)',
+                        data=preds.to_csv(index=False).encode('utf-8'),
+                        file_name=f'{lg}_predictions.csv',
+                        mime='text/csv',
+                    )
+
+                st.markdown("""
+**Legend**
+- Probability: model-derived win/probability for the market (xG → Poisson/NegBin score matrix → market prob; calibrated where configured).
+- Odds (fair/synth): if the feed price is missing or placeholder, we derive a synthetic bookmaker-like price from the model prob plus a margin (`BOT_SYNTH_MARGIN`, default 6%).
+- Edge: model probability minus implied probability from the displayed odds.
+- EV: expected value using the displayed (real or synthetic) odds; EV>0 implies positive theoretical return.
+- Price Type: REAL = from odds feed; SYNTH = derived fair price (no bookmaker quote available).
+""")
 
 
 if __name__ == '__main__':

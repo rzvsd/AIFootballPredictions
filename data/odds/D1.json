@@ -1,3 +1,380 @@
 {
-  "fixtures": []
+  "fixtures": [
+    {
+      "date": "2025-12-12T19:30:00Z",
+      "home": "Union Berlin",
+      "away": "RB Leipzig",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.03,
+            "home": 3.73,
+            "draw": 3.66
+          }
+        },
+        "OU": {
+          "2.75": {
+            "main": {
+              "Over": 2.05,
+              "Under": 1.85
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T14:30:00Z",
+      "home": "FC St. Pauli",
+      "away": "Heidenheim",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.2,
+            "home": 1.97,
+            "draw": 3.47
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.91,
+              "Under": 1.98
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T14:30:00Z",
+      "home": "Ein Frankfurt",
+      "away": "Augsburg",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.49,
+            "home": 1.72,
+            "draw": 4.26
+          }
+        },
+        "OU": {
+          "3": {
+            "main": {
+              "Over": 2.01,
+              "Under": 1.88
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T14:30:00Z",
+      "home": "M'gladbach",
+      "away": "Wolfsburg",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.99,
+            "away": 3.7,
+            "draw": 3.82
+          }
+        },
+        "OU": {
+          "3": {
+            "main": {
+              "Over": 2.01,
+              "Under": 1.88
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T14:30:00Z",
+      "home": "Hoffenheim",
+      "away": "Hamburger SV",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.45,
+            "home": 1.68,
+            "draw": 4.25
+          }
+        },
+        "OU": {
+          "3.5": {
+            "main": {
+              "Over": 2.32,
+              "Under": 1.58
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T17:30:00Z",
+      "home": "Leverkusen",
+      "away": "FC Koln",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 5.43,
+            "home": 1.55,
+            "draw": 4.77
+          }
+        },
+        "OU": {
+          "3.25": {
+            "main": {
+              "Over": 2.08,
+              "Under": 1.83
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T14:30:00Z",
+      "home": "Freiburg",
+      "away": "Dortmund",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.12,
+            "home": 3.35,
+            "draw": 3.55
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.82,
+              "Under": 1.95
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T16:30:00Z",
+      "home": "Bayern Munich",
+      "away": "FSV Mainz 05",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.1,
+            "away": 21.59,
+            "draw": 12.65
+          }
+        },
+        "OU": {
+          "4": {
+            "main": {
+              "Over": 1.97,
+              "Under": 1.89
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T18:30:00Z",
+      "home": "Werder Bremen",
+      "away": "Stuttgart",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.24,
+            "home": 2.97,
+            "draw": 3.97
+          }
+        },
+        "OU": {
+          "3": {
+            "main": {
+              "Over": 1.86,
+              "Under": 2.03
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-19T19:30:00Z",
+      "home": "Dortmund",
+      "away": "M'gladbach",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.42,
+            "away": 5.3,
+            "draw": 4.35
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T14:30:00Z",
+      "home": "FC Koln",
+      "away": "Union Berlin",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.38,
+            "away": 3.16,
+            "draw": 3.4
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T14:30:00Z",
+      "home": "Augsburg",
+      "away": "Werder Bremen",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.2,
+            "away": 2.95,
+            "draw": 3.6
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T14:30:00Z",
+      "home": "Hamburger SV",
+      "away": "Ein Frankfurt",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.57,
+            "home": 2.71,
+            "draw": 3.65
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T14:30:00Z",
+      "home": "Wolfsburg",
+      "away": "Freiburg",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.56,
+            "home": 2.88,
+            "draw": 3.6
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.84,
+              "Under": 2.11
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T14:30:00Z",
+      "home": "Stuttgart",
+      "away": "Hoffenheim",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.45,
+            "home": 1.88,
+            "draw": 3.95
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T17:30:00Z",
+      "home": "RB Leipzig",
+      "away": "Leverkusen",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.48,
+            "home": 2.05,
+            "draw": 3.9
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T14:30:00Z",
+      "home": "FSV Mainz 05",
+      "away": "FC St. Pauli",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.7,
+            "home": 1.8,
+            "draw": 3.15
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T16:30:00Z",
+      "home": "Heidenheim",
+      "away": "Bayern Munich",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 12.0,
+            "away": 1.12,
+            "draw": 7.1
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    }
+  ]
 }

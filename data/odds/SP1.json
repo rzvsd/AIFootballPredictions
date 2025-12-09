@@ -1,3 +1,449 @@
 {
-  "fixtures": []
+  "fixtures": [
+    {
+      "date": "2025-12-12T20:00:00Z",
+      "home": "Sociedad",
+      "away": "Girona",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.82,
+            "home": 1.74,
+            "draw": 3.93
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.88,
+              "Under": 2.01
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T13:00:00Z",
+      "home": "Atlético Madrid",
+      "away": "Valencia",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.33,
+            "away": 11.38,
+            "draw": 5.01
+          }
+        },
+        "OU": {
+          "2.75": {
+            "main": {
+              "Over": 1.99,
+              "Under": 1.9
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T15:15:00Z",
+      "home": "Mallorca",
+      "away": "Elche CF",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.22,
+            "home": 2.5,
+            "draw": 3.1
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 2.1,
+              "Under": 1.81
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T17:30:00Z",
+      "home": "Barcelona",
+      "away": "CA Osasuna",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.23,
+            "away": 11.83,
+            "draw": 6.96
+          }
+        },
+        "OU": {
+          "3.75": {
+            "main": {
+              "Over": 1.88,
+              "Under": 1.99
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T20:00:00Z",
+      "home": "Getafe",
+      "away": "Espanol",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.28,
+            "home": 2.61,
+            "draw": 2.9
+          }
+        },
+        "OU": {
+          "1.75": {
+            "main": {
+              "Over": 1.87,
+              "Under": 2.02
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T13:00:00Z",
+      "home": "Sevilla",
+      "away": "Oviedo",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 5.22,
+            "home": 1.8,
+            "draw": 3.47
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.96,
+              "Under": 1.93
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T15:15:00Z",
+      "home": "Celta",
+      "away": "Athletic Bilbao",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.86,
+            "home": 2.66,
+            "draw": 3.24
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.93,
+              "Under": 1.95
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T17:30:00Z",
+      "home": "Levante",
+      "away": "Villarreal",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 4.56,
+            "away": 1.68,
+            "draw": 4.48
+          }
+        },
+        "OU": {
+          "3": {
+            "main": {
+              "Over": 2.04,
+              "Under": 1.85
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T20:00:00Z",
+      "home": "Alavés",
+      "away": "Real Madrid",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 6.1,
+            "away": 1.61,
+            "draw": 3.97
+          }
+        },
+        "OU": {
+          "2.75": {
+            "main": {
+              "Over": 1.95,
+              "Under": 1.93
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-15T20:00:00Z",
+      "home": "Vallecano",
+      "away": "Betis",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.59,
+            "away": 2.76,
+            "draw": 3.45
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.99,
+              "Under": 1.88
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-19T20:00:00Z",
+      "home": "Valencia",
+      "away": "Mallorca",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.8,
+            "home": 1.8,
+            "draw": 3.1
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T13:00:00Z",
+      "home": "Oviedo",
+      "away": "Celta",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.24,
+            "home": 3.51,
+            "draw": 3.51
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.22,
+              "Under": 1.77
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T15:15:00Z",
+      "home": "Levante",
+      "away": "Sociedad",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 3.08,
+            "away": 2.05,
+            "draw": 3.25
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T17:30:00Z",
+      "home": "CA Osasuna",
+      "away": "Alavés",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.25,
+            "home": 2.05,
+            "draw": 2.85
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T20:00:00Z",
+      "home": "Real Madrid",
+      "away": "Sevilla",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.29,
+            "away": 12.1,
+            "draw": 6.3
+          }
+        },
+        "OU": {
+          "3.5": {
+            "main": {
+              "Over": 2.02,
+              "Under": 1.92
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T13:00:00Z",
+      "home": "Girona",
+      "away": "Atlético Madrid",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 1.79,
+            "home": 4.83,
+            "draw": 4.01
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.85,
+              "Under": 2.1
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T15:15:00Z",
+      "home": "Villarreal",
+      "away": "Barcelona",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.03,
+            "home": 3.4,
+            "draw": 4.37
+          }
+        },
+        "OU": {
+          "3.5": {
+            "main": {
+              "Over": 1.88,
+              "Under": 2.07
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T17:30:00Z",
+      "home": "Elche CF",
+      "away": "Vallecano",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.68,
+            "away": 2.96,
+            "draw": 3.29
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.34,
+              "Under": 1.7
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T20:00:00Z",
+      "home": "Betis",
+      "away": "Getafe",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.65,
+            "home": 1.62,
+            "draw": 3.25
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-22T20:00:00Z",
+      "home": "Athletic Bilbao",
+      "away": "Espanol",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.58,
+            "away": 4.75,
+            "draw": 3.4
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    }
+  ]
 }

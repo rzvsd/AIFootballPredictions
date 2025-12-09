@@ -1,3 +1,5 @@
+"""Shopping-list quick report (per-market picks with fair vs book odds)."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +9,15 @@ from typing import Dict
 import pandas as pd
 
 import bet_fusion as fusion
+
+
+def _ev_display(row: pd.Series) -> str:
+    try:
+        if str(row.get('price_source')) != 'real':
+            return ''
+        return f"{float(row.get('EV', 0.0)):.2f}"
+    except Exception:
+        return ''
 
 
 def run_report(league: str, xg_source: str, micro_path: str | None = None, top_n: int = 10) -> pd.DataFrame:
@@ -20,20 +31,32 @@ def run_report(league: str, xg_source: str, micro_path: str | None = None, top_n
         return mb
     # keep 1X2 and OU 2.5 only
     mb = mb[(mb['market'] == '1X2') | (mb['market'] == 'OU 2.5')].copy()
-    # attach odds/edge/EV with placeholders (for comparability)
-    df = fusion.attach_value_metrics(fusion._fill_odds_for_df(mb, league, with_odds=False), use_placeholders=True)
-    # select one pick per market per match (highest EV then prob)
+    df = fusion._fill_odds_for_df(mb, league, with_odds=True)
+    df = fusion.attach_value_metrics(
+        df,
+        use_placeholders=False,
+        league_code=league,
+    )
+    if df.empty:
+        return df
+    df['prob'] = pd.to_numeric(df['prob'], errors='coerce')
+    # select one pick per market per match (highest prob then EV)
     rows = []
     for (d,h,a), g in df.groupby(['date','home','away']):
-        # pick best 1X2
-        g1 = g[g['market'] == '1X2']
-        if not g1.empty:
-            r = g1.sort_values(['EV','prob'], ascending=[False, False]).iloc[0]
-            rows.append({'date': d, 'home': h, 'away': a, 'market': '1X2', 'pick': r['outcome'], 'prob': float(r['prob']), 'EV': float(r['EV'])})
-        g2 = g[g['market'] == 'OU 2.5']
-        if not g2.empty:
-            r = g2.sort_values(['EV','prob'], ascending=[False, False]).iloc[0]
-            rows.append({'date': d, 'home': h, 'away': a, 'market': 'OU 2.5', 'pick': r['outcome'], 'prob': float(r['prob']), 'EV': float(r['EV'])})
+        for market in ('1X2','OU 2.5'):
+            gm = g[g['market'] == market]
+            if gm.empty:
+                continue
+            r = gm.sort_values(['prob','EV'], ascending=[False, False]).iloc[0]
+            rows.append({
+                'date': d, 'home': h, 'away': a,
+                'market': market, 'pick': r['outcome'],
+                'prob': float(r['prob']),
+                'fair_odds': float(r.get('fair_odds', float('nan'))),
+                'book_odds': float(r.get('book_odds', float('nan'))) if pd.notna(r.get('book_odds')) else None,
+                'price_source': r.get('price_source',''),
+                'EV_real': _ev_display(r),
+            })
     out = pd.DataFrame(rows)
     if out.empty:
         return out
@@ -56,8 +79,11 @@ def main() -> None:
         from tabulate import tabulate
         disp = df.copy()
         disp['prob'] = disp['prob'].map(lambda x: f"{x:.1%}")
-        disp['EV'] = disp['EV'].map(lambda x: f"{x:.2f}")
-        print(tabulate(disp, headers='keys', tablefmt='github', showindex=False))
+        disp['fair_odds'] = disp['fair_odds'].map(lambda x: f"{x:.2f}")
+        disp['book_odds'] = disp['book_odds'].map(lambda x: f"{x:.2f}" if pd.notna(x) else '')
+        print(tabulate(
+            disp[['date','home','away','market','pick','prob','fair_odds','book_odds','price_source','EV_real']],
+            headers='keys', tablefmt='github', showindex=False))
     except Exception:
         print(df.to_string(index=False))
 

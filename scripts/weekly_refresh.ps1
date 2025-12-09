@@ -2,7 +2,6 @@ Param(
   [string]$League = "E0",
   [string]$Seasons = "2425 2324",
   [string]$UnderstatSeasons = "2025,2024",
-  [string]$FixturesCsv = "data/fixtures/${League}_manual.csv",
   [string]$AbsencesCsv = "",
   [switch]$TryInstallUnderstat,
   [switch]$SkipDownload
@@ -19,7 +18,6 @@ Set-Location ..  # move to repo root
 New-Item -ItemType Directory -Force -Path data/raw | Out-Null
 New-Item -ItemType Directory -Force -Path data/processed | Out-Null
 New-Item -ItemType Directory -Force -Path data/enhanced | Out-Null
-New-Item -ItemType Directory -Force -Path data/odds | Out-Null
 New-Item -ItemType Directory -Force -Path data/absences | Out-Null
 
 if (-not $SkipDownload) {
@@ -81,18 +79,16 @@ elseif (-not (Test-Path $absPath)) {
 Write-Step "Training XGB models for $League"
 python xgb_trainer.py --league $League
 
-# 7) Ensure fixtures CSV exists (manual if needed)
-if (-not (Test-Path $FixturesCsv)) {
-  Write-Step "Creating manual fixtures template at $FixturesCsv"
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $FixturesCsv) | Out-Null
-  @(
-    'date,home,away',
-    '2025-08-30 14:30,Chelsea,Fulham'
-  ) | Out-File -Encoding utf8 $FixturesCsv
-}
+# 7) Refresh Understat fixtures for this league (next 14 days)
+Write-Step "Fetching Understat fixtures for $League"
+python -m scripts.fetch_fixtures_understat --leagues $League --days 14
 
-# 8) Generate picks (placeholder odds unless odds configured)
+# 8) Fetch Bet365 odds from football-data (best-effort)
+Write-Step "Fetching football-data Bet365 odds for $League"
+python -m scripts.fetch_odds_fd_simple --leagues $League --days 14
+
+# 9) Generate picks
 Write-Step "Generating market book and top picks for $League"
-python scripts/betting_bot.py --league $League
+python bet_fusion.py --top 20
 
 Write-Step "Weekly refresh complete."

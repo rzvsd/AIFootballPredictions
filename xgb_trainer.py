@@ -45,7 +45,8 @@ def _build_fallback_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
                                elo_k: float = 20.0, elo_home_adv: float = 60.0,
-                               elo_similarity_sigma: float = 50.0) -> pd.DataFrame:
+                               elo_similarity_sigma: float = 50.0,
+                               league_code: str | None = None) -> pd.DataFrame:
     """Compute per-match pre-game EWMAs (directional), Elo, and enriched micro features.
 
     Adds per-row pre-match columns including:
@@ -120,13 +121,7 @@ def _compute_ewma_elo_prematch(df: pd.DataFrame, half_life_matches: int = 5,
             return {}
         return idx
     # Infer league code from processed filename if present
-    league_guess = None
-    try:
-        # Expect df came from data/processed/{LEAGUE}_merged_preprocessed.csv
-        league_guess = None
-    except Exception:
-        league_guess = None
-    abs_idx = _load_abs_idx(league_guess)
+    abs_idx = _load_abs_idx(league_code)
     # Load micro aggregates maps (optional)
     micro_path = os.path.join('data','enhanced','micro_agg.csv')
     micro_xg_map = {}
@@ -359,7 +354,14 @@ def train_xgb_models_for_league(league: str) -> None:
             print(f'Warning: raw file not found for labels: {raw_path}')
     # Compute per-match EWMA and Elo (with per-league Elo-sim sigma)
     sigma = float(getattr(config, 'ELO_SIM_SIGMA_PER_LEAGUE', {}).get(league, 50.0))
-    d_feats = _compute_ewma_elo_prematch(df, half_life_matches=5, elo_k=20.0, elo_home_adv=60.0, elo_similarity_sigma=sigma)
+    d_feats = _compute_ewma_elo_prematch(
+        df,
+        half_life_matches=5,
+        elo_k=20.0,
+        elo_home_adv=60.0,
+        elo_similarity_sigma=sigma,
+        league_code=league,
+    )
     # Build features consistent with inference mapping
     X = pd.DataFrame(index=d_feats.index)
     # Directional EWMAs

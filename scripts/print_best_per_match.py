@@ -15,104 +15,77 @@ import bet_fusion as fusion  # type: ignore
 from bet_fusion import attach_value_metrics  # type: ignore
 
 
-def _fmt_percent(x) -> str:
+def _fmt_percent(x: float) -> str:
     try:
-        return f"{float(x)*100:5.2f}%"
+        return f"{float(x)*100:5.1f}%"
     except Exception:
-        return "   n/a"
+        return "  n/a"
 
 
-def _fmt_float(x) -> str:
+def _fmt_float(x: float) -> str:
     try:
         return f"{float(x):.2f}"
     except Exception:
         return "n/a"
 
 
-def _best_1x2(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
-    s = sub[sub['market'].astype(str) == '1X2']
-    if s.empty:
+def _choose_best(sub: pd.DataFrame, market_filter) -> pd.Series | None:
+    cand = sub[market_filter(sub)]
+    if cand.empty:
         return None
-    key = 'EV' if by == 'ev' else 'prob'
-    return s.loc[s[key].idxmax()]
+    # Pick the highest probability row (shopping list, not EV)
+    cand = cand.sort_values(["prob"], ascending=False)
+    return cand.iloc[0]
 
 
-def _best_ou(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
-    # Prefer exactly 'OU 2.5' if present, else any OU line by EV
-    ou25 = sub[sub['market'].astype(str).eq('OU 2.5')]
-    if not ou25.empty:
-        key = 'EV' if by == 'ev' else 'prob'
-        return ou25.loc[ou25[key].idxmax()]
-    ou_any = sub[sub['market'].astype(str).str.startswith('OU ')]
-    if ou_any.empty:
-        return None
-    key = 'EV' if by == 'ev' else 'prob'
-    return ou_any.loc[ou_any[key].idxmax()]
-
-
-def _best_tg(sub: pd.DataFrame, by: str = 'ev') -> pd.Series | None:
-    tg = sub[sub['market'].astype(str) == 'TG Interval']
-    if tg.empty:
-        return None
-    key = 'EV' if by == 'ev' else 'prob'
-    return tg.loc[tg[key].idxmax()]
-
-
-def _print_rows(rows: List[pd.Series]) -> None:
-    # header
-    cols = ['date','home','away','market','outcome','prob','odds','edge','EV']
-    widths = {'date':19,'home':16,'away':16,'market':12,'outcome':8,'prob':7,'odds':6,'edge':7,'EV':6}
-    if rows:
-        print("\nCombined Picks (TG, OU, 1X2 per game)")
-        print("-" * 44)
-        print(" ".join([f"{c.upper():<{widths[c]}}" for c in cols]))
-    for r in rows:
-        if r is None:
-            continue
-        vals = []
-        for c in cols:
-            v = r.get(c)
-            s = str(v)
-            if c in ('prob','edge'):
-                s = _fmt_percent(v)
-            elif c in ('odds','EV'):
-                s = _fmt_float(v)
-            vals.append(f"{s:<{widths[c]}}")
-        print(" ".join(vals))
+def _render_line(label: str, row: pd.Series) -> str:
+    prob = _fmt_percent(row.get("prob"))
+    tgt = _fmt_float(row.get("fair_odds")) + "+"
+    odds = row.get("odds")
+    odds_s = _fmt_float(odds) if pd.notna(odds) else "n/a"
+    outcome = str(row.get("outcome", "")).strip()
+    return f"  {label:<8} {outcome:<6} | p={prob:<7} | target>={tgt:<6} | book={odds_s}"
 
 
 def main() -> None:
-    import argparse
-    ap = argparse.ArgumentParser(description='Combined best-per-match picks')
-    ap.add_argument('--by', choices=['ev','prob'], default='ev', help='Select best by expected value or by probability')
-    args = ap.parse_args()
-
     cfg = fusion.load_config()
+    league = cfg.get("league", "E0")
     df = fusion.generate_market_book(cfg)
     if df is None or df.empty:
         print("No fixtures available.")
         return
-    full = attach_value_metrics(df, use_placeholders=True)
-    # ensure numeric for ranking
-    for c in ('EV','prob','odds','edge'):
+    df_odds = fusion._fill_odds_for_df(df, league, with_odds=True)
+    full = attach_value_metrics(df_odds, use_placeholders=True, league_code=league)
+    for c in ("prob", "odds", "fair_odds"):
         if c in full.columns:
-            full[c] = pd.to_numeric(full[c], errors='coerce')
-    # group by fixture and pick 3 rows: TG, OU, 1X2
-    out_rows: List[pd.Series] = []
-    for (date, home, away), sub in full.groupby(['date','home','away'], dropna=False):
-        sub_sorted = sub.sort_values(['EV','prob'], ascending=[False, False]).copy()
-        t_tg = _best_tg(sub_sorted, by=args.by)
-        t_ou = _best_ou(sub_sorted, by=args.by)
-        t_1x2 = _best_1x2(sub_sorted, by=args.by)
-        # append in fixed order: TG, OU, 1X2
-        for t in (t_tg, t_ou, t_1x2):
-            if t is not None:
-                out_rows.append(t)
-    # sort by date for display
-    out_rows.sort(key=lambda s: str(s.get('date')))
-    _print_rows(out_rows)
+            full[c] = pd.to_numeric(full[c], errors="coerce")
+
+    # Group by fixture and print the shopping list: 1X2, OU (pref 2.5), TG interval
+    fixtures = []
+    for (date, home, away), sub in full.groupby(["date", "home", "away"], dropna=False):
+        best_1x2 = _choose_best(sub, lambda s: s["market"].astype(str).eq("1X2"))
+        # Prefer OU 2.5 else any OU
+        best_ou = _choose_best(sub, lambda s: s["market"].astype(str).eq("OU 2.5"))
+        if best_ou is None:
+            best_ou = _choose_best(sub, lambda s: s["market"].astype(str).str.startswith("OU "))
+        best_tg = _choose_best(sub, lambda s: s["market"].astype(str).eq("TG Interval"))
+        fixtures.append((str(date), str(home), str(away), best_1x2, best_ou, best_tg))
+
+    fixtures.sort(key=lambda t: t[0])
+
+    print("\nPer-match best picks (Target/Fair Odds)")
+    print("---------------------------------------")
+    for date, home, away, r1, r2, r3 in fixtures:
+        print(f"* {home} vs {away}  ({date})")
+        if r1 is not None:
+            print(_render_line("1X2", r1))
+        if r2 is not None:
+            print(_render_line("OU", r2))
+        if r3 is not None:
+            print(_render_line("TG", r3))
+        print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 

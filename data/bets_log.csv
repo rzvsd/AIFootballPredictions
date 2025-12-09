@@ -1,10 +1,11 @@
-date,market,odds,stake,result,profit_loss2025-08-30 14:00:00,E0,Wolves,Everton,TG Interval 0-3,3.0,10.0,0.9696,1.9089
-2025-08-30 14:00:00,E0,Man United,Burnley,TG Interval 0-3,3.0,10.0,0.9306,1.7917
-2025-08-31 13:00:00,E0,Nott'm Forest,West Ham,TG Interval 0-3,3.0,10.0,0.9258,1.7773
-2025-08-30 11:30:00,E0,Chelsea,Fulham,TG Interval 0-3,3.0,10.0,0.8781,1.6344
-2025-08-31 15:30:00,E0,Liverpool,Arsenal,TG Interval 0-3,3.0,10.0,0.8497,1.5492
-2025-08-30 14:00:00,E0,Tottenham,Bournemouth,TG Interval 0-3,3.0,10.0,0.8486,1.5457
-2025-08-31 18:00:00,E0,Aston Villa,Crystal Palace,TG Interval 0-3,3.0,10.0,0.8093,1.4279
-2025-08-31 13:00:00,E0,Brighton,Man City,TG Interval 0-3,3.0,10.0,0.7679,1.3037
-2025-08-30 11:30:00,E0,Chelsea,Fulham,TG Interval 1-3,3.0,10.0,0.7255,1.1765
-2025-08-31 15:30:00,E0,Liverpool,Arsenal,TG Interval 1-3,3.0,10.0,0.7198,1.1593
+date,league,home_team,away_team,market,selection,odds,stake,model_prob,expected_value,result,actual_score,payout,net_profit,settled_at,notes
+2025-08-30 14:00:00,E0,Wolves,Everton,TG Interval,0-3,3.0,10.0,0.9696,1.9089,LOSS,2-3,0.0,-10.0,2025-12-06T15:01:36Z,
+2025-08-30 14:00:00,E0,Man United,Burnley,TG Interval,0-3,3.0,10.0,0.9306,1.7917,LOSS,3-2,0.0,-10.0,2025-12-06T15:01:36Z,
+2025-08-31 13:00:00,E0,Nott'm Forest,West Ham,TG Interval,0-3,3.0,10.0,0.9258,1.7773,WIN,0-3,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-30 11:30:00,E0,Chelsea,Fulham,TG Interval,0-3,3.0,10.0,0.8781,1.6344,WIN,2-0,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-31 15:30:00,E0,Liverpool,Arsenal,TG Interval,0-3,3.0,10.0,0.8497,1.5492,WIN,1-0,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-30 14:00:00,E0,Tottenham,Bournemouth,TG Interval,0-3,3.0,10.0,0.8486,1.5457,WIN,0-1,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-31 18:00:00,E0,Aston Villa,Crystal Palace,TG Interval,0-3,3.0,10.0,0.8093,1.4279,WIN,0-3,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-31 13:00:00,E0,Brighton,Man City,TG Interval,0-3,3.0,10.0,0.7679,1.3037,WIN,2-1,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-30 11:30:00,E0,Chelsea,Fulham,TG Interval,1-3,3.0,10.0,0.7255,1.1765,WIN,2-0,30.0,20.0,2025-12-06T15:01:36Z,
+2025-08-31 15:30:00,E0,Liverpool,Arsenal,TG Interval,1-3,3.0,10.0,0.7198,1.1593,WIN,1-0,30.0,20.0,2025-12-06T15:01:36Z,

@@ -36,12 +36,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Weekly update and report pipeline")
     ap.add_argument('--leagues', nargs='+', required=True, help='Leagues, e.g., E0 D1 F1 I1 SP1')
     ap.add_argument('--season-codes', nargs='+', default=['2425'], help='Football-data.co.uk season codes (e.g., 2425)')
-    ap.add_argument('--fixtures-csv', nargs='*', default=[], help='Pairs LEAGUE=path.csv for report filtering')
+    ap.add_argument('--fixtures-csv', nargs='*', default=[], help='Pairs LEAGUE=path.csv for report filtering (optional)')
     ap.add_argument('--since', type=int, default=2021, help='Calibration start year (inclusive)')
     ap.add_argument('--method', choices=['isotonic','platt'], default='isotonic', help='Calibration method')
     ap.add_argument('--select', choices=['prob','ev'], default='prob', help='Selection mode for report')
     ap.add_argument('--export', action='store_true', help='Export per-league CSVs from the report')
-    ap.add_argument('--fetch-odds', action='store_true', help='Fetch odds via API-Football into data/odds before report')
     ap.add_argument('--no-calibration', action='store_true', help='Report without applying calibrators')
     ap.add_argument('--train', action='store_true', help='Retrain XGB models per league before calibration')
     ap.add_argument('--skip-download', action='store_true', help='Skip data acquisition (assume raw already updated)')
@@ -75,22 +74,7 @@ def main() -> None:
     if run(cmd) != 0:
         print('[warn] Calibration failed. Continuing to report...')
 
-    # 5) Odds fetch (optional)
-    if args.fetch_odds:
-        for lg in leagues:
-            fx = None
-            for pair in args.fixtures_csv:
-                if pair.startswith(lg + "="):
-                    fx = pair.split('=', 1)[1]
-                    break
-            cmd = [exe, '-m', 'scripts.fetch_odds_api_football', '--league', lg]
-            if fx:
-                cmd.extend(['--fixtures-csv', fx])
-            else:
-                cmd.extend(['--days', '7'])
-            _ = run(cmd)
-
-    # 6) Report
+    # 5) Report
     fx_pairs: List[str] = []
     for pair in args.fixtures_csv:
         if '=' in pair:

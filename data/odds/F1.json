@@ -1,3 +1,380 @@
 {
-  "fixtures": []
+  "fixtures": [
+    {
+      "date": "2025-12-12T19:45:00Z",
+      "home": "Angers",
+      "away": "Nantes",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.28,
+            "away": 3.39,
+            "draw": 3.34
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.98,
+              "Under": 1.91
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T16:00:00Z",
+      "home": "Rennes",
+      "away": "Brest",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.16,
+            "home": 1.86,
+            "draw": 3.89
+          }
+        },
+        "OU": {
+          "2.75": {
+            "main": {
+              "Over": 1.95,
+              "Under": 1.93
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T18:00:00Z",
+      "home": "Metz",
+      "away": "Paris SG",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 10.35,
+            "away": 1.25,
+            "draw": 6.67
+          }
+        },
+        "OU": {
+          "3.5": {
+            "main": {
+              "Over": 1.98,
+              "Under": 1.89
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T20:05:00Z",
+      "home": "Paris FC",
+      "away": "Toulouse",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.46,
+            "away": 3.08,
+            "draw": 3.32
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.05,
+              "Under": 1.85
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T14:00:00Z",
+      "home": "Lyon",
+      "away": "Le Havre",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 5.81,
+            "home": 1.62,
+            "draw": 4.04
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.01,
+              "Under": 1.88
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T16:15:00Z",
+      "home": "Auxerre",
+      "away": "Lille",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 4.5,
+            "away": 1.82,
+            "draw": 3.78
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.94,
+              "Under": 1.94
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T16:15:00Z",
+      "home": "Strasbourg",
+      "away": "Lorient",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.67,
+            "home": 1.76,
+            "draw": 3.92
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.87,
+              "Under": 2.03
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T16:15:00Z",
+      "home": "Lens",
+      "away": "Nice",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 6.11,
+            "home": 1.53,
+            "draw": 4.54
+          }
+        },
+        "OU": {
+          "3": {
+            "main": {
+              "Over": 1.83,
+              "Under": 2.07
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T19:45:00Z",
+      "home": "Marseille",
+      "away": "Monaco",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.0,
+            "home": 1.86,
+            "draw": 4.02
+          }
+        },
+        "OU": {
+          "3.25": {
+            "main": {
+              "Over": 2.03,
+              "Under": 1.87
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-02T19:45:00Z",
+      "home": "Toulouse",
+      "away": "Lens",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.16,
+            "home": 2.65,
+            "draw": 3.12
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-03T16:00:00Z",
+      "home": "Monaco",
+      "away": "Lyon",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.15,
+            "away": 2.9,
+            "draw": 3.45
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-03T18:00:00Z",
+      "home": "Nice",
+      "away": "Strasbourg",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.68,
+            "away": 2.12,
+            "draw": 3.18
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-03T20:05:00Z",
+      "home": "Lille",
+      "away": "Rennes",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.68,
+            "away": 4.3,
+            "draw": 3.8
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-04T14:00:00Z",
+      "home": "Marseille",
+      "away": "Nantes",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.15,
+            "away": 9.7,
+            "draw": 5.45
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-04T16:15:00Z",
+      "home": "Le Havre",
+      "away": "Angers",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.3,
+            "home": 2.15,
+            "draw": 3.1
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-04T16:15:00Z",
+      "home": "Brest",
+      "away": "Auxerre",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.0,
+            "home": 1.85,
+            "draw": 3.4
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-04T16:15:00Z",
+      "home": "Lorient",
+      "away": "Metz",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.6,
+            "away": 4.15,
+            "draw": 3.38
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2026-01-04T19:45:00Z",
+      "home": "Paris SG",
+      "away": "Paris FC",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 13.0,
+            "home": 1.22,
+            "draw": 7.0
+          }
+        },
+        "OU": {
+          "3.5": {
+            "main": {
+              "Over": 2.01,
+              "Under": 1.78
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    }
+  ]
 }

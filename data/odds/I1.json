@@ -1,3 +1,353 @@
 {
-  "fixtures": []
+  "fixtures": [
+    {
+      "date": "2025-12-12T19:45:00Z",
+      "home": "Lecce",
+      "away": "Pisa",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.48,
+            "away": 3.45,
+            "draw": 2.94
+          }
+        },
+        "OU": {
+          "2": {
+            "main": {
+              "Over": 1.97,
+              "Under": 1.92
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T14:00:00Z",
+      "home": "Torino",
+      "away": "Cremonese",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 4.48,
+            "home": 2.02,
+            "draw": 3.16
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.93,
+              "Under": 1.96
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T17:00:00Z",
+      "home": "Parma",
+      "away": "Lazio",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 2.2,
+            "home": 3.55,
+            "draw": 3.35
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 2.04,
+              "Under": 1.86
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-13T19:45:00Z",
+      "home": "Atalanta",
+      "away": "Cagliari",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.34,
+            "away": 8.82,
+            "draw": 5.62
+          }
+        },
+        "OU": {
+          "2.75": {
+            "main": {
+              "Over": 1.91,
+              "Under": 1.98
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T11:30:00Z",
+      "home": "Milan",
+      "away": "Sassuolo",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.42,
+            "away": 8.05,
+            "draw": 4.78
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 1.85,
+              "Under": 2.05
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T14:00:00Z",
+      "home": "Fiorentina",
+      "away": "Verona",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.88,
+            "away": 4.56,
+            "draw": 3.52
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.96,
+              "Under": 1.93
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T14:00:00Z",
+      "home": "Udinese",
+      "away": "Napoli",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 1.93,
+            "home": 4.41,
+            "draw": 3.47
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 2.03,
+              "Under": 1.87
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T17:00:00Z",
+      "home": "Genoa",
+      "away": "Inter",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 6.6,
+            "away": 1.52,
+            "draw": 4.35
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.02,
+              "Under": 1.87
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-14T19:45:00Z",
+      "home": "Bologna",
+      "away": "Juventus",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.91,
+            "away": 2.64,
+            "draw": 3.23
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.99,
+              "Under": 1.9
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-15T19:45:00Z",
+      "home": "Roma",
+      "away": "Como",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.21,
+            "away": 3.66,
+            "draw": 3.18
+          }
+        },
+        "OU": {
+          "2.25": {
+            "main": {
+              "Over": 1.98,
+              "Under": 1.89
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T17:00:00Z",
+      "home": "Lazio",
+      "away": "Cremonese",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 5.6,
+            "home": 1.5,
+            "draw": 3.9
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-20T19:45:00Z",
+      "home": "Juventus",
+      "away": "Roma",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 3.55,
+            "home": 1.95,
+            "draw": 3.05
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T11:30:00Z",
+      "home": "Cagliari",
+      "away": "Pisa",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.36,
+            "away": 3.4,
+            "draw": 3.35
+          }
+        },
+        "OU": {
+          "2.5": {
+            "main": {
+              "Over": 2.33,
+              "Under": 1.71
+            }
+          }
+        },
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T14:00:00Z",
+      "home": "Sassuolo",
+      "away": "Torino",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 2.17,
+            "away": 3.05,
+            "draw": 3.02
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T17:00:00Z",
+      "home": "Fiorentina",
+      "away": "Udinese",
+      "markets": {
+        "1X2": {
+          "main": {
+            "home": 1.8,
+            "away": 3.7,
+            "draw": 3.15
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    },
+    {
+      "date": "2025-12-21T19:45:00Z",
+      "home": "Genoa",
+      "away": "Atalanta",
+      "markets": {
+        "1X2": {
+          "main": {
+            "away": 1.82,
+            "home": 3.9,
+            "draw": 3.35
+          }
+        },
+        "OU": {},
+        "DC": {},
+        "Intervals": {}
+      }
+    }
+  ]
 }

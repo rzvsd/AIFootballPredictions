@@ -3,9 +3,10 @@ bet_fusion.py â€” Fusion engine and CLI
 
 Exports generate_predictions(config) to compute 1X2 probabilities by fusing
 champion XGB (home/away expected goals) with Dixon-Coles. Also includes a
-simple CLI that fetches odds and logs bets via BankrollManager.
+simple CLI that logs bets via BankrollManager (odds placeholders when offline).
 """
 import os
+import hashlib
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -14,8 +15,6 @@ import csv
 import json
 
 import pandas as pd
-import requests
-from requests.exceptions import RequestException
 import joblib
 from xgboost import XGBRegressor
 import numpy as np
@@ -24,11 +23,153 @@ import math
 import difflib
 
 # Import our custom modules
-from scripts import bookmaker_api
+from scripts.fetch_fixtures_understat import load_understat_fixtures
 import xgb_trainer
 import config
 import feature_store
-import team_registry
+
+_ODDS_LOOKUP_CACHE: dict[str, tuple[float, str, dict]] = {}
+_MISSING_ODDS: dict[str, set[tuple[str, str, str, str]]] = {}
+_SYNTH_MARGIN_DEFAULT = float(os.getenv("BOT_SYNTH_MARGIN", "0.06"))
+_SYNTH_MARGIN_BY_MARKET = {
+    '1X2': 0.05,
+    'DC': 0.05,
+    'OU': 0.065,
+    'TG Interval': 0.18,
+}
+
+
+def _normalize_fixture_key(date_val, home: str, away: str) -> tuple[str, str, str]:
+    try:
+        dt_obj = pd.to_datetime(date_val, errors="coerce")
+        if pd.notna(dt_obj):
+            date_str = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            date_str = str(date_val)
+    except Exception:
+        date_str = str(date_val)
+    return (
+        date_str,
+        config.normalize_team_name(str(home or "")),
+        config.normalize_team_name(str(away or "")),
+    )
+
+
+def _file_sig(path: str) -> tuple[float, str]:
+    """Return (mtime, md5 hexdigest) for cache validation."""
+    try:
+        mtime = os.path.getmtime(path)
+    except Exception:
+        return -1.0, ""
+    try:
+        with open(path, "rb") as f:
+            digest = hashlib.md5(f.read()).hexdigest()
+    except Exception:
+        digest = ""
+    return mtime, digest
+
+
+def _load_odds_lookup(league: str) -> dict:
+    path = os.path.join("data", "odds", f"{league}.json")
+    mtime, sig = _file_sig(path)
+    if os.getenv("BOT_RELOAD_ODDS") == "1":
+        _ODDS_LOOKUP_CACHE.pop(league, None)
+    cached = _ODDS_LOOKUP_CACHE.get(league)
+    if cached and cached[0] == mtime and cached[1] == sig:
+        return cached[2]
+    lookup: dict = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f) or {}
+    except Exception:
+        _ODDS_LOOKUP_CACHE[league] = (mtime, sig, lookup)
+        return lookup
+    for fx in data.get("fixtures", []):
+        key = _normalize_fixture_key(fx.get("date"), fx.get("home"), fx.get("away"))
+        lookup[key] = fx.get("markets") or {}
+    _ODDS_LOOKUP_CACHE[league] = (mtime, sig, lookup)
+    return lookup
+
+
+def _lookup_market_odds(lookup: dict, date_val, home, away, market: str, outcome: str) -> Optional[float]:
+    if not lookup:
+        return None
+    candidates = []
+    try:
+        dt = pd.to_datetime(date_val, errors="coerce")
+    except Exception:
+        dt = None
+    if pd.notna(dt):
+        candidates = [dt, dt - pd.Timedelta(days=1), dt + pd.Timedelta(days=1)]
+    else:
+        candidates = [date_val]
+    for cand in candidates:
+        key = _normalize_fixture_key(cand, home, away)
+        markets = lookup.get(key)
+        if not markets:
+            continue
+        price = _extract_market_price(markets, market, outcome)
+        if price is not None:
+            return price
+    return None
+
+
+def _extract_market_price(markets: dict, market: str, outcome: str) -> Optional[float]:
+    try:
+        if market == "1X2":
+            slot_map = {"H": "home", "D": "draw", "A": "away"}
+            slot = slot_map.get(outcome)
+            if not slot:
+                return None
+            # Prefer explicit keys if provided
+            main = markets.get("1X2") or {}
+            val = None
+            if isinstance(main, dict):
+                if "main" in main and isinstance(main["main"], dict):
+                    val = main["main"].get(slot)
+                if val is None and "default" in main and isinstance(main["default"], dict):
+                    val = main["default"].get(slot)
+                if val is None:
+                    # fallback: first tag_data dict
+                    for tag_data in main.values():
+                        if isinstance(tag_data, dict):
+                            val = tag_data.get(slot)
+                            if val is not None:
+                                break
+            if val is not None and not pd.isna(val):
+                return float(val)
+        elif market.startswith("OU "):
+            line = market.split(" ", 1)[1].strip()
+            bucket = (markets.get("OU") or {}).get(line, {})
+            if isinstance(bucket, dict):
+                tag_data = None
+                if "main" in bucket:
+                    tag_data = bucket.get("main") or {}
+                elif "default" in bucket:
+                    tag_data = bucket.get("default") or {}
+                else:
+                    # fallback: first tag_data
+                    for v in bucket.values():
+                        if isinstance(v, dict):
+                            tag_data = v
+                            break
+                if tag_data:
+                    val = tag_data.get(outcome)
+                    if val is not None and not pd.isna(val):
+                        return float(val)
+        elif market == "DC":
+            for tag_data in (markets.get("DC") or {}).values():
+                val = tag_data.get(outcome)
+                if val is not None and not pd.isna(val):
+                    return float(val)
+        elif market == "TG Interval":
+            for tag_data in (markets.get("Intervals") or {}).values():
+                val = tag_data.get(outcome)
+                if val is not None and not pd.isna(val):
+                    return float(val)
+    except Exception:
+        return None
+    return None
 
 # --- CONFIGURATION LOADER ---
 CONFIG_PATH = Path(__file__).parent / "bot_config.yaml"
@@ -93,24 +234,75 @@ class BankrollManager:
         with open(self.bankroll_path, "w", encoding="utf-8") as f:
             json.dump({"bankroll": self.bankroll}, f)
 
-    def log_bet(self, date: str, league: str, home: str, away: str, market: str, odds: float, stake: float, prob: float, ev: float):
+    def _has_overdue_unsettled(self) -> bool:
+        """Return True if there are unsettled bets older than the guard window."""
+        try:
+            if not self.log_path.exists():
+                return False
+            import pandas as pd  # local import
+            df = pd.read_csv(self.log_path)
+            if df.empty:
+                return False
+            unsettled = df[df['result'].isna() | (df['result'].astype(str).str.strip() == "")]
+            if unsettled.empty:
+                return False
+            days_guard = float(os.getenv("BOT_UNSETTLED_GUARD_DAYS", "2"))
+            if days_guard <= 0:
+                return True
+            cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=days_guard)
+            unsettled['date_dt'] = pd.to_datetime(unsettled['date'], errors='coerce')
+            overdue = unsettled[unsettled['date_dt'] < cutoff]
+            return not overdue.empty
+        except Exception:
+            # Fail-safe: if we cannot determine, block to avoid drain
+            return True
+
+    def log_bet(
+        self,
+        date: str,
+        league: str,
+        home: str,
+        away: str,
+        market: str,
+        selection: str,
+        odds: float,
+        stake: float,
+        prob: float,
+        ev: float,
+    ):
         """Deduct stake and log the placed bet."""
+        if self._has_overdue_unsettled():
+            print("Warning: Unsettled bets older than guard window; skipping new bet to avoid bankroll drift. Run settle_bets.py.")
+            return
         if stake > self.bankroll:
             print(f"Warning: Insufficient bankroll ({self.bankroll:.2f}) for stake ({stake:.2f}). Skipping bet.")
             return
         self.bankroll -= stake
         self._save_bankroll()
-        self._append_log(date, league, home, away, market, odds, stake, prob, ev)
+        self._append_log(date, league, home, away, market, selection, odds, stake, prob, ev)
         print(f"Bet Logged. New bankroll: {self.bankroll:.2f}")
 
-    def _append_log(self, date, league, home, away, market, odds, stake, prob, ev):
+    def _append_log(self, date, league, home, away, market, selection, odds, stake, prob, ev):
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         file_exists = self.log_path.exists()
         with open(self.log_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(["date", "league", "home_team", "away_team", "market", "odds", "stake", "model_prob", "expected_value"])
-            writer.writerow([date, league, home, away, market, odds, stake, f"{prob:.4f}", f"{ev:.4f}"])
+                writer.writerow(
+                    [
+                        "date",
+                        "league",
+                        "home_team",
+                        "away_team",
+                        "market",
+                        "selection",
+                        "odds",
+                        "stake",
+                        "model_prob",
+                        "expected_value",
+                    ]
+                )
+            writer.writerow([date, league, home, away, market, selection, odds, stake, f"{prob:.4f}", f"{ev:.4f}"])
 
 # --- Helper functions used by the fusion engine ---
 def _score_matrix(mu_h: float, mu_a: float, max_goals: int = 10, trim_epsilon: float = 0.0) -> np.ndarray:
@@ -201,7 +393,9 @@ def _is_degenerate_calibrator_binary(model: object) -> bool:
 # ---------------------------
 
 DEFAULT_OU_LINES = [1.5, 2.5, 3.5]
-DEFAULT_INTERVALS = [(0, 3), (1, 3), (2, 4), (2, 5), (3, 5), (3, 6)]
+# Total-goals interval markets we evaluate by default.
+# You can override via cfg['intervals'] (list of [low, high] pairs).
+DEFAULT_INTERVALS = [(0, 3), (2, 4), (3, 5), (3, 6), (1, 2)]
 
 
 def _goals_distribution(P: np.ndarray) -> np.ndarray:
@@ -452,208 +646,85 @@ def _read_any_fixture_csv(path: str) -> pd.DataFrame:
 
 
 def _fixtures_with_fallbacks(league_code: str, preferred_csv: Optional[str] = None) -> tuple[pd.DataFrame, str]:
-    tried = []
-    # 1) Explicit CSV provided
+    """Backward-compatible shim kept for legacy callers (prefers Understat)."""
     if preferred_csv and os.path.exists(preferred_csv):
         try:
             return _read_any_fixture_csv(preferred_csv), f"from CSV: {preferred_csv}"
         except Exception:
-            tried.append(preferred_csv)
-    # 2) Weekly fixtures CSV
-    weekly = os.path.join("data", "fixtures", f"{league_code}_weekly_fixtures.csv")
-    if os.path.exists(weekly):
-        try:
-            return _read_any_fixture_csv(weekly), f"from CSV: {weekly}"
-        except Exception:
-            tried.append(weekly)
-    # 3) Local odds JSON -> derive fixtures
-    try:
-        odds_path = os.path.join("data", "odds", f"{league_code}.json")
-        if os.path.exists(odds_path):
-            with open(odds_path, "r", encoding="utf-8") as f:
-                data = json.load(f) or {}
-            fx_list = data.get("fixtures") or data.get("events") or []
-            recs = []
-            for fx in fx_list:
-                h = str(fx.get("home", "")).strip()
-                a = str(fx.get("away", "")).strip()
-                if not h or not a:
-                    continue
-                d = str(fx.get("date", "")).strip()
-                # normalise to common string format if possible
-                try:
-                    dnorm = pd.to_datetime(d, errors='coerce')
-                    dstr = dnorm.strftime("%Y-%m-%d %H:%M:%S") if pd.notna(dnorm) else None
-                except Exception:
-                    dstr = None
-                recs.append({"date": dstr, "home_team_api": h, "away_team_api": a})
-            if recs:
-                # Filter to teams known to this league (avoid cross-league contamination)
-                try:
-                    filtered = []
-                    for r in recs:
-                        hN = config.normalize_team_name(r["home_team_api"])
-                        aN = config.normalize_team_name(r["away_team_api"])
-                        if team_registry.get_team_id(league_code, hN) and team_registry.get_team_id(league_code, aN):
-                            filtered.append(r)
-                    if filtered:
-                        return pd.DataFrame(filtered), f"from odds JSON: {odds_path} (filtered)"
-                    else:
-                        # All recs were filtered out as out-of-league; treat as no fixtures
-                        return pd.DataFrame(columns=["date","home_team_api","away_team_api"]), f"from odds JSON: {odds_path} (no in-league fixtures)"
-                except Exception:
-                    # Fall back to unfiltered if registry is unavailable
-                    return pd.DataFrame(recs), f"from odds JSON: {odds_path}"
-    except Exception:
-        pass
-    # 4) API-Football fixtures (automation, no CSV needed)
-    try:
-        # Load key from env/.env
-        try:
-            from dotenv import load_dotenv  # type: ignore
-            load_dotenv()
-        except Exception:
             pass
-        api_key = os.getenv("API_FOOTBALL_ODDS_KEY") or os.getenv("API_FOOTBALL_KEY")
-        if api_key:
-            import requests  # local import
-            # Determine window
-            try:
-                days_env = int(os.getenv("BOT_FIXTURES_DAYS", "10"))
-            except Exception:
-                days_env = 10
-            # Optional explicit window via env
-            dfrom = os.getenv("BOT_FIXTURES_FROM")
-            dto = os.getenv("BOT_FIXTURES_TO")
-            import datetime as _dt
-            today = _dt.date.today()
-            if not dfrom or not dto:
-                dfrom = today.isoformat()
-                dto = (today + _dt.timedelta(days=days_env)).isoformat()
-            # Map league -> API id
-            try:
-                from scripts.fetch_odds_api_football import LEAGUE_IDS, API_BASE  # type: ignore
-                league_id = LEAGUE_IDS.get(league_code)
-                API_BASE_URL = API_BASE
-            except Exception:
-                league_id = None
-                API_BASE_URL = "https://v3.football.api-sports.io"
-            if league_id:
-                # Season (start year)
-                try:
-                    season = int(os.getenv("BOT_SEASON", "0"))
-                except Exception:
-                    season = 0
-                if not season:
-                    season = today.year if today.month >= 8 else today.year - 1
-                headers = {"x-apisports-key": api_key}
-                # Try date window with season
-                resp = []
-                try:
-                    params = {"league": league_id, "season": season, "from": dfrom, "to": dto}
-                    r = requests.get(f"{API_BASE_URL}/fixtures", params=params, headers=headers, timeout=20)
-                    if r.status_code == 200:
-                        resp = r.json().get("response", [])
-                except Exception:
-                    resp = []
-                # If empty, try date window without season (some plans restrict season)
-                if not resp:
-                    try:
-                        params2 = {"league": league_id, "from": dfrom, "to": dto}
-                        r0 = requests.get(f"{API_BASE_URL}/fixtures", params=params2, headers=headers, timeout=20)
-                        if r0.status_code == 200:
-                            resp = r0.json().get("response", [])
-                    except Exception:
-                        pass
-                # Fallback: try "next" fixtures if window empty
-                if not resp:
-                    try:
-                        # Try with season first
-                        params_next = {"league": league_id, "season": season, "next": max(20, days_env)}
-                        r2 = requests.get(f"{API_BASE_URL}/fixtures", params=params_next, headers=headers, timeout=20)
-                        if r2.status_code == 200:
-                            resp = r2.json().get("response", [])
-                        # If still empty, try without season
-                        if not resp:
-                            params_next2 = {"league": league_id, "next": max(20, days_env)}
-                            r3 = requests.get(f"{API_BASE_URL}/fixtures", params=params_next2, headers=headers, timeout=20)
-                            if r3.status_code == 200:
-                                resp = r3.json().get("response", [])
-                    except Exception:
-                        pass
-                recs = []
-                for it in resp or []:
-                    fx = it.get("fixture", {})
-                    t = it.get("teams", {})
-                    dval = str((fx.get("date") or "")[:19]).replace("T", " ")
-                    h = config.normalize_team_name((t.get("home") or {}).get("name") or "")
-                    a = config.normalize_team_name((t.get("away") or {}).get("name") or "")
-                    if h and a:
-                        recs.append({"date": dval, "home_team_api": h, "away_team_api": a})
-                if recs:
-                    return pd.DataFrame(recs), "from API-Football fixtures"
-    except Exception:
-        # Silently continue to manual fallback
-        pass
-    # 5) football-data.org fallback (automation, no CSV needed)
+    df = _load_understat_fixture_frame(league_code, {})
+    return df, "understat"
+
+
+def _load_understat_fixture_frame(league_code: str, cfg: Dict[str, Any]) -> pd.DataFrame:
+    """Fetch upcoming fixtures directly from Understat based on the desired horizon."""
     try:
-        # Only attempt if token present
-        api_fd = os.getenv("API_FOOTBALL_DATA") or os.getenv("FOOTBALL_DATA_API_KEY")
-        if api_fd:
-            import requests  # local import
-            # Competition IDs mapping (football-data.org)
-            FD_IDS = {'E0': 2021, 'SP1': 2014, 'I1': 2019, 'D1': 2002, 'F1': 2015}
-            comp_id = FD_IDS.get(league_code)
-            if comp_id:
-                # Window
-                dfrom = os.getenv("BOT_FIXTURES_FROM")
-                dto = os.getenv("BOT_FIXTURES_TO")
-                try:
-                    days_env = int(os.getenv("BOT_FIXTURES_DAYS", "10"))
-                except Exception:
-                    days_env = 10
-                import datetime as _dt
-                today = _dt.date.today()
-                if not dfrom or not dto:
-                    dfrom = today.isoformat()
-                    dto = (today + _dt.timedelta(days=days_env)).isoformat()
-                headers = {"X-Auth-Token": api_fd}
-                params = {"dateFrom": dfrom, "dateTo": dto}
-                r = requests.get(
-                    f"https://api.football-data.org/v4/competitions/{comp_id}/matches",
-                    headers=headers,
-                    params=params,
-                    timeout=20,
-                )
-                recs = []
-                if r.status_code == 200:
-                    data = r.json().get("matches", [])
-                    for m in data:
-                        try:
-                            d = str(m.get("utcDate", "").replace("T", " ").replace("Z", "")).strip()
-                            h = config.normalize_team_name((m.get("homeTeam") or {}).get("name") or "")
-                            a = config.normalize_team_name((m.get("awayTeam") or {}).get("name") or "")
-                            if h and a:
-                                recs.append({"date": d, "home_team_api": h, "away_team_api": a})
-                        except Exception:
-                            continue
-                if recs:
-                    return pd.DataFrame(recs), "from football-data.org fixtures"
+        cfg_days = int(cfg.get("fixtures_days", 10))
     except Exception:
-        pass
-    # 6) Manual CSV (user-editable). Create header only if missing.
-    manual = os.path.join("data", "fixtures", f"{league_code}_manual.csv")
-    if os.path.exists(manual):
-        try:
-            return _read_any_fixture_csv(manual), f"from CSV: {manual}"
-        except Exception as e:
-            print(f"[fallback] Failed to read manual fixtures {manual}: {e}")
-    else:
-        os.makedirs(os.path.dirname(manual), exist_ok=True)
-        with open(manual, "w", encoding="utf-8") as f:
-            f.write("date,home,away\n")
-    print(f"[fixtures] No weekly fixtures found. Using/created manual template: {manual}")
-    return pd.DataFrame(columns=["date","home_team_api","away_team_api"]), "manual"
+        cfg_days = 10
+    try:
+        env_days = int(os.getenv("BOT_FIXTURES_DAYS", cfg_days))
+    except Exception:
+        env_days = cfg_days
+    days = env_days if env_days > 0 else cfg_days
+    season_cfg = cfg.get("understat_season")
+    try:
+        season_env = int(os.getenv("BOT_UNDERSTAT_SEASON", "0"))
+    except Exception:
+        season_env = 0
+    season_val = season_env if season_env > 0 else (season_cfg if isinstance(season_cfg, int) else None)
+    df = load_understat_fixtures(league_code, days=days, season=season_val)
+    if df.empty:
+        print(f"[fixtures] Understat returned 0 fixtures for {league_code} (next {days} days).")
+        return pd.DataFrame(columns=["date", "home_team_api", "away_team_api"])
+    if "home" in df.columns:
+        df = df.rename(columns={"home": "home_team_api", "away": "away_team_api"})
+    wanted_cols = ["date", "home_team_api", "away_team_api"]
+    for col in wanted_cols:
+        if col not in df.columns:
+            df[col] = None
+    return df[wanted_cols]
+
+
+def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool = True) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    lookup = _load_odds_lookup(league) if with_odds else {}
+    out = df.copy()
+    odds_vals = []
+    for _, row in out.iterrows():
+        price = None
+        if lookup:
+            price = _lookup_market_odds(
+                lookup,
+                row.get("date"),
+                row.get("home"),
+                row.get("away"),
+                str(row.get("market")),
+                str(row.get("outcome")),
+            )
+        if price is None:
+            if lookup:
+                key = _normalize_fixture_key(row.get("date"), row.get("home"), row.get("away"))
+                _MISSING_ODDS.setdefault(league, set()).add(key + (str(row.get("market")),))
+            price = _placeholder_odds(str(row.get("market")), str(row.get("outcome")))
+        odds_vals.append(price)
+    out["odds"] = odds_vals
+    return out
+
+
+def _flush_missing_odds_log(league: str) -> None:
+    missing = _MISSING_ODDS.pop(league, set())
+    if not missing:
+        return
+    Path("reports").mkdir(parents=True, exist_ok=True)
+    ts = pd.Timestamp.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    log_path = Path("reports") / f"{league}_{ts}_missing_odds.log"
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("date,home,away,market\n")
+        for date, home, away, market in sorted(missing):
+            f.write(f"{date},{home},{away},{market}\n")
+    print(f"[warn] Missing odds for {len(missing)} entries -> {log_path}")
 
 # --- Fusion engine ---
 def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
@@ -671,22 +742,6 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
     xgb_home = joblib.load(home_path)
     xgb_away = joblib.load(away_path)
 
-    # Team snapshot (built from enhanced final features)
-    enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
-    # Optional cutoff for snapshot to avoid post-round leakage
-    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
-    try:
-        as_of_val = str(pd.to_datetime(as_of_env, errors='coerce')) if as_of_env else None
-    except Exception:
-        as_of_val = as_of_env or None
-    snap = feature_store.build_snapshot(
-        enhanced_csv=enh_path,
-        as_of=as_of_val,
-        half_life_matches=int(cfg.get('half_life_matches', 5)),
-        elo_k=float(cfg.get('elo_k', 20.0)),
-        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
-        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
-    )
     # Build per-team Elo-similarity histories from processed data (for dynamic features)
     try:
         proc_path = os.path.join('data','processed', f'{league}_merged_preprocessed.csv')
@@ -714,8 +769,39 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         hist_home = {}
         hist_away = {}
 
-    # Fixtures with fallbacks
-    fixtures, source = _fixtures_with_fallbacks(league_code=league, preferred_csv=cfg.get('fixtures_csv'))
+    fixtures = _load_understat_fixture_frame(league, cfg)
+    if fixtures.empty:
+        print(f"[warn] No upcoming fixtures available for {league}.")
+        return pd.DataFrame(columns=["date", "home", "away", "p_H", "p_D", "p_A"])
+
+    # Team snapshot (built from enhanced final features)
+    enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
+    # Optional cutoff for snapshot to avoid post-round leakage; if not set, use earliest fixture date
+    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    earliest_fixture = None
+    try:
+        if 'date' in fixtures.columns:
+            earliest_fixture = pd.to_datetime(fixtures['date'], errors='coerce').min()
+    except Exception:
+        earliest_fixture = None
+    try:
+        if as_of_env:
+            as_of_val = str(pd.to_datetime(as_of_env, errors='coerce'))
+        elif pd.notna(earliest_fixture):
+            as_of_val = (earliest_fixture - pd.Timedelta(seconds=1)).isoformat()
+        else:
+            as_of_val = None
+    except Exception:
+        as_of_val = as_of_env or None
+
+    snap = feature_store.build_snapshot(
+        enhanced_csv=enh_path,
+        as_of=as_of_val,
+        half_life_matches=int(cfg.get('half_life_matches', 5)),
+        elo_k=float(cfg.get('elo_k', 20.0)),
+        elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
+        micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
+    )
 
     out = []
     for _, row in fixtures.iterrows():
@@ -725,36 +811,6 @@ def generate_predictions(cfg: Dict[str, Any]) -> pd.DataFrame:
         # Normalize to dataset names
         home = config.normalize_team_name(home_api)
         away = config.normalize_team_name(away_api)
-        try:
-            hid = team_registry.get_team_id(league, home)
-            aid = team_registry.get_team_id(league, away)
-        except Exception:
-            hid = None
-            aid = None
-        # Canonical IDs if available
-        try:
-            hid = team_registry.get_team_id(league, home)
-            aid = team_registry.get_team_id(league, away)
-        except Exception:
-            hid = None
-            aid = None
-        try:
-            hid = team_registry.get_team_id(league, home)
-            aid = team_registry.get_team_id(league, away)
-        except Exception:
-            hid = None
-            aid = None
-        try:
-            hid = team_registry.get_team_id(league, home)
-            aid = team_registry.get_team_id(league, away)
-        except Exception:
-            hid = None
-            aid = None
-        try:
-            hid = team_registry.get_team_id(league, home)
-            aid = team_registry.get_team_id(league, away)
-        except Exception:
-            hid = None; aid = None
 
         feat_row = _feature_row_from_snapshot(snap, home, away)
         if feat_row is None:
@@ -857,11 +913,25 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
     xgb_home = _load_model(home_json, home_pkl)
     xgb_away = _load_model(away_json, away_pkl)
 
+    fixtures = _load_understat_fixture_frame(league, cfg)
+    if fixtures.empty:
+        return pd.DataFrame(columns=['date','home','away','market','outcome','prob'])
+
     enh_path = os.path.join("data", "enhanced", f"{league}_final_features.csv")
-    # Optional cutoff for snapshot to avoid post-round leakage
     as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    earliest_fixture = None
     try:
-        as_of_val = str(pd.to_datetime(as_of_env, errors='coerce')) if as_of_env else None
+        if 'date' in fixtures.columns:
+            earliest_fixture = pd.to_datetime(fixtures['date'], errors='coerce').min()
+    except Exception:
+        earliest_fixture = None
+    try:
+        if as_of_env:
+            as_of_val = str(pd.to_datetime(as_of_env, errors='coerce'))
+        elif pd.notna(earliest_fixture):
+            as_of_val = (earliest_fixture - pd.Timedelta(seconds=1)).isoformat()
+        else:
+            as_of_val = None
     except Exception:
         as_of_val = as_of_env or None
     snap = feature_store.build_snapshot(
@@ -872,7 +942,6 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
         elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
         micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
     )
-    fixtures, source = _fixtures_with_fallbacks(league_code=league)
 
     rows = []
     for _, r in fixtures.iterrows():
@@ -977,18 +1046,14 @@ def generate_market_book(cfg: Dict[str, Any]) -> pd.DataFrame:
                 ints_cal[iv] = y
             markets['Intervals'] = ints_cal
 
-        # Flatten to rows
-        # 1X2
+        # Flatten to rows (keep markets separate to avoid duplication)
         for k, v in markets["1X2"].items():
             rows.append({"date": date_val, "home": home, "away": away, "market": "1X2", "outcome": k, "prob": v})
-        # Double Chance
         for k, v in markets["DC"].items():
             rows.append({"date": date_val, "home": home, "away": away, "market": "DC", "outcome": k, "prob": v})
-        # Over/Under
         for line, kv in markets["OU"].items():
             rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Under", "prob": kv["Under"]})
             rows.append({"date": date_val, "home": home, "away": away, "market": f"OU {line}", "outcome": "Over", "prob": kv["Over"]})
-        # Intervals
         for iv, pv in markets["Intervals"].items():
             rows.append({"date": date_val, "home": home, "away": away, "market": "TG Interval", "outcome": iv, "prob": pv})
 
@@ -1039,55 +1104,118 @@ def _market_is_exclusive(market: str) -> bool:
     return (m == '1X2') or m.startswith('OU ')
 
 
-def attach_value_metrics(market_df: pd.DataFrame, use_placeholders: bool = True) -> pd.DataFrame:
-    """Attach odds, normalized implied probability, edge and EV to market probabilities.
+def _synth_odds_for_group(sub: pd.DataFrame, market: str, margin_lookup: Dict[str, float], default_margin: float, force_all: bool) -> pd.DataFrame:
+    """Derive bookmaker-like odds from model probabilities when real odds are missing."""
+    df = sub.copy()
+    mask = df["odds"].isna() | force_all
+    if not mask.any():
+        df["_synthetic_odds"] = False
+        return df
+    probs = pd.to_numeric(df["prob"], errors="coerce").fillna(0.0)
+    base = _market_base(market)
+    margin = margin_lookup.get(base, default_margin)
+    if _market_is_exclusive(market):
+        total = probs.sum()
+        if total <= 0:
+            fair_probs = pd.Series(1.0 / max(len(df), 1), index=df.index)
+        else:
+            fair_probs = probs / total
+        adj_prob = (fair_probs * (1.0 + margin)).clip(lower=1e-6)
+        new_odds = 1.0 / adj_prob
+    else:
+        adj_prob = (probs * (1.0 + margin)).clip(lower=1e-6)
+        new_odds = 1.0 / adj_prob
+    df.loc[mask, "odds"] = new_odds[mask]
+    df["_synthetic_odds"] = mask
+    # Avoid absurd payouts if prob is tiny
+    df["odds"] = pd.to_numeric(df["odds"], errors="coerce").clip(lower=1.01)
+    return df
 
-    Expects columns: date, home, away, market, outcome, prob
-    Returns a new DataFrame with added columns: odds, p_imp, p_imp_norm, edge, EV
-    """
+
+def attach_value_metrics(
+    market_df: pd.DataFrame,
+    use_placeholders: bool = True,
+    synthesize_missing_odds: bool = True,
+    synth_margin: float | None = None,
+    league_code: str | None = None,
+    synth_margin_map: Optional[Dict[str, float]] = None,
+) -> pd.DataFrame:
+    """Attach odds, normalized implied probability, edge and EV to market probabilities."""
     if market_df.empty:
         return market_df.copy()
     df = market_df.copy()
-    if use_placeholders:
+    synth_margin = _SYNTH_MARGIN_DEFAULT if synth_margin is None else float(synth_margin)
+    margin_map = synth_margin_map or _SYNTH_MARGIN_BY_MARKET
+    placeholder_filled = False
+    # Fair odds (our buy price) based purely on model probability
+    try:
+        df["fair_odds"] = 1.0 / pd.to_numeric(df["prob"], errors="coerce").clip(lower=1e-9)
+    except Exception:
+        df["fair_odds"] = None
+    if "odds" not in df.columns and use_placeholders:
         df["odds"] = [
             _placeholder_odds(m, o) for m, o in zip(df["market"].astype(str), df["outcome"].astype(str))
         ]
+        placeholder_filled = True
+    df["_synthetic_odds"] = False
     # Group by market per match for normalization
     grouped = []
     for (date, home, away, market), sub in df.groupby(["date", "home", "away", "market"], dropna=False):
         sub2 = sub.copy()
-        # implied prob from odds
+        sub2["odds"] = pd.to_numeric(sub2["odds"], errors="coerce")
+        if synthesize_missing_odds:
+            sub2 = _synth_odds_for_group(
+                sub2,
+                market,
+                margin_map,
+                synth_margin,
+                force_all=placeholder_filled,
+            )
         sub2["p_imp"] = 1.0 / sub2["odds"].astype(float)
         if _market_is_exclusive(market):
             s = sub2["p_imp"].sum()
             sub2["p_imp_norm"] = sub2["p_imp"] / s if s > 0 else sub2["p_imp"]
         else:
-            # For overlapping outcomes, keep p_imp_norm equal to p_imp (no overround normalization)
             sub2["p_imp_norm"] = sub2["p_imp"]
-        # Edge and EV
         sub2["edge"] = sub2["prob"] - sub2["p_imp_norm"]
         sub2["EV"] = sub2["prob"] * sub2["odds"] - 1.0
-        # If opening/closing odds are present, compute deltas of implied prob
-        if "odds_open" in sub2.columns and "odds_close" in sub2.columns:
-            try:
-                sub2["p_imp_open"] = 1.0 / sub2["odds_open"].astype(float)
-                sub2["p_imp_close"] = 1.0 / sub2["odds_close"].astype(float)
-                if _market_is_exclusive(str(market)):
-                    so = sub2["p_imp_open"].sum(); sc = sub2["p_imp_close"].sum()
-                    if so > 0:
-                        sub2["p_imp_open_norm"] = sub2["p_imp_open"] / so
-                    if sc > 0:
-                        sub2["p_imp_close_norm"] = sub2["p_imp_close"] / sc
-                else:
-                    sub2["p_imp_open_norm"] = sub2["p_imp_open"]
-                    sub2["p_imp_close_norm"] = sub2["p_imp_close"]
-                if "p_imp_open_norm" in sub2.columns and "p_imp_close_norm" in sub2.columns:
-                    sub2["delta_p_imp"] = sub2["p_imp_close_norm"] - sub2["p_imp_open_norm"]
-            except Exception:
-                pass
         grouped.append(sub2)
     out = pd.concat(grouped, ignore_index=True) if grouped else df
+    # Label prices
+    try:
+        out["book_odds"] = pd.to_numeric(out["odds"], errors="coerce")
+    except Exception:
+        out["book_odds"] = out.get("odds")
+    out["price_source"] = np.where(out["_synthetic_odds"], "synth", "real")
+    # EV from synthetic odds is misleading; blank it out unless odds are real
+    try:
+        mask_synth = out["price_source"] != "real"
+        if "EV" in out.columns:
+            out.loc[mask_synth, "EV"] = np.nan
+    except Exception:
+        pass
+    out.drop(columns=["_synthetic_odds"], errors="ignore", inplace=True)
     return out
+
+
+def _log_odds_status(df: pd.DataFrame, fixtures: pd.DataFrame) -> None:
+    """Print a concise odds coverage warning for CLI runs."""
+    try:
+        total = len(df)
+        real = int((df.get("price_source") == "real").sum()) if "price_source" in df.columns else 0
+        synth = total - real
+        min_date = pd.to_datetime(fixtures["date"], errors="coerce").min() if not fixtures.empty else None
+        sim_flag = False
+        if pd.notna(min_date):
+            days_ahead = (min_date - pd.Timestamp.utcnow()).total_seconds() / 86400.0
+            sim_flag = days_ahead > 3
+        print(f"[odds] markets={total} real={real} synth={synth} (sim_mode={sim_flag})")
+        if total > 0 and (real / total) < 0.2:
+            print("[warn] Odds coverage low (<20% real). EV hidden for synthetic prices.")
+        if sim_flag and real == 0:
+            print("[warn] Fixtures appear far in the future; real odds unlikely. Treat this run as simulation.")
+    except Exception:
+        pass
 
 
 # --- Thresholds, odds filling, and CLI ---
@@ -1097,10 +1225,10 @@ def _market_base(m: str) -> str:
 
 def _get_thresholds(cfg: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
     defaults = {
-        '1X2': {'min_prob': 0.55, 'min_edge': 0.03},
-        'DC': {'min_prob': 0.75, 'min_edge': 0.02},
-        'OU': {'min_prob': 0.58, 'min_edge': 0.02},
-        'TG Interval': {'min_prob': 0.30, 'min_edge': 0.05},
+        '1X2': {'min_prob': 0.52, 'min_edge': 0.015},
+        'DC': {'min_prob': 0.70, 'min_edge': 0.015},
+        'OU': {'min_prob': 0.57, 'min_edge': 0.015},
+        'TG Interval': {'min_prob': 0.40, 'min_edge': 0.03},
     }
     user = cfg.get('thresholds', {}) or {}
     for k, v in user.items():
@@ -1143,7 +1271,9 @@ def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
         elo_home_adv=float(cfg.get('elo_home_adv', 60.0)),
         micro_agg_path=(cfg.get('micro_agg_path') or os.path.join('data','enhanced', f'{league}_micro_agg.csv'))
     )
-    fixtures, _ = _fixtures_with_fallbacks(league_code=league, preferred_csv=cfg.get('fixtures_csv'))
+    fixtures = _load_understat_fixture_frame(league, cfg)
+    if fixtures.empty:
+        return pd.DataFrame(columns=["date", "home", "away", "market", "outcome", "prob"])
     out = {}
     for _, r in fixtures.iterrows():
         home_api = str(r.get("home_team", r.get("home_team_api", ""))).strip()
@@ -1173,80 +1303,10 @@ def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
     return out
 
 
-def _fill_odds_for_df(df: pd.DataFrame, league: str, with_odds: bool) -> pd.DataFrame:
-    if df.empty:
-        return df
-    out = df.copy()
-    out['odds'] = None
-    # Optional opening/closing odds for movement analysis
-    out['odds_open'] = None
-    out['odds_close'] = None
-    for (date, home, away), sub_idx in out.groupby(['date','home','away']).groups.items():
-        idx = list(sub_idx)
-        # Pre-fetch 1X2 when --with-odds
-        if with_odds:
-            try:
-                odds1x2 = bookmaker_api.get_odds(league, home, away)
-            except Exception:
-                odds1x2 = {}
-        else:
-            odds1x2 = {}
-        for i in idx:
-            m = str(out.at[i,'market'])
-            o = str(out.at[i,'outcome'])
-            if m == '1X2' and with_odds and odds1x2:
-                if o == 'H' and odds1x2.get('home'):
-                    out.at[i,'odds'] = float(odds1x2['home'])
-                elif o == 'D' and odds1x2.get('draw'):
-                    out.at[i,'odds'] = float(odds1x2['draw'])
-                elif o == 'A' and odds1x2.get('away'):
-                    out.at[i,'odds'] = float(odds1x2['away'])
-                # opening/closing if provided
-                op = odds1x2.get('_open') or {}
-                cl = odds1x2.get('_close') or {}
-                if o == 'H' and op.get('home'):
-                    out.at[i,'odds_open'] = float(op['home'])
-                if o == 'D' and op.get('draw'):
-                    out.at[i,'odds_open'] = float(op['draw'])
-                if o == 'A' and op.get('away'):
-                    out.at[i,'odds_open'] = float(op['away'])
-                if o == 'H' and cl.get('home'):
-                    out.at[i,'odds_close'] = float(cl['home'])
-                if o == 'D' and cl.get('draw'):
-                    out.at[i,'odds_close'] = float(cl['draw'])
-                if o == 'A' and cl.get('away'):
-                    out.at[i,'odds_close'] = float(cl['away'])
-            elif m.startswith('OU ') and with_odds:
-                try:
-                    line = float(m.split(' ',1)[1])
-                    ou_odds = bookmaker_api.get_odds_ou(league, home, away, line)
-                except Exception:
-                    ou_odds = {}
-                if o in ('Over','Under') and ou_odds.get(o):
-                    out.at[i,'odds'] = float(ou_odds[o])
-                    op = ou_odds.get('_open') or {}
-                    cl = ou_odds.get('_close') or {}
-                    if op.get(o):
-                        out.at[i,'odds_open'] = float(op[o])
-                    if cl.get(o):
-                        out.at[i,'odds_close'] = float(cl[o])
-            elif m == 'TG Interval' and with_odds:
-                try:
-                    a_str, b_str = o.split('-')
-                    odd_val = bookmaker_api.get_odds_interval(league, home, away, int(a_str), int(b_str))
-                    if odd_val:
-                        out.at[i,'odds'] = float(odd_val)
-                except Exception:
-                    pass
-            if out.at[i,'odds'] is None:
-                out.at[i,'odds'] = _placeholder_odds(m, o)
-    return out
-
 
 def main() -> None:
     import argparse
     ap = argparse.ArgumentParser(description="Hybrid DC+xG market engine with value metrics")
-    ap.add_argument('--with-odds', action='store_true', help='Fetch 1X2 odds from bookmaker API (network needed)')
     ap.add_argument('--top', type=int, default=20, help='Show top N picks by EV')
     args = ap.parse_args()
 
@@ -1259,8 +1319,10 @@ def main() -> None:
         print("No fixtures available.")
         return
 
-    df_with_odds = _fill_odds_for_df(market_df, cfg.get('league','E0'), with_odds=args.with_odds)
-    df_val = attach_value_metrics(df_with_odds, use_placeholders=False)
+    league = cfg.get('league', 'E0')
+    df_with_odds = _fill_odds_for_df(market_df, league, with_odds=True)
+    df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
+    _log_odds_status(df_val, market_df)
     # Filter out very low odds (e.g., < 1.60)
     try:
         min_odds = float(cfg.get('min_odds', 1.6))
@@ -1283,14 +1345,18 @@ def main() -> None:
     picks.sort_values(['EV','prob'], ascending=[False, False], inplace=True)
     show = picks.head(args.top)
 
-    # Export full ranked picks to CSV
+    # Export full ranked picks to CSV (top) and full unfiltered snapshot
     try:
         ts = pd.Timestamp.utcnow().strftime('%Y%m%dT%H%M%SZ')
         rep_dir = Path('reports'); rep_dir.mkdir(parents=True, exist_ok=True)
         out_csv = rep_dir / f"{cfg.get('league','E0')}_{ts}_picks.csv"
-        cols = ['date','home','away','market','outcome','prob','odds','edge','EV']
+        full_csv = rep_dir / f"{cfg.get('league','E0')}_{ts}_all_markets.csv"
+        cols = ['date','home','away','market','outcome','prob','fair_odds','book_odds','price_source','edge','EV']
         picks.to_csv(out_csv, index=False, columns=[c for c in cols if c in picks.columns])
+        # Save full snapshot (all markets)
+        df_val.to_csv(full_csv, index=False, columns=[c for c in cols if c in df_val.columns])
         print(f"Saved picks CSV -> {out_csv}")
+        print(f"Saved full markets CSV -> {full_csv}")
     except Exception as e:
         print(f"Could not save picks CSV: {e}")
 
@@ -1351,7 +1417,8 @@ def main() -> None:
                 league=cfg.get('league','E0'),
                 home=str(r['home']),
                 away=str(r['away']),
-                market=f"{r['market']} {r['outcome']}",
+                market=str(r['market']),
+                selection=str(r['outcome']),
                 odds=O,
                 stake=stake,
                 prob=p,
@@ -1359,6 +1426,8 @@ def main() -> None:
             )
     else:
         print("Print-only mode: set log_bets=true to record stakes.")
+
+    _flush_missing_odds_log(league)
 
 
 # Note: keep __main__ at the end of file so that all helpers are defined before CLI runs
@@ -1395,7 +1464,7 @@ def _predict_xgb(model, feat_df: pd.DataFrame) -> float:
 
 # --- Probabilistic model integration (Phase 3) ---
 _PROB_MODEL_CACHE: Dict[str, dict] = {}
-_MICRO_AGG_CACHE: Dict[str, dict] = {}
+_MICRO_AGG_CACHE: Dict[tuple[str, str], tuple[float, str, dict]] = {}
 
 def _load_prob_models(league: str) -> dict:
     if league in _PROB_MODEL_CACHE:
@@ -1414,29 +1483,41 @@ def _load_prob_models(league: str) -> dict:
     return models
 
 
-def _load_micro_map(path: str) -> dict:
+def _load_micro_map(path: str, as_of: str | None = None) -> dict:
     """Load micro aggregates CSV and return mapping (team_std, side) -> xg_for_EWMA.
 
     Team names are normalized via config.normalize_team_name to match engine names.
+    The cache respects file mtime so long-running dashboards pick up refreshed data.
     """
     if not path:
         return {}
-    if path in _MICRO_AGG_CACHE:
-        return _MICRO_AGG_CACHE[path]
+    cache_key = (path, str(as_of or ""))
+    mtime, sig = _file_sig(path)
+    if os.getenv("BOT_RELOAD_MICRO") == "1":
+        _MICRO_AGG_CACHE.pop(cache_key, None)
+    cached = _MICRO_AGG_CACHE.get(cache_key)
+    if cached and cached[0] == mtime and cached[1] == sig:
+        return cached[2]
     try:
         import pandas as pd  # local import
         if not os.path.exists(path):
-            _MICRO_AGG_CACHE[path] = {}
-            return _MICRO_AGG_CACHE[path]
+            _MICRO_AGG_CACHE[cache_key] = (mtime, sig, {})
+            return _MICRO_AGG_CACHE[cache_key][2]
         df = pd.read_csv(path)
         # Normalize
         if 'team' not in df.columns or 'side' not in df.columns:
-            _MICRO_AGG_CACHE[path] = {}
-            return _MICRO_AGG_CACHE[path]
+            _MICRO_AGG_CACHE[cache_key] = (mtime, sig, {})
+            return _MICRO_AGG_CACHE[cache_key][2]
         try:
             df['date'] = pd.to_datetime(df.get('date'), errors='coerce')
         except Exception:
             pass
+        if as_of and 'date' in df.columns:
+            try:
+                cutoff = pd.to_datetime(as_of)
+                df = df[df['date'] <= cutoff]
+            except Exception:
+                pass
         df['team'] = df['team'].astype(str).map(config.normalize_team_name)
         # Keep latest per (team, side)
         df = df.sort_values(['team','side','date'])
@@ -1452,11 +1533,11 @@ def _load_micro_map(path: str) -> dict:
                 m[key] = max(0.05, val)
             except Exception:
                 continue
-        _MICRO_AGG_CACHE[path] = m
+        _MICRO_AGG_CACHE[cache_key] = (mtime, sig, m)
         return m
     except Exception:
-        _MICRO_AGG_CACHE[path] = {}
-        return _MICRO_AGG_CACHE[path]
+        _MICRO_AGG_CACHE[cache_key] = (mtime, sig, {})
+        return _MICRO_AGG_CACHE[cache_key][2]
 
 
 def _blend_mu(cfg: Dict[str, Any], home: str, away: str, mu_h_macro: float, mu_a_macro: float) -> tuple[float, float, str]:
@@ -1464,7 +1545,8 @@ def _blend_mu(cfg: Dict[str, Any], home: str, away: str, mu_h_macro: float, mu_a
     if src not in ('macro','micro','blend'):
         src = 'macro'
     micro_path = cfg.get('micro_agg_path', os.path.join('data','enhanced','micro_agg.csv'))
-    micro = _load_micro_map(micro_path) if src in ('micro','blend') else {}
+    as_of_env = os.getenv('BOT_SNAPSHOT_AS_OF') or os.getenv('BOT_FIXTURES_FROM')
+    micro = _load_micro_map(micro_path, as_of=as_of_env) if src in ('micro','blend') else {}
     mu_h_micro = micro.get((home, 'H'))
     mu_a_micro = micro.get((away, 'A'))
     if src == 'micro':
@@ -1506,5 +1588,3 @@ def _predict_goals_mu(cfg: Dict[str, Any], league: str, feat_row: pd.DataFrame,
  
 if __name__ == "__main__":
     main()
-
-

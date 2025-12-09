@@ -2,8 +2,8 @@
 Automation helpers for nightly/weekly/monthly jobs (Phase 5).
 
 Jobs:
-- nightly: fixtures doctor + odds fetch (opening/closing) for upcoming week
-- weekly: update & report (optionally export), optional odds fetch
+- nightly: refresh Understat fixtures snapshot for upcoming week
+- weekly: update & report (optionally export)
 - monthly: health report (metrics) per league
 
 Usage examples:
@@ -33,16 +33,11 @@ def cmd_py(module: str, *args: str) -> List[str]:
 
 
 def job_nightly(leagues: List[str], tag: str) -> int:
-    # 1) Validate fixtures if weekly CSVs exist
-    for lg in leagues:
-        fx = os.path.join('data','fixtures', f'{lg}_weekly_fixtures.csv')
-        if os.path.exists(fx):
-            run(cmd_py('scripts.fixtures_doctor', '--league', lg, '--input', fx, '--output', fx.replace('.csv','_clean.csv')))
-    # 2) Fetch odds snapshot
-    for lg in leagues:
-        args = ['--league', lg, '--days', '7', '--tag', tag]
-        run(cmd_py('scripts.fetch_odds_api_football', *args))
-    return 0
+    # Refresh fixtures and odds for all leagues (ignores tag; kept for CLI compatibility)
+    fx_args = ['--leagues', *leagues, '--days', '7']
+    run(cmd_py('scripts.fetch_fixtures_understat', *fx_args))
+    odds_args = ['--leagues', *leagues, '--days', '7']
+    return run(cmd_py('scripts.fetch_odds_fd_simple', *odds_args))
 
 
 def job_weekly(leagues: List[str], export: bool) -> int:
@@ -94,4 +89,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
