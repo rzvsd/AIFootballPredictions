@@ -212,6 +212,12 @@ def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
             config["league"] = str(config.get("league", "E0")).strip().upper()
     except Exception:
         config["league"] = str(config.get("league", "E0")).strip().upper()
+    # Mode: sim (default) or live (real odds only)
+    mode_env = os.getenv("BOT_MODE")
+    if mode_env:
+        config["mode"] = str(mode_env).strip().lower()
+    else:
+        config["mode"] = str(config.get("mode", "sim")).strip().lower()
     return config
 
 # --- BANKROLL & LOGGING (Your new class) ---
@@ -1047,8 +1053,21 @@ def main() -> None:
         return
 
     league = cfg.get('league', 'E0')
-    df_with_odds = _fill_odds_for_df(market_df, league, with_odds=True)
-    df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
+    mode = str(cfg.get('mode', 'sim')).lower()
+    if mode == 'live':
+        df_with_odds = odds_service.fill_odds_for_df(market_df, league, with_odds=True)
+        odds_service.flush_missing_odds_log(league)
+        df_val = value_service.attach_value_metrics(
+            df_with_odds,
+            use_placeholders=False,
+            synthesize_missing_odds=False,
+            league_code=league,
+        )
+        df_val = df_val[pd.notna(df_val.get('odds'))].copy()
+    else:
+        df_with_odds = _fill_odds_for_df(market_df, league, with_odds=True)
+        df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
+        _flush_missing_odds_log(league)
     _log_odds_status(df_val, market_df)
     # Filter out very low odds (e.g., < 1.60)
     try:
