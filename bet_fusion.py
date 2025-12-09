@@ -28,6 +28,7 @@ import xgb_trainer
 import config
 import feature_store
 from engine import predictor_service, market_service, odds_service, value_service
+from strategies import load_strategy
 
 _ODDS_LOOKUP_CACHE: dict[str, tuple[float, str, dict]] = {}
 _MISSING_ODDS: dict[str, set[tuple[str, str, str, str]]] = {}
@@ -956,21 +957,6 @@ def _market_base(m: str) -> str:
     return m.split()[0] if m.startswith("OU ") else m
 
 
-def _get_thresholds(cfg: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
-    defaults = {
-        '1X2': {'min_prob': 0.52, 'min_edge': 0.015},
-        'DC': {'min_prob': 0.70, 'min_edge': 0.015},
-        'OU': {'min_prob': 0.57, 'min_edge': 0.015},
-        'TG Interval': {'min_prob': 0.40, 'min_edge': 0.03},
-    }
-    user = cfg.get('thresholds', {}) or {}
-    for k, v in user.items():
-        if k in defaults and isinstance(v, dict):
-            for kk in ('min_prob','min_edge'):
-                if kk in v:
-                    defaults[k][kk] = float(v[kk])
-    return defaults
-
 def compute_tg_ci(cfg: Dict[str, Any], level: float = 0.8) -> Dict[tuple, str]:
     league = cfg.get('league','E0')
     max_goals = int(cfg.get('max_goals', config.MAX_GOALS_PER_LEAGUE.get(league, 10)))
@@ -1069,7 +1055,7 @@ def main() -> None:
         df_val = df_val[pd.notna(df_val.get('odds'))].copy()
     else:
         df_with_odds = _fill_odds_for_df(market_df, league, with_odds=True)
-        df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
+    df_val = attach_value_metrics(df_with_odds, use_placeholders=True, league_code=league)
         _flush_missing_odds_log(league)
     _log_odds_status(df_val, market_df)
     # Filter out very low odds (e.g., < 1.60)
@@ -1080,17 +1066,33 @@ def main() -> None:
     if 'odds' in df_val.columns:
         df_val = df_val[pd.to_numeric(df_val['odds'], errors='coerce') >= float(min_odds)].copy()
 
-    thresholds = _get_thresholds(cfg)
-    def pass_threshold(row):
-        base = _market_base(str(row['market']))
-        th = thresholds.get(base, thresholds.get('1X2'))
-        return (float(row['prob']) >= th['min_prob']) and (float(row['edge']) >= th['min_edge'])
-
-    picks = df_val[df_val.apply(pass_threshold, axis=1)].copy()
+    # Strategy selection
+    context = {
+        "league": league,
+        "mode": mode,
+        "strategies": cfg.get("strategies", {}),
+    }
+    strat_cfg = cfg.get("strategies", {}) or {}
+    candidates = []
+    for name, opts in strat_cfg.items():
+        if not isinstance(opts, dict) or not opts.get("enabled", True):
+            continue
+        path = opts.get("path") or f"strategies.{name}:generate_candidates"
+        try:
+            fn = load_strategy(path)
+            cands = fn(context, df_val)
+            candidates.extend(cands or [])
+        except Exception as e:
+            print(f"[warn] strategy {name} failed: {e}")
+            continue
+    picks = pd.DataFrame(candidates)
     if picks.empty:
-        print("No value picks under current thresholds.")
+        print("No value picks under current strategies.")
         return
 
+    # ensure EV column present
+    if "EV" not in picks.columns and "disp_ev" in picks.columns:
+        picks["EV"] = picks["disp_ev"]
     picks.sort_values(['EV','prob'], ascending=[False, False], inplace=True)
     show = picks.head(args.top)
 
