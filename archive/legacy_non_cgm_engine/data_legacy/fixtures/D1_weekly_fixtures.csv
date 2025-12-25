@@ -1,0 +1,198 @@
+date,home,away
+2025-12-06 14:30:00,Stuttgart,Bayern Munich
+2025-12-06 14:30:00,Wolfsburg,Union Berlin
+2025-12-06 14:30:00,Augsburg,Leverkusen
+2025-12-06 14:30:00,FC Cologne,St. Pauli
+2025-12-06 14:30:00,FC Heidenheim,Freiburg
+2025-12-06 17:30:00,RasenBallsport Leipzig,Ein Frankfurt
+2025-12-07 14:30:00,Hamburger SV,Werder Bremen
+2025-12-07 16:30:00,Dortmund,Hoffenheim
+2025-12-12 19:30:00,Union Berlin,RasenBallsport Leipzig
+2025-12-13 14:30:00,Borussia M.Gladbach,Wolfsburg
+2025-12-13 14:30:00,Ein Frankfurt,Augsburg
+2025-12-13 14:30:00,Hoffenheim,Hamburger SV
+2025-12-13 14:30:00,St. Pauli,FC Heidenheim
+2025-12-13 17:30:00,Leverkusen,FC Cologne
+2025-12-14 14:30:00,Freiburg,Dortmund
+2025-12-14 16:30:00,Bayern Munich,Mainz 05
+2025-12-14 18:30:00,Werder Bremen,Stuttgart
+2025-12-19 19:30:00,Dortmund,Borussia M.Gladbach
+2025-12-20 14:30:00,Augsburg,Werder Bremen
+2025-12-20 14:30:00,FC Cologne,Union Berlin
+2025-12-20 14:30:00,Hamburger SV,Ein Frankfurt
+2025-12-20 14:30:00,Stuttgart,Hoffenheim
+2025-12-20 14:30:00,Wolfsburg,Freiburg
+2025-12-20 17:30:00,RasenBallsport Leipzig,Leverkusen
+2025-12-21 14:30:00,Mainz 05,St. Pauli
+2025-12-21 16:30:00,FC Heidenheim,Bayern Munich
+2026-01-09 19:30:00,Ein Frankfurt,Dortmund
+2026-01-10 14:30:00,Freiburg,Hamburger SV
+2026-01-10 14:30:00,FC Heidenheim,FC Cologne
+2026-01-10 14:30:00,St. Pauli,RasenBallsport Leipzig
+2026-01-10 14:30:00,Union Berlin,Mainz 05
+2026-01-10 14:30:00,Werder Bremen,Hoffenheim
+2026-01-10 17:30:00,Leverkusen,Stuttgart
+2026-01-11 14:30:00,Borussia M.Gladbach,Augsburg
+2026-01-11 16:30:00,Bayern Munich,Wolfsburg
+2026-01-13 17:30:00,Stuttgart,Ein Frankfurt
+2026-01-13 19:30:00,Dortmund,Werder Bremen
+2026-01-13 19:30:00,Hamburger SV,Leverkusen
+2026-01-13 19:30:00,Mainz 05,FC Heidenheim
+2026-01-14 17:30:00,Wolfsburg,St. Pauli
+2026-01-14 19:30:00,FC Cologne,Bayern Munich
+2026-01-14 19:30:00,Hoffenheim,Borussia M.Gladbach
+2026-01-14 19:30:00,RasenBallsport Leipzig,Freiburg
+2026-01-15 19:30:00,Augsburg,Union Berlin
+2026-01-16 19:30:00,Werder Bremen,Ein Frankfurt
+2026-01-17 14:30:00,Dortmund,St. Pauli
+2026-01-17 14:30:00,FC Cologne,Mainz 05
+2026-01-17 14:30:00,Hamburger SV,Borussia M.Gladbach
+2026-01-17 14:30:00,Hoffenheim,Leverkusen
+2026-01-17 14:30:00,Wolfsburg,FC Heidenheim
+2026-01-17 17:30:00,RasenBallsport Leipzig,Bayern Munich
+2026-01-18 14:30:00,Stuttgart,Union Berlin
+2026-01-18 16:30:00,Augsburg,Freiburg
+2026-01-23 19:30:00,St. Pauli,Hamburger SV
+2026-01-24 14:30:00,Leverkusen,Werder Bremen
+2026-01-24 14:30:00,Bayern Munich,Augsburg
+2026-01-24 14:30:00,Ein Frankfurt,Hoffenheim
+2026-01-24 14:30:00,FC Heidenheim,RasenBallsport Leipzig
+2026-01-24 14:30:00,Mainz 05,Wolfsburg
+2026-01-24 17:30:00,Union Berlin,Dortmund
+2026-01-25 14:30:00,Borussia M.Gladbach,Stuttgart
+2026-01-25 16:30:00,Freiburg,FC Cologne
+2026-01-31 14:30:00,Augsburg,St. Pauli
+2026-01-31 14:30:00,Dortmund,FC Heidenheim
+2026-01-31 14:30:00,Ein Frankfurt,Leverkusen
+2026-01-31 14:30:00,FC Cologne,Wolfsburg
+2026-01-31 14:30:00,Hamburger SV,Bayern Munich
+2026-01-31 14:30:00,Hoffenheim,Union Berlin
+2026-01-31 14:30:00,RasenBallsport Leipzig,Mainz 05
+2026-01-31 14:30:00,Stuttgart,Freiburg
+2026-01-31 14:30:00,Werder Bremen,Borussia M.Gladbach
+2026-02-07 12:30:00,Bayern Munich,Hoffenheim
+2026-02-07 12:30:00,Borussia M.Gladbach,Leverkusen
+2026-02-07 12:30:00,FC Cologne,RasenBallsport Leipzig
+2026-02-07 12:30:00,Freiburg,Werder Bremen
+2026-02-07 12:30:00,FC Heidenheim,Hamburger SV
+2026-02-07 12:30:00,Mainz 05,Augsburg
+2026-02-07 12:30:00,St. Pauli,Stuttgart
+2026-02-07 12:30:00,Union Berlin,Ein Frankfurt
+2026-02-07 12:30:00,Wolfsburg,Dortmund
+2026-02-14 12:30:00,Augsburg,FC Heidenheim
+2026-02-14 12:30:00,Leverkusen,St. Pauli
+2026-02-14 12:30:00,Dortmund,Mainz 05
+2026-02-14 12:30:00,Ein Frankfurt,Borussia M.Gladbach
+2026-02-14 12:30:00,Hamburger SV,Union Berlin
+2026-02-14 12:30:00,Hoffenheim,Freiburg
+2026-02-14 12:30:00,RasenBallsport Leipzig,Wolfsburg
+2026-02-14 12:30:00,Stuttgart,FC Cologne
+2026-02-14 12:30:00,Werder Bremen,Bayern Munich
+2026-02-21 12:30:00,Bayern Munich,Ein Frankfurt
+2026-02-21 12:30:00,FC Cologne,Hoffenheim
+2026-02-21 12:30:00,Freiburg,Borussia M.Gladbach
+2026-02-21 12:30:00,FC Heidenheim,Stuttgart
+2026-02-21 12:30:00,Mainz 05,Hamburger SV
+2026-02-21 12:30:00,RasenBallsport Leipzig,Dortmund
+2026-02-21 12:30:00,St. Pauli,Werder Bremen
+2026-02-21 12:30:00,Union Berlin,Leverkusen
+2026-02-21 12:30:00,Wolfsburg,Augsburg
+2026-02-28 12:30:00,Augsburg,FC Cologne
+2026-02-28 12:30:00,Leverkusen,Mainz 05
+2026-02-28 12:30:00,Borussia M.Gladbach,Union Berlin
+2026-02-28 12:30:00,Dortmund,Bayern Munich
+2026-02-28 12:30:00,Ein Frankfurt,Freiburg
+2026-02-28 12:30:00,Hamburger SV,RasenBallsport Leipzig
+2026-02-28 12:30:00,Hoffenheim,St. Pauli
+2026-02-28 12:30:00,Stuttgart,Wolfsburg
+2026-02-28 12:30:00,Werder Bremen,FC Heidenheim
+2026-03-07 12:30:00,Bayern Munich,Borussia M.Gladbach
+2026-03-07 12:30:00,FC Cologne,Dortmund
+2026-03-07 12:30:00,Freiburg,Leverkusen
+2026-03-07 12:30:00,FC Heidenheim,Hoffenheim
+2026-03-07 12:30:00,Mainz 05,Stuttgart
+2026-03-07 12:30:00,RasenBallsport Leipzig,Augsburg
+2026-03-07 12:30:00,St. Pauli,Ein Frankfurt
+2026-03-07 12:30:00,Union Berlin,Werder Bremen
+2026-03-07 12:30:00,Wolfsburg,Hamburger SV
+2026-03-14 12:30:00,Leverkusen,Bayern Munich
+2026-03-14 12:30:00,Borussia M.Gladbach,St. Pauli
+2026-03-14 12:30:00,Dortmund,Augsburg
+2026-03-14 12:30:00,Ein Frankfurt,FC Heidenheim
+2026-03-14 12:30:00,Freiburg,Union Berlin
+2026-03-14 12:30:00,Hamburger SV,FC Cologne
+2026-03-14 12:30:00,Hoffenheim,Wolfsburg
+2026-03-14 12:30:00,Stuttgart,RasenBallsport Leipzig
+2026-03-14 12:30:00,Werder Bremen,Mainz 05
+2026-03-21 12:30:00,Augsburg,Stuttgart
+2026-03-21 12:30:00,Bayern Munich,Union Berlin
+2026-03-21 12:30:00,Dortmund,Hamburger SV
+2026-03-21 12:30:00,FC Cologne,Borussia M.Gladbach
+2026-03-21 12:30:00,FC Heidenheim,Leverkusen
+2026-03-21 12:30:00,Mainz 05,Ein Frankfurt
+2026-03-21 12:30:00,RasenBallsport Leipzig,Hoffenheim
+2026-03-21 12:30:00,St. Pauli,Freiburg
+2026-03-21 12:30:00,Wolfsburg,Werder Bremen
+2026-04-04 12:30:00,Leverkusen,Wolfsburg
+2026-04-04 12:30:00,Borussia M.Gladbach,FC Heidenheim
+2026-04-04 12:30:00,Ein Frankfurt,FC Cologne
+2026-04-04 12:30:00,Freiburg,Bayern Munich
+2026-04-04 12:30:00,Hamburger SV,Augsburg
+2026-04-04 12:30:00,Hoffenheim,Mainz 05
+2026-04-04 12:30:00,Stuttgart,Dortmund
+2026-04-04 12:30:00,Union Berlin,St. Pauli
+2026-04-04 12:30:00,Werder Bremen,RasenBallsport Leipzig
+2026-04-11 12:30:00,Augsburg,Hoffenheim
+2026-04-11 12:30:00,Dortmund,Leverkusen
+2026-04-11 12:30:00,FC Cologne,Werder Bremen
+2026-04-11 12:30:00,FC Heidenheim,Union Berlin
+2026-04-11 12:30:00,Mainz 05,Freiburg
+2026-04-11 12:30:00,RasenBallsport Leipzig,Borussia M.Gladbach
+2026-04-11 12:30:00,St. Pauli,Bayern Munich
+2026-04-11 12:30:00,Stuttgart,Hamburger SV
+2026-04-11 12:30:00,Wolfsburg,Ein Frankfurt
+2026-04-18 12:30:00,Leverkusen,Augsburg
+2026-04-18 12:30:00,Bayern Munich,Stuttgart
+2026-04-18 12:30:00,Borussia M.Gladbach,Mainz 05
+2026-04-18 12:30:00,Ein Frankfurt,RasenBallsport Leipzig
+2026-04-18 12:30:00,Freiburg,FC Heidenheim
+2026-04-18 12:30:00,Hoffenheim,Dortmund
+2026-04-18 12:30:00,St. Pauli,FC Cologne
+2026-04-18 12:30:00,Union Berlin,Wolfsburg
+2026-04-18 12:30:00,Werder Bremen,Hamburger SV
+2026-04-25 12:30:00,Augsburg,Ein Frankfurt
+2026-04-25 12:30:00,Dortmund,Freiburg
+2026-04-25 12:30:00,FC Cologne,Leverkusen
+2026-04-25 12:30:00,Hamburger SV,Hoffenheim
+2026-04-25 12:30:00,FC Heidenheim,St. Pauli
+2026-04-25 12:30:00,Mainz 05,Bayern Munich
+2026-04-25 12:30:00,RasenBallsport Leipzig,Union Berlin
+2026-04-25 12:30:00,Stuttgart,Werder Bremen
+2026-04-25 12:30:00,Wolfsburg,Borussia M.Gladbach
+2026-05-02 12:30:00,Leverkusen,RasenBallsport Leipzig
+2026-05-02 12:30:00,Bayern Munich,FC Heidenheim
+2026-05-02 12:30:00,Borussia M.Gladbach,Dortmund
+2026-05-02 12:30:00,Ein Frankfurt,Hamburger SV
+2026-05-02 12:30:00,Freiburg,Wolfsburg
+2026-05-02 12:30:00,Hoffenheim,Stuttgart
+2026-05-02 12:30:00,St. Pauli,Mainz 05
+2026-05-02 12:30:00,Union Berlin,FC Cologne
+2026-05-02 12:30:00,Werder Bremen,Augsburg
+2026-05-09 12:30:00,Augsburg,Borussia M.Gladbach
+2026-05-09 12:30:00,Dortmund,Ein Frankfurt
+2026-05-09 12:30:00,FC Cologne,FC Heidenheim
+2026-05-09 12:30:00,Hamburger SV,Freiburg
+2026-05-09 12:30:00,Hoffenheim,Werder Bremen
+2026-05-09 12:30:00,Mainz 05,Union Berlin
+2026-05-09 12:30:00,RasenBallsport Leipzig,St. Pauli
+2026-05-09 12:30:00,Stuttgart,Leverkusen
+2026-05-09 12:30:00,Wolfsburg,Bayern Munich
+2026-05-16 12:30:00,Leverkusen,Hamburger SV
+2026-05-16 12:30:00,Bayern Munich,FC Cologne
+2026-05-16 12:30:00,Borussia M.Gladbach,Hoffenheim
+2026-05-16 12:30:00,Ein Frankfurt,Stuttgart
+2026-05-16 12:30:00,Freiburg,RasenBallsport Leipzig
+2026-05-16 12:30:00,FC Heidenheim,Mainz 05
+2026-05-16 12:30:00,St. Pauli,Wolfsburg
+2026-05-16 12:30:00,Union Berlin,Augsburg
+2026-05-16 12:30:00,Werder Bremen,Dortmund

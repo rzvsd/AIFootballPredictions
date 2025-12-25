@@ -1,0 +1,531 @@
+date,home,away
+8/16/2024,Man Utd,Fulham
+8/17/2024,Ipswich,Liverpool
+8/17/2024,Arsenal,Wolves
+8/17/2024,Everton,Brighton
+8/17/2024,Newcastle,Southampton
+8/17/2024,Nottingham,Bournemouth
+8/17/2024,West Ham,Aston Villa
+8/18/2024,Brentford,C Palace
+8/18/2024,Chelsea,Man City
+8/19/2024,Leicester,Tottenham
+8/24/2024,Brighton,Man Utd
+8/24/2024,C Palace,West Ham
+8/24/2024,Fulham,Leicester
+8/24/2024,Man City,Ipswich
+8/24/2024,Southampton,Nottingham
+8/24/2024,Tottenham,Everton
+8/24/2024,Aston Villa,Arsenal
+8/25/2024,Bournemouth,Newcastle
+8/25/2024,Wolves,Chelsea
+8/25/2024,Liverpool,Brentford
+8/31/2024,Arsenal,Brighton
+8/31/2024,Brentford,Southampton
+8/31/2024,Everton,Bournemouth
+8/31/2024,Ipswich,Fulham
+8/31/2024,Leicester,Aston Villa
+8/31/2024,Nottingham,Wolves
+8/31/2024,West Ham,Man City
+9/1/2024,Chelsea,C Palace
+9/1/2024,Newcastle,Tottenham
+9/1/2024,Man Utd,Liverpool
+9/14/2024,Southampton,Man Utd
+9/14/2024,Brighton,Ipswich
+9/14/2024,C Palace,Leicester
+9/14/2024,Fulham,West Ham
+9/14/2024,Liverpool,Nottingham
+9/14/2024,Man City,Brentford
+9/14/2024,Aston Villa,Everton
+9/14/2024,Bournemouth,Chelsea
+9/15/2024,Tottenham,Arsenal
+9/15/2024,Wolves,Newcastle
+9/21/2024,West Ham,Chelsea
+9/21/2024,Aston Villa,Wolves
+9/21/2024,Fulham,Newcastle
+9/21/2024,Leicester,Everton
+9/21/2024,Liverpool,Bournemouth
+9/21/2024,Southampton,Ipswich
+9/21/2024,Tottenham,Brentford
+9/21/2024,C Palace,Man Utd
+9/22/2024,Brighton,Nottingham
+9/22/2024,Man City,Arsenal
+9/28/2024,Newcastle,Man City
+9/28/2024,Arsenal,Leicester
+9/28/2024,Brentford,West Ham
+9/28/2024,Chelsea,Brighton
+9/28/2024,Everton,C Palace
+9/28/2024,Nottingham,Fulham
+9/28/2024,Wolves,Liverpool
+9/29/2024,Ipswich,Aston Villa
+9/29/2024,Man Utd,Tottenham
+9/30/2024,Bournemouth,Southampton
+10/5/2024,C Palace,Liverpool
+10/5/2024,Arsenal,Southampton
+10/5/2024,Brentford,Wolves
+10/5/2024,Leicester,Bournemouth
+10/5/2024,Man City,Fulham
+10/5/2024,West Ham,Ipswich
+10/5/2024,Everton,Newcastle
+10/6/2024,Aston Villa,Man Utd
+10/6/2024,Chelsea,Nottingham
+10/6/2024,Brighton,Tottenham
+10/19/2024,Tottenham,West Ham
+10/19/2024,Fulham,Aston Villa
+10/19/2024,Ipswich,Everton
+10/19/2024,Man Utd,Brentford
+10/19/2024,Newcastle,Brighton
+10/19/2024,Southampton,Leicester
+10/19/2024,Bournemouth,Arsenal
+10/20/2024,Wolves,Man City
+10/20/2024,Liverpool,Chelsea
+10/21/2024,Nottingham,C Palace
+10/25/2024,Leicester,Nottingham
+10/26/2024,Aston Villa,Bournemouth
+10/26/2024,Brentford,Ipswich
+10/26/2024,Brighton,Wolves
+10/26/2024,Man City,Southampton
+10/26/2024,Everton,Fulham
+10/27/2024,Chelsea,Newcastle
+10/27/2024,C Palace,Tottenham
+10/27/2024,West Ham,Man Utd
+10/27/2024,Arsenal,Liverpool
+11/2/2024,Newcastle,Arsenal
+11/2/2024,Bournemouth,Man City
+11/2/2024,Ipswich,Leicester
+11/2/2024,Liverpool,Brighton
+11/2/2024,Nottingham,West Ham
+11/2/2024,Southampton,Everton
+11/2/2024,Wolves,C Palace
+11/3/2024,Tottenham,Aston Villa
+11/3/2024,Man Utd,Chelsea
+11/4/2024,Fulham,Brentford
+11/9/2024,Brentford,Bournemouth
+11/9/2024,C Palace,Fulham
+11/9/2024,West Ham,Everton
+11/9/2024,Wolves,Southampton
+11/9/2024,Brighton,Man City
+11/9/2024,Liverpool,Aston Villa
+11/10/2024,Man Utd,Leicester
+11/10/2024,Nottingham,Newcastle
+11/10/2024,Tottenham,Ipswich
+11/10/2024,Chelsea,Arsenal
+11/23/2024,Leicester,Chelsea
+11/23/2024,Arsenal,Nottingham
+11/23/2024,Aston Villa,C Palace
+11/23/2024,Bournemouth,Brighton
+11/23/2024,Everton,Brentford
+11/23/2024,Fulham,Wolves
+11/23/2024,Man City,Tottenham
+11/24/2024,Southampton,Liverpool
+11/24/2024,Ipswich,Man Utd
+11/25/2024,Newcastle,West Ham
+11/29/2024,Brighton,Southampton
+11/30/2024,Brentford,Leicester
+11/30/2024,C Palace,Newcastle
+11/30/2024,Nottingham,Ipswich
+11/30/2024,Wolves,Bournemouth
+11/30/2024,West Ham,Arsenal
+12/1/2024,Chelsea,Aston Villa
+12/1/2024,Man Utd,Everton
+12/1/2024,Tottenham,Fulham
+12/1/2024,Liverpool,Man City
+12/3/2024,Ipswich,C Palace
+12/3/2024,Leicester,West Ham
+12/4/2024,Everton,Wolves
+12/4/2024,Man City,Nottingham
+12/4/2024,Newcastle,Liverpool
+12/4/2024,Southampton,Chelsea
+12/4/2024,Arsenal,Man Utd
+12/4/2024,Aston Villa,Brentford
+12/5/2024,Fulham,Brighton
+12/5/2024,Bournemouth,Tottenham
+12/7/2024,Aston Villa,Southampton
+12/7/2024,Brentford,Newcastle
+12/7/2024,C Palace,Man City
+12/7/2024,Man Utd,Nottingham
+12/8/2024,Fulham,Arsenal
+12/8/2024,Ipswich,Bournemouth
+12/8/2024,Leicester,Brighton
+12/8/2024,Tottenham,Chelsea
+12/9/2024,West Ham,Wolves
+12/14/2024,Arsenal,Everton
+12/14/2024,Liverpool,Fulham
+12/14/2024,Newcastle,Leicester
+12/14/2024,Wolves,Ipswich
+12/14/2024,Nottingham,Aston Villa
+12/15/2024,Brighton,C Palace
+12/15/2024,Man City,Man Utd
+12/15/2024,Chelsea,Brentford
+12/15/2024,Southampton,Tottenham
+12/16/2024,Bournemouth,West Ham
+12/21/2024,Aston Villa,Man City
+12/21/2024,Brentford,Nottingham
+12/21/2024,Ipswich,Newcastle
+12/21/2024,West Ham,Brighton
+12/21/2024,C Palace,Arsenal
+12/22/2024,Everton,Chelsea
+12/22/2024,Fulham,Southampton
+12/22/2024,Leicester,Wolves
+12/22/2024,Man Utd,Bournemouth
+12/22/2024,Tottenham,Liverpool
+12/26/2024,Man City,Everton
+12/26/2024,Bournemouth,C Palace
+12/26/2024,Chelsea,Fulham
+12/26/2024,Newcastle,Aston Villa
+12/26/2024,Nottingham,Tottenham
+12/26/2024,Southampton,West Ham
+12/26/2024,Wolves,Man Utd
+12/26/2024,Liverpool,Leicester
+12/27/2024,Brighton,Brentford
+12/27/2024,Arsenal,Ipswich
+12/29/2024,Leicester,Man City
+12/29/2024,C Palace,Southampton
+12/29/2024,Everton,Nottingham
+12/29/2024,Fulham,Bournemouth
+12/29/2024,Tottenham,Wolves
+12/29/2024,West Ham,Liverpool
+12/30/2024,Aston Villa,Brighton
+12/30/2024,Ipswich,Chelsea
+12/30/2024,Man Utd,Newcastle
+1/1/2025,Brentford,Arsenal
+1/4/2025,Tottenham,Newcastle
+1/4/2025,Aston Villa,Leicester
+1/4/2025,Bournemouth,Everton
+1/4/2025,C Palace,Chelsea
+1/4/2025,Man City,West Ham
+1/4/2025,Southampton,Brentford
+1/4/2025,Brighton,Arsenal
+1/5/2025,Fulham,Ipswich
+1/5/2025,Liverpool,Man Utd
+1/6/2025,Wolves,Nottingham
+1/14/2025,Brentford,Man City
+1/14/2025,West Ham,Fulham
+1/14/2025,Chelsea,Bournemouth
+1/14/2025,Nottingham,Liverpool
+1/15/2025,Everton,Aston Villa
+1/15/2025,Leicester,C Palace
+1/15/2025,Newcastle,Wolves
+1/15/2025,Arsenal,Tottenham
+1/16/2025,Ipswich,Brighton
+1/16/2025,Man Utd,Southampton
+1/18/2025,Newcastle,Bournemouth
+1/18/2025,Brentford,Liverpool
+1/18/2025,Leicester,Fulham
+1/18/2025,West Ham,C Palace
+1/18/2025,Arsenal,Aston Villa
+1/19/2025,Everton,Tottenham
+1/19/2025,Man Utd,Brighton
+1/19/2025,Nottingham,Southampton
+1/19/2025,Ipswich,Man City
+1/20/2025,Chelsea,Wolves
+1/25/2025,Bournemouth,Nottingham
+1/25/2025,Brighton,Everton
+1/25/2025,Liverpool,Ipswich
+1/25/2025,Southampton,Newcastle
+1/25/2025,Wolves,Arsenal
+1/25/2025,Man City,Chelsea
+1/26/2025,C Palace,Brentford
+1/26/2025,Tottenham,Leicester
+1/26/2025,Aston Villa,West Ham
+1/26/2025,Fulham,Man Utd
+2/1/2025,Nottingham,Brighton
+2/1/2025,Bournemouth,Liverpool
+2/1/2025,Everton,Leicester
+2/1/2025,Ipswich,Southampton
+2/1/2025,Newcastle,Fulham
+2/1/2025,Wolves,Aston Villa
+2/2/2025,Brentford,Tottenham
+2/2/2025,Man Utd,C Palace
+2/2/2025,Arsenal,Man City
+2/3/2025,Chelsea,West Ham
+2/12/2025,Everton,Liverpool
+2/14/2025,Brighton,Chelsea
+2/15/2025,Leicester,Arsenal
+2/15/2025,Aston Villa,Ipswich
+2/15/2025,Fulham,Nottingham
+2/15/2025,Man City,Newcastle
+2/15/2025,Southampton,Bournemouth
+2/15/2025,West Ham,Brentford
+2/15/2025,C Palace,Everton
+2/16/2025,Liverpool,Wolves
+2/16/2025,Tottenham,Man Utd
+2/19/2025,Aston Villa,Liverpool
+2/21/2025,Leicester,Brentford
+2/22/2025,Everton,Man Utd
+2/22/2025,Arsenal,West Ham
+2/22/2025,Bournemouth,Wolves
+2/22/2025,Fulham,C Palace
+2/22/2025,Ipswich,Tottenham
+2/22/2025,Southampton,Brighton
+2/22/2025,Aston Villa,Chelsea
+2/23/2025,Newcastle,Nottingham
+2/23/2025,Man City,Liverpool
+2/25/2025,Brighton,Bournemouth
+2/25/2025,Wolves,Fulham
+2/25/2025,C Palace,Aston Villa
+2/25/2025,Chelsea,Southampton
+2/26/2025,Brentford,Everton
+2/26/2025,Nottingham,Arsenal
+2/26/2025,Tottenham,Man City
+2/26/2025,Man Utd,Ipswich
+2/26/2025,Liverpool,Newcastle
+2/27/2025,West Ham,Leicester
+3/8/2025,Nottingham,Man City
+3/8/2025,Brighton,Fulham
+3/8/2025,C Palace,Ipswich
+3/8/2025,Liverpool,Southampton
+3/8/2025,Brentford,Aston Villa
+3/8/2025,Wolves,Everton
+3/9/2025,Chelsea,Leicester
+3/9/2025,Tottenham,Bournemouth
+3/9/2025,Man Utd,Arsenal
+3/10/2025,West Ham,Newcastle
+3/15/2025,Everton,West Ham
+3/15/2025,Ipswich,Nottingham
+3/15/2025,Man City,Brighton
+3/15/2025,Southampton,Wolves
+3/15/2025,Bournemouth,Brentford
+3/16/2025,Arsenal,Chelsea
+3/16/2025,Fulham,Tottenham
+3/16/2025,Leicester,Man Utd
+4/1/2025,Arsenal,Fulham
+4/1/2025,Wolves,West Ham
+4/1/2025,Nottingham,Man Utd
+4/2/2025,Bournemouth,Ipswich
+4/2/2025,Brighton,Aston Villa
+4/2/2025,Man City,Leicester
+4/2/2025,Newcastle,Brentford
+4/2/2025,Southampton,C Palace
+4/2/2025,Liverpool,Everton
+4/3/2025,Chelsea,Tottenham
+4/5/2025,Everton,Arsenal
+4/5/2025,C Palace,Brighton
+4/5/2025,Ipswich,Wolves
+4/5/2025,West Ham,Bournemouth
+4/5/2025,Aston Villa,Nottingham
+4/6/2025,Brentford,Chelsea
+4/6/2025,Fulham,Liverpool
+4/6/2025,Tottenham,Southampton
+4/6/2025,Man Utd,Man City
+4/7/2025,Leicester,Newcastle
+4/12/2025,Man City,C Palace
+4/12/2025,Brighton,Leicester
+4/12/2025,Nottingham,Everton
+4/12/2025,Southampton,Aston Villa
+4/12/2025,Arsenal,Brentford
+4/13/2025,Chelsea,Ipswich
+4/13/2025,Liverpool,West Ham
+4/13/2025,Wolves,Tottenham
+4/13/2025,Newcastle,Man Utd
+4/14/2025,Bournemouth,Fulham
+4/16/2025,Newcastle,C Palace
+4/19/2025,Brentford,Brighton
+4/19/2025,C Palace,Bournemouth
+4/19/2025,Everton,Man City
+4/19/2025,West Ham,Southampton
+4/19/2025,Aston Villa,Newcastle
+4/20/2025,Fulham,Chelsea
+4/20/2025,Ipswich,Arsenal
+4/20/2025,Man Utd,Wolves
+4/20/2025,Leicester,Liverpool
+4/21/2025,Tottenham,Nottingham
+4/22/2025,Man City,Aston Villa
+4/23/2025,Arsenal,C Palace
+4/26/2025,Chelsea,Everton
+4/26/2025,Brighton,West Ham
+4/26/2025,Newcastle,Ipswich
+4/26/2025,Southampton,Fulham
+4/26/2025,Wolves,Leicester
+4/27/2025,Bournemouth,Man Utd
+4/27/2025,Liverpool,Tottenham
+5/1/2025,Nottingham,Brentford
+5/2/2025,Man City,Wolves
+5/3/2025,Aston Villa,Fulham
+5/3/2025,Everton,Ipswich
+5/3/2025,Leicester,Southampton
+5/3/2025,Arsenal,Bournemouth
+5/4/2025,Brentford,Man Utd
+5/4/2025,Brighton,Newcastle
+5/4/2025,West Ham,Tottenham
+5/4/2025,Chelsea,Liverpool
+5/5/2025,C Palace,Nottingham
+5/10/2025,Fulham,Everton
+5/10/2025,Ipswich,Brentford
+5/10/2025,Southampton,Man City
+5/10/2025,Wolves,Brighton
+5/10/2025,Bournemouth,Aston Villa
+5/11/2025,Newcastle,Chelsea
+5/11/2025,Man Utd,West Ham
+5/11/2025,Nottingham,Leicester
+5/11/2025,Tottenham,C Palace
+5/11/2025,Liverpool,Arsenal
+5/16/2025,Aston Villa,Tottenham
+5/16/2025,Chelsea,Man Utd
+5/18/2025,Everton,Southampton
+5/18/2025,West Ham,Nottingham
+5/18/2025,Brentford,Fulham
+5/18/2025,Leicester,Ipswich
+5/18/2025,Arsenal,Newcastle
+5/19/2025,Brighton,Liverpool
+5/20/2025,C Palace,Wolves
+5/20/2025,Man City,Bournemouth
+5/25/2025,Bournemouth,Leicester
+5/25/2025,Fulham,Man City
+5/25/2025,Ipswich,West Ham
+5/25/2025,Liverpool,C Palace
+5/25/2025,Man Utd,Aston Villa
+5/25/2025,Newcastle,Everton
+5/25/2025,Nottingham,Chelsea
+5/25/2025,Southampton,Arsenal
+5/25/2025,Tottenham,Brighton
+5/25/2025,Wolves,Brentford
+8/15/2025,Liverpool,Bournemouth
+8/16/2025,Aston Villa,Newcastle
+8/16/2025,Brighton,Fulham
+8/16/2025,Sunderland,West Ham
+8/16/2025,Tottenham,Burnley
+8/16/2025,Wolves,Man City
+8/17/2025,Chelsea,C Palace
+8/17/2025,Nottingham,Brentford
+8/17/2025,Man Utd,Arsenal
+8/18/2025,Leeds,Everton
+8/22/2025,West Ham,Chelsea
+8/23/2025,Man City,Tottenham
+8/23/2025,Bournemouth,Wolves
+8/23/2025,Brentford,Aston Villa
+8/23/2025,Burnley,Sunderland
+8/23/2025,Arsenal,Leeds
+8/24/2025,C Palace,Nottingham
+8/24/2025,Everton,Brighton
+8/24/2025,Fulham,Man Utd
+8/25/2025,Newcastle,Liverpool
+8/30/2025,Chelsea,Fulham
+8/30/2025,Man Utd,Burnley
+8/30/2025,Sunderland,Brentford
+8/30/2025,Tottenham,Bournemouth
+8/30/2025,Wolves,Everton
+8/30/2025,Leeds,Newcastle
+8/31/2025,Brighton,Man City
+8/31/2025,Nottingham,West Ham
+8/31/2025,Liverpool,Arsenal
+8/31/2025,Aston Villa,C Palace
+9/13/2025,Arsenal,Nottingham
+9/13/2025,Bournemouth,Brighton
+9/13/2025,C Palace,Sunderland
+9/13/2025,Everton,Aston Villa
+9/13/2025,Fulham,Leeds
+9/13/2025,Newcastle,Wolves
+9/13/2025,West Ham,Tottenham
+9/13/2025,Brentford,Chelsea
+9/14/2025,Burnley,Liverpool
+9/14/2025,Man City,Man Utd
+9/20/2025,Liverpool,Everton
+9/20/2025,Brighton,Tottenham
+9/20/2025,Burnley,Nottingham
+9/20/2025,West Ham,C Palace
+9/20/2025,Wolves,Leeds
+9/20/2025,Man Utd,Chelsea
+9/20/2025,Fulham,Brentford
+9/21/2025,Bournemouth,Newcastle
+9/21/2025,Sunderland,Aston Villa
+9/21/2025,Arsenal,Man City
+9/27/2025,Brentford,Man Utd
+9/27/2025,Chelsea,Brighton
+9/27/2025,C Palace,Liverpool
+9/27/2025,Leeds,Bournemouth
+9/27/2025,Man City,Burnley
+9/27/2025,Nottingham,Sunderland
+9/27/2025,Tottenham,Wolves
+9/28/2025,Aston Villa,Fulham
+9/28/2025,Newcastle,Arsenal
+9/29/2025,Everton,West Ham
+10/3/2025,Bournemouth,Fulham
+10/4/2025,Leeds,Tottenham
+10/4/2025,Arsenal,West Ham
+10/4/2025,Man Utd,Sunderland
+10/4/2025,Chelsea,Liverpool
+10/5/2025,Aston Villa,Burnley
+10/5/2025,Everton,C Palace
+10/5/2025,Newcastle,Nottingham
+10/5/2025,Wolves,Brighton
+10/5/2025,Brentford,Man City
+10/18/2025,Nottingham,Chelsea
+10/18/2025,Brighton,Newcastle
+10/18/2025,Burnley,Leeds
+10/18/2025,C Palace,Bournemouth
+10/18/2025,Man City,Everton
+10/18/2025,Sunderland,Wolves
+10/18/2025,Fulham,Arsenal
+10/19/2025,Tottenham,Aston Villa
+10/19/2025,Liverpool,Man Utd
+10/20/2025,West Ham,Brentford
+10/24/2025,Leeds,West Ham
+10/25/2025,Chelsea,Sunderland
+10/25/2025,Newcastle,Fulham
+10/25/2025,Man Utd,Brighton
+10/25/2025,Brentford,Liverpool
+10/26/2025,Arsenal,C Palace
+10/26/2025,Aston Villa,Man City
+10/26/2025,Bournemouth,Nottingham
+10/26/2025,Wolves,Burnley
+10/26/2025,Everton,Tottenham
+11/1/2025,Brighton,Leeds
+11/1/2025,Burnley,Arsenal
+11/1/2025,C Palace,Brentford
+11/1/2025,Fulham,Wolves
+11/1/2025,Nottingham,Man Utd
+11/1/2025,Tottenham,Chelsea
+11/1/2025,Liverpool,Aston Villa
+11/2/2025,West Ham,Newcastle
+11/2/2025,Man City,Bournemouth
+11/3/2025,Sunderland,Everton
+11/8/2025,Tottenham,Man Utd
+11/8/2025,Everton,Fulham
+11/8/2025,West Ham,Burnley
+11/8/2025,Sunderland,Arsenal
+11/8/2025,Chelsea,Wolves
+11/9/2025,Aston Villa,Bournemouth
+11/9/2025,Brentford,Newcastle
+11/9/2025,C Palace,Brighton
+11/9/2025,Nottingham,Leeds
+11/9/2025,Man City,Liverpool
+11/22/2025,Burnley,Chelsea
+11/22/2025,Bournemouth,West Ham
+11/22/2025,Brighton,Brentford
+11/22/2025,Fulham,Sunderland
+11/22/2025,Liverpool,Nottingham
+11/22/2025,Wolves,C Palace
+11/22/2025,Newcastle,Man City
+11/23/2025,Leeds,Aston Villa
+11/23/2025,Arsenal,Tottenham
+11/24/2025,Man Utd,Everton
+11/29/2025,Brentford,Burnley
+11/29/2025,Man City,Leeds
+11/29/2025,Sunderland,Bournemouth
+11/29/2025,Everton,Newcastle
+11/29/2025,Tottenham,Fulham
+11/30/2025,C Palace,Man Utd
+11/30/2025,Aston Villa,Wolves
+11/30/2025,Nottingham,Brighton
+11/30/2025,West Ham,Liverpool
+11/30/2025,Chelsea,Arsenal
+12/2/2025,Bournemouth,Everton
+12/2/2025,Fulham,Man City
+12/2/2025,Newcastle,Tottenham
+12/3/2025,Arsenal,Brentford
+12/3/2025,Brighton,Aston Villa
+12/3/2025,Burnley,C Palace
+12/3/2025,Wolves,Nottingham
+12/3/2025,Leeds,Chelsea
+12/3/2025,Liverpool,Sunderland
+12/4/2025,Man Utd,West Ham
+12/6/2025,Aston Villa,Arsenal
+12/6/2025,Bournemouth,Chelsea
+12/6/2025,Everton,Nottingham
+12/6/2025,Man City,Sunderland
+12/6/2025,Newcastle,Burnley
+12/6/2025,Tottenham,Brentford
+12/6/2025,Leeds,Liverpool
+12/7/2025,Brighton,West Ham
+12/7/2025,Fulham,C Palace
+12/8/2025,Wolves,Man Utd

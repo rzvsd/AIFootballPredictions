@@ -1,17 +1,9 @@
-﻿"""
-Orchestrator: Single-command predictions pipeline.
+"""
+CGM-only orchestrator (one-command pipeline).
 
-Usage:
-  python predict.py --league E0 [--days 7] [--max-age-hours 24] [--retrain-days 7]
-  python predict.py --leagues E0 D1 F1 [--days 7] [--max-age-hours 24] [--retrain-days 7]
+This script runs the CGM pipeline end-to-end using only local CSV exports under "CGM data/".
 
-What it does:
-  1) Ensures raw -> processed data is fresh (downloads + preprocesses if stale)
-  2) Best-effort Understat shots fetch + micro aggregates rebuild
-  3) Fetches odds from The Odds API (Bet365 preferred) into data/odds/{LEAGUE}.json
-  4) Ensures absences snapshot exists (seeds default if missing)
-  5) Trains models if stale
-  6) Prints top picks and per-match combined table using Understat fixtures + odds
+Legacy Understat/odds/bot code has been archived under: archive/legacy_non_cgm_engine/
 """
 
 from __future__ import annotations
@@ -24,194 +16,359 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
 
 
-def run(cmd: List[str], env: Optional[dict] = None, cwd: Optional[Path] = None) -> int:
+def _run(cmd: List[str], *, cwd: Optional[Path] = None, env: Optional[dict] = None) -> None:
     print("$", " ".join(cmd))
     proc = subprocess.run(cmd, cwd=str(cwd or ROOT), env=env or os.environ.copy())
-    return proc.returncode
+    if proc.returncode != 0:
+        raise SystemExit(proc.returncode)
 
 
-def is_fresh(path: Path, max_age_hours: int) -> bool:
+def _utc_today_iso() -> str:
+    return dt.datetime.now(dt.timezone.utc).date().isoformat()
+
+
+def _latest_file_mtime(path: Path) -> Optional[tuple[float, Path]]:
     if not path.exists():
-        return False
-    mtime = dt.datetime.fromtimestamp(path.stat().st_mtime)
-    return (dt.datetime.now() - mtime) <= dt.timedelta(hours=max_age_hours)
+        return None
+    if path.is_file():
+        return (path.stat().st_mtime, path)
+    latest: Optional[tuple[float, Path]] = None
+    for item in path.rglob("*"):
+        if not item.is_file():
+            continue
+        try:
+            mtime = item.stat().st_mtime
+        except OSError:
+            continue
+        if latest is None or mtime > latest[0]:
+            latest = (mtime, item)
+    return latest
 
 
-def current_season_start_year(today: Optional[dt.date] = None) -> int:
-    d = today or dt.date.today()
-    return d.year if d.month >= 8 else d.year - 1
-
-
-def season_code_mmz(year_start: int) -> str:
-    y1 = str(year_start)[-2:]
-    y2 = str(year_start + 1)[-2:]
-    return f"{y1}{y2}"
-
-
-def ensure_processed(league: str, max_age_hours: int) -> None:
-    proc_csv = DATA / "processed" / f"{league}_merged_preprocessed.csv"
-    if is_fresh(proc_csv, max_age_hours):
-        print(f"[ok] Processed data fresh: {proc_csv}")
-        return
-    # Download latest raw and preprocess
-    season_start = current_season_start_year()
-    seasons = [season_code_mmz(season_start + i) for i in (0, -1, -2)]
-    print(f"[step] Acquiring raw for {league} seasons {seasons}")
-    rc = run([sys.executable, "scripts/data_acquisition.py", "--leagues", league, "--seasons", *seasons, "--raw_data_output_dir", "data/raw"])  # noqa: E501
-    if rc != 0:
-        print("[warn] data_acquisition returned non-zero; continuing if any raw exists")
-    print("[step] Preprocessing raw -> processed")
-    rc = run([sys.executable, "scripts/data_preprocessing.py", "--raw_data_input_dir", "data/raw", "--processed_data_output_dir", "data/processed", "--num_features", "30", "--clustering_threshold", "0.5"])  # noqa: E501
-    if rc != 0:
-        print("[warn] data_preprocessing returned non-zero; continuing best-effort")
-
-
-def ensure_micro_aggregates(league: str) -> None:
-    # Try fetching Understat (best-effort)
-    season_start = current_season_start_year()
-    understat_seasons = f"{season_start},{season_start-1}"
-    print(f"[step] Fetching Understat shots (best-effort): {understat_seasons}")
-    _ = run([sys.executable, "-m", "scripts.fetch_understat_simple", "--league", league, "--seasons", understat_seasons])
-    # Build shots CSV (if any) and micro aggregates (will also inject possession/corners if available)
-    print("[step] Building shots CSV and micro aggregates")
-    run([sys.executable, "-m", "scripts.shots_ingest_understat", "--inputs", "data/understat/*_shots.json", "--out", "data/shots/understat_shots.csv"])  # noqa: E501
-    run([sys.executable, "-m", "scripts.build_micro_aggregates", "--shots", "data/shots/understat_shots.csv", "--league", league, "--out", "data/enhanced/micro_agg.csv"])  # noqa: E501
-    # Also persist per-league copy to avoid cross-league contamination
-    try:
-        import shutil  # local import
-        src = DATA / "enhanced" / "micro_agg.csv"
-        dest = DATA / "enhanced" / f"{league}_micro_agg.csv"
-        if src.exists():
-            shutil.copyfile(str(src), str(dest))
-            print(f"[ok] Wrote {dest}")
-    except Exception as e:
-        print(f"[warn] Could not persist per-league micro aggregates: {e}")
-
-
-def ensure_absences_seed(league: str) -> None:
-    out_dir = DATA / "absences"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    dest = out_dir / f"{league}_availability.csv"
-    if dest.exists():
-        print(f"[ok] Absences snapshot exists: {dest}")
-        return
-    # Seed a flat availability=1.0 per team based on processed file
-    proc = DATA / "processed" / f"{league}_merged_preprocessed.csv"
-    if not proc.exists():
-        print("[warn] Processed data missing; cannot seed absences yet")
-        return
-    import pandas as pd  # local import
-    df = pd.read_csv(proc)
-    teams = sorted(set(df.get("HomeTeam").dropna().astype(str)).union(set(df.get("AwayTeam").dropna().astype(str))))
-    seed = out_dir / f"{league}_availability_seed.csv"
-    pd.DataFrame({"team": teams, "availability_index": [1.0]*len(teams)}).to_csv(seed, index=False)
-    run([sys.executable, "-m", "scripts.absences_import", "--league", league, "--input", str(seed)])
-
-
-def ensure_trained(league: str, retrain_days: int) -> None:
-    models_dir = ROOT / "advanced_models"
-    models_dir.mkdir(parents=True, exist_ok=True)
-    # Require both home and away models (JSON preferred, PKL fallback)
-    home_candidates = [
-        models_dir / f"{league}_ultimate_xgb_home.json",
-        models_dir / f"{league}_ultimate_xgb_home.pkl",
-    ]
-    away_candidates = [
-        models_dir / f"{league}_ultimate_xgb_away.json",
-        models_dir / f"{league}_ultimate_xgb_away.pkl",
-    ]
-    def _latest(paths):
-        existing = [p for p in paths if p.exists()]
-        return max(existing, key=lambda p: p.stat().st_mtime) if existing else None
-
-    latest_home = _latest(home_candidates)
-    latest_away = _latest(away_candidates)
-    needs_train = not (latest_home and latest_away)
-
-    if not needs_train:
-        newest_mtime = max(latest_home.stat().st_mtime, latest_away.stat().st_mtime)
-        mtime = dt.datetime.fromtimestamp(newest_mtime)
-        needs_train = (dt.datetime.now() - mtime) > dt.timedelta(days=retrain_days)
-        if not needs_train:
-            print(f"[ok] Models fresh: {latest_home.name}, {latest_away.name}")
-    if needs_train:
-        print(f"[step] Training XGB models for {league}")
-        run([sys.executable, "xgb_trainer.py", "--league", league])
-
-
-def ensure_odds(league: str) -> None:
-    odds_dir = DATA / "odds"
-    odds_dir.mkdir(parents=True, exist_ok=True)
-    api_key = os.getenv("THE_ODDS_API_KEY")
-    if not api_key:
-        print("[warn] THE_ODDS_API_KEY not set; skipping odds fetch.")
-        return
-    cmd = [sys.executable, "-m", "scripts.fetch_odds_toa", "--leagues", league]
-    run(cmd)
-
-
-def show_predictions(league: str, days: int, season: Optional[int] = None) -> None:
-    # Use bet_fusion top picks (placeholder odds) and per-match combined table
-    env = os.environ.copy()
-    env["BOT_LEAGUE"] = league
-    env["BOT_FIXTURES_DAYS"] = str(days)
-    if season is not None:
-        env["BOT_UNDERSTAT_SEASON"] = str(season)
-    print("\n=== Top Picks (by EV) ===")
-    run([sys.executable, "bet_fusion.py", "--top", "20"], env=env)
-    print("\n=== Best Per Match (TG, OU 2.5, 1X2) - by highest probability ===")
-    run([sys.executable, "-m", "scripts.print_best_per_match", "--by", "prob"], env=env)
+def _fmt_mtime_utc(ts: float) -> str:
+    return dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="One-command predictions orchestrator")
-    group = ap.add_mutually_exclusive_group(required=True)
-    group.add_argument("--league", help="League code, e.g., E0, I1, D1, SP1, F1")
-    group.add_argument("--leagues", nargs="+", help="Space-separated list of league codes, e.g., E0 D1 F1 I1 SP1")
-    ap.add_argument("--days", type=int, default=7, help="How many days ahead to fetch fixtures from Understat")
-    ap.add_argument("--season", type=int, default=None, help="Optional Understat season start year (e.g., 2025 for 2025-26)")
-    ap.add_argument("--max-age-hours", type=int, default=24, help="Max age for processed data before refresh")
-    ap.add_argument("--retrain-days", type=int, default=7, help="Retrain models if older than this many days")
-    ap.add_argument("--compact", action="store_true", help="Also print compact round prognostics (1X2, OU 2.5, TG)")
+    ap = argparse.ArgumentParser(description="CGM-only pipeline runner")
+    ap.add_argument("--data-dir", default="CGM data", help="CGM export directory")
+    ap.add_argument("--enhanced-dir", default="data/enhanced", help="Enhanced output directory")
+    ap.add_argument("--models-dir", default="models", help="Model output directory")
+    ap.add_argument("--reports-dir", default="reports", help="Reports/log output directory")
+    ap.add_argument("--max-date", default=None, help="Elo cutoff date (YYYY-MM-DD). Defaults to today UTC.")
+    ap.add_argument("--model-variant", choices=["full", "no_odds"], default="full", help="Model variant (feature set)")
+    ap.add_argument("--pick-engine", choices=["full", "goals"], default="full", help="Pick engine: full (1X2+OU25) or goals (OU25+BTTS)")
+
+    ap.add_argument("--rebuild-history", action="store_true", help="Force rebuild match history from CGM exports")
+    ap.add_argument("--skip-train", action="store_true", help="Skip training (use existing models)")
+    ap.add_argument("--predict-only", action="store_true", help="Only run prediction using existing artifacts/models")
+    ap.add_argument(
+        "--allow-stale-history",
+        action="store_true",
+        help="Allow predict-only runs even if CGM data is newer than the cached history",
+    )
     args = ap.parse_args()
 
-    if args.leagues:
-        leagues: List[str] = [str(x).upper().strip() for x in args.leagues]
-    else:
-        leagues = [str(args.league).upper().strip()]
+    data_dir = str(args.data_dir)
+    enhanced_dir = Path(args.enhanced_dir)
+    models_dir = Path(args.models_dir)
+    reports_dir = Path(args.reports_dir)
+    max_date = str(args.max_date or _utc_today_iso())
+    model_variant = str(getattr(args, "model_variant", "full") or "full")
+    pick_engine = str(getattr(args, "pick_engine", "full") or "full")
 
-    print(
-        f"[orchestrator] Leagues={','.join(leagues)} days={args.days} data_max_age={args.max_age_hours}h retrain_after={args.retrain_days}d"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    history_csv = enhanced_dir / "cgm_match_history.csv"
+    elo_csv = enhanced_dir / "cgm_match_history_with_elo.csv"
+    elo_stats_csv = enhanced_dir / "cgm_match_history_with_elo_stats.csv"
+    elo_stats_xg_csv = enhanced_dir / "cgm_match_history_with_elo_stats_xg.csv"
+    franken_csv = enhanced_dir / "frankenstein_training.csv"
+    stats_candidates = [
+        Path(data_dir) / "cgmbetdatabase.csv",
+        Path(data_dir) / "cgmbetdatabase.xls",
+        Path(data_dir) / "goals statistics.csv",
+    ]
+    stats_source = next((p for p in stats_candidates if p.exists()), stats_candidates[-1])
+
+    if args.predict_only:
+        history_for_predict = elo_stats_xg_csv if elo_stats_xg_csv.exists() else elo_stats_csv
+        latest_data = _latest_file_mtime(Path(data_dir))
+        if history_for_predict.exists() and latest_data and latest_data[0] > history_for_predict.stat().st_mtime:
+            history_mtime = _fmt_mtime_utc(history_for_predict.stat().st_mtime)
+            latest_name = latest_data[1].name
+            latest_mtime = _fmt_mtime_utc(latest_data[0])
+            msg = (
+                "WARNING: CGM data is newer than cached history in predict-only mode.\n"
+                f"  history: {history_for_predict} (mtime {history_mtime})\n"
+                f"  newest data: {latest_name} (mtime {latest_mtime})\n"
+                "Rerun without --predict-only or pass --rebuild-history. "
+                "Use --allow-stale-history to proceed anyway."
+            )
+            if args.allow_stale_history:
+                print(msg)
+            else:
+                print(msg)
+                raise SystemExit(2)
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "cgm.predict_upcoming",
+                "--history",
+                str(history_for_predict),
+                "--models-dir",
+                str(models_dir),
+                "--model-variant",
+                model_variant,
+                "--out",
+                str(reports_dir / "cgm_upcoming_predictions.csv"),
+                "--data-dir",
+                data_dir,
+                "--as-of-date",
+                max_date,
+                "--log-json",
+                str(reports_dir / "run_log.jsonl"),
+                "--trace-json",
+                str(reports_dir / "elo_trace.jsonl"),
+            ]
+        )
+        pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
+        _run(
+            [
+                sys.executable,
+                "-m",
+                pick_module,
+                "--in",
+                str(reports_dir / "cgm_upcoming_predictions.csv"),
+                "--out",
+                str(reports_dir / "picks.csv"),
+                "--debug-out",
+                str(reports_dir / "picks_debug.csv"),
+            ]
+        )
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "cgm.narrator",
+                "--in",
+                str(reports_dir / "picks.csv"),
+                "--out",
+                str(reports_dir / "picks_explained.csv"),
+                "--preview-out",
+                str(reports_dir / "picks_explained_preview.txt"),
+            ]
+        )
+        return
+
+    # 1) Build match history (missing, forced, or CGM data newer)
+    history_reason = None
+    latest_data = None
+    if args.rebuild_history:
+        history_reason = "--rebuild-history"
+    elif not history_csv.exists():
+        history_reason = "history missing"
+    else:
+        latest_data = _latest_file_mtime(Path(data_dir))
+        if latest_data and latest_data[0] > history_csv.stat().st_mtime:
+            history_reason = "data newer than history"
+
+    if history_reason:
+        if history_reason == "data newer than history" and latest_data:
+            history_mtime = _fmt_mtime_utc(history_csv.stat().st_mtime)
+            latest_name = latest_data[1].name
+            latest_mtime = _fmt_mtime_utc(latest_data[0])
+            print(
+                f"[history] newest export: {latest_name} @ {latest_mtime}; "
+                f"history: {history_mtime} -> rebuilding."
+            )
+        else:
+            print(f"[history] rebuilding ({history_reason})")
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "cgm.build_match_history",
+                "--data-dir",
+                data_dir,
+                "--out",
+                str(history_csv),
+                "--max-date",
+                max_date,
+            ]
+        )
+    else:
+        history_mtime = _fmt_mtime_utc(history_csv.stat().st_mtime)
+        if latest_data:
+            latest_name = latest_data[1].name
+            latest_mtime = _fmt_mtime_utc(latest_data[0])
+            print(
+                "[history] reusing cached history "
+                f"(mtime {history_mtime}); newest data {latest_name} at {latest_mtime}. "
+                "Use --rebuild-history if you exported new data."
+            )
+        else:
+            print(
+                f"[history] reusing cached history (mtime {history_mtime}). "
+                "Use --rebuild-history if you exported new data."
+            )
+
+    # 2) Build league/team baselines (updates match history in-place)
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.build_baselines",
+            "--data-dir",
+            data_dir,
+            "--match-history",
+            str(history_csv),
+            "--out-team-baselines",
+            str(enhanced_dir / "team_baselines.csv"),
+        ]
     )
 
-    for league in leagues:
-        print("\n" + "=" * 20 + f"  {league}  " + "=" * 20)
-        # 1) Data freshness (raw->processed)
-        ensure_processed(league, max_age_hours=args.max_age_hours)
+    # 3) Recompute Elo with cutoff (writes canonical with_elo.csv)
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.calc_cgm_elo",
+            "--history",
+            str(history_csv),
+            "--out",
+            str(elo_csv),
+            "--data-dir",
+            data_dir,
+            "--max-date",
+            max_date,
+            "--log-json",
+            str(reports_dir / "run_log.jsonl"),
+        ]
+    )
 
-        # 2) Micro aggregates (Understat best-effort + enrich)
-        ensure_micro_aggregates(league)
+    # 4) Backfill per-match stats needed by pressure features (writes with_elo_stats.csv)
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.backfill_match_stats",
+            "--history",
+            str(elo_csv),
+            "--stats",
+            str(stats_source),
+            "--out",
+            str(elo_stats_csv),
+            "--data-dir",
+            data_dir,
+        ]
+    )
 
-        # 3) Odds (The Odds API -> local JSON)
-        ensure_odds(league)
+    # 5) Milestone 3: build leakage-safe xG proxy history
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.build_xg_proxy",
+            "--history",
+            str(elo_stats_csv),
+            "--out",
+            str(elo_stats_xg_csv),
+        ]
+    )
 
-        # 4) Absences seed
-        ensure_absences_seed(league)
+    # 6) Build Frankenstein training matrix
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.build_frankenstein",
+            "--data-dir",
+            str(enhanced_dir),
+            "--match-history",
+            elo_stats_xg_csv.name,
+            "--out",
+            str(franken_csv),
+            "--out-full",
+            str(enhanced_dir / "frankenstein_training_full.csv"),
+        ]
+    )
 
-        # 5) Train if needed
-        ensure_trained(league, retrain_days=args.retrain_days)
+    # 7) Train mu models (unless skipped)
+    if not args.skip_train:
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "cgm.train_frankenstein_mu",
+                "--data",
+                str(franken_csv),
+                "--out-dir",
+                str(models_dir),
+                "--variant",
+                model_variant,
+            ]
+        )
 
-        # 6) Show predictions
-        show_predictions(league, days=args.days, season=args.season)
+    # 8) Predict upcoming + EV
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.predict_upcoming",
+            "--history",
+            str(elo_stats_xg_csv),
+            "--models-dir",
+            str(models_dir),
+            "--model-variant",
+            model_variant,
+            "--out",
+            str(reports_dir / "cgm_upcoming_predictions.csv"),
+            "--data-dir",
+            data_dir,
+            "--as-of-date",
+            max_date,
+            "--log-json",
+            str(reports_dir / "run_log.jsonl"),
+            "--trace-json",
+            str(reports_dir / "elo_trace.jsonl"),
+        ]
+    )
 
-        # Optional: compact per-match prognostics for the next round
-        if args.compact:
-            print("\n=== Round Prognostics (compact) ===")
-            run([sys.executable, "-m", "scripts.round_prognostics", "--league", league])
+    # 9) Milestone 4: Deterministic pick engine (1X2 + O/U 2.5)
+    pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
+    _run(
+        [
+            sys.executable,
+            "-m",
+            pick_module,
+            "--in",
+            str(reports_dir / "cgm_upcoming_predictions.csv"),
+            "--out",
+            str(reports_dir / "picks.csv"),
+            "--debug-out",
+            str(reports_dir / "picks_debug.csv"),
+        ]
+    )
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.narrator",
+            "--in",
+            str(reports_dir / "picks.csv"),
+            "--out",
+            str(reports_dir / "picks_explained.csv"),
+            "--preview-out",
+            str(reports_dir / "picks_explained_preview.txt"),
+        ]
+    )
+
 
 if __name__ == "__main__":
     main()

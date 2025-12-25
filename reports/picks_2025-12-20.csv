@@ -1,0 +1,1 @@
+fixture_datetime,league,home,away,run_asof_datetime,scope_country,scope_league,scope_season_start,scope_season_end,horizon_days,market,odds,p_model,p_implied,ev,score,mu_home,mu_away,mu_total,stake_units,stake_tier,reason_codes,neff_min,press_n_min,xg_n_min,sterile_flag,assassin_flag,run_id,input_hash
