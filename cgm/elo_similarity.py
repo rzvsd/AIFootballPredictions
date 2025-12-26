@@ -101,6 +101,10 @@ def kernel_similarity(
     if neff < min_eff:
         base_gf = float(gf.mean())
         base_ga = float(ga.mean())
+        # Guard against NaN: if base stats are NaN, skip blending
+        if np.isnan(base_gf) or np.isnan(base_ga):
+            # Not enough data to blend; return the kernel estimate as-is (may be thin)
+            return (gf_mean, ga_mean, wsum, neff)
         alpha = min(1.0, neff / 10.0)
         gf_mean = alpha * gf_mean + (1 - alpha) * base_gf
         ga_mean = alpha * ga_mean + (1 - alpha) * base_ga

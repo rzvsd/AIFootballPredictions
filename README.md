@@ -129,6 +129,38 @@ Upcoming feed scope audit (shows how many rows get dropped by each filter step):
 python -m scripts.audit_upcoming_feed --as-of-date YYYY-MM-DD
 ```
 
+## Backtest (Milestone 12)
+
+Run historical backtests to validate model performance on past matches. The system uses "time-travel" simulation where predictions are generated as if made on each historical date (no future leakage).
+
+```bash
+# Run backtest for EPL 2025-2026 season
+python -m scripts.run_backtest --league "Premier L" --season "2025-2026" --start-date "2025-09-01"
+
+# Output: reports/backtest_epl_2025.csv
+```
+
+Options:
+- `--league`: League name as stored in history (e.g., "Premier L")
+- `--season`: Season format (e.g., "2025-2026")
+- `--start-date`: Start date for backtest range (YYYY-MM-DD)
+- `--history`: Path to history CSV (default: `data/enhanced/cgm_match_history.csv`)
+- `--out`: Output file path
+
+## Streamlit UI
+
+Launch the web dashboard to visualize predictions, picks, and backtest results:
+
+```bash
+python -m streamlit run ui/streamlit_app.py
+```
+
+Tabs:
+- **📊 Predictions**: Upcoming match predictions with expected goals and probabilities
+- **🎯 Picks**: Value bets from the pick engine with EV and stake recommendations
+- **📈 Statistics**: Summary metrics across all predictions
+- **🔙 Backtest Results**: Historical performance review focusing on GG/NG and O/U 2.5 markets
+
 ## CGM Column Legend (DO NOT DELETE)
 
 CGM exports use multiple screens/tables, and column names can vary slightly between them. This legend captures the common meanings and the most frequent variants seen in your exports.

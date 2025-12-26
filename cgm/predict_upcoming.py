@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import List
 import hashlib
 import logging
-import random
 
 import joblib
 import numpy as np
@@ -38,6 +37,8 @@ from cgm.pressure_inputs import ensure_pressure_inputs
 from cgm.pressure_form import add_pressure_form_features
 from cgm.xg_form import add_xg_form_features
 from cgm.goal_timing import build_team_timing_profiles, compute_match_timing
+from cgm.league_features import get_league_features_for_fixture
+from cgm.h2h_features import get_h2h_features_for_fixture
 
 
 LOG_PATH_DEFAULT = Path("reports/run_log.jsonl")
@@ -128,7 +129,8 @@ def _add_franken_features(df: pd.DataFrame, windows: List[int], alpha: float = 0
             if den_f == 0 or np.isnan(den_f) or np.isnan(num_f):
                 return np.nan
             return num_f / den_f
-        except Exception:
+        except Exception as e:
+            _logger.warning(f"_ratio error: {e}")
             return np.nan
 
     df["Attack_H"] = df.apply(lambda r: _ratio(r.get("H_gf_L5"), r.get("lg_avg_gf_home")), axis=1)
@@ -410,6 +412,13 @@ def main() -> None:
     latest_press_stats_n_away: dict[str, float] = {}
     latest_press_dom_home: dict[str, dict[str, float]] = {}
     latest_press_dom_away: dict[str, dict[str, float]] = {}
+    # Milestone 9: Decay features
+    latest_press_decay_home: dict[str, float] = {}
+    latest_press_decay_away: dict[str, float] = {}
+    latest_xg_for_decay_home: dict[str, float] = {}
+    latest_xg_against_decay_home: dict[str, float] = {}
+    latest_xg_for_decay_away: dict[str, float] = {}
+    latest_xg_against_decay_away: dict[str, float] = {}
 
     latest_xg_for_home: dict[str, float] = {}
     latest_xg_against_home: dict[str, float] = {}
@@ -432,8 +441,8 @@ def main() -> None:
                 val = float(row[col_name])
                 if not np.isnan(val) and val > 0:
                     latest_elos[team] = val
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Elo extract error for {team}: {e}")
         for team in [row["home"], row["away"]]:
             latest_team_meta[team] = {"season": row.get("season"), "country": row.get("country"), "league": row.get("league")}
         # Pressure snapshots (post-match rolling states)
@@ -447,8 +456,11 @@ def main() -> None:
                 "corners": float(row.get("_press_dom_corners_H_post", 0.5)),
                 "pos": float(row.get("_press_dom_pos_H_post", 0.5)),
             }
-        except Exception:
-            pass
+            # Milestone 9: Decay features (use pre-match column which uses .shift() internally)
+            if "press_form_H_decay" in row.index:
+                latest_press_decay_home[str(row["home"])] = float(row.get("press_form_H_decay", 0.5))
+        except Exception as e:
+            logger.debug(f"Pressure home stats error for {row['home']}: {e}")
         try:
             latest_press_away[str(row["away"])] = float(row.get("_press_form_A_post", 0.5))
             latest_press_n_away[str(row["away"])] = float(row.get("_press_n_A_post", 0.0))
@@ -459,8 +471,11 @@ def main() -> None:
                 "corners": float(row.get("_press_dom_corners_A_post", 0.5)),
                 "pos": float(row.get("_press_dom_pos_A_post", 0.5)),
             }
-        except Exception:
-            pass
+            # Milestone 9: Decay features
+            if "press_form_A_decay" in row.index:
+                latest_press_decay_away[str(row["away"])] = float(row.get("press_form_A_decay", 0.5))
+        except Exception as e:
+            logger.debug(f"Pressure away stats error for {row['away']}: {e}")
 
         # xG snapshots (post-match rolling states)
         try:
@@ -471,8 +486,13 @@ def main() -> None:
             latest_xg_finishing_luck_home[str(row["home"])] = float(row.get("_xg_finishing_luck_form_H_post", 0.0))
             latest_xg_n_home[str(row["home"])] = float(row.get("_xg_n_H_post", 0.0))
             latest_xg_stats_n_home[str(row["home"])] = float(row.get("_xg_stats_n_H_post", 0.0))
-        except Exception:
-            pass
+            # Milestone 9: xG decay features
+            if "xg_for_form_H_decay" in row.index:
+                latest_xg_for_decay_home[str(row["home"])] = float(row.get("xg_for_form_H_decay", 0.0))
+            if "xg_against_form_H_decay" in row.index:
+                latest_xg_against_decay_home[str(row["home"])] = float(row.get("xg_against_form_H_decay", 0.0))
+        except Exception as e:
+            logger.debug(f"xG home stats error for {row['home']}: {e}")
         try:
             latest_xg_for_away[str(row["away"])] = float(row.get("_xg_for_form_A_post", 0.0))
             latest_xg_against_away[str(row["away"])] = float(row.get("_xg_against_form_A_post", 0.0))
@@ -481,8 +501,13 @@ def main() -> None:
             latest_xg_finishing_luck_away[str(row["away"])] = float(row.get("_xg_finishing_luck_form_A_post", 0.0))
             latest_xg_n_away[str(row["away"])] = float(row.get("_xg_n_A_post", 0.0))
             latest_xg_stats_n_away[str(row["away"])] = float(row.get("_xg_stats_n_A_post", 0.0))
-        except Exception:
-            pass
+            # Milestone 9: xG decay features
+            if "xg_for_form_A_decay" in row.index:
+                latest_xg_for_decay_away[str(row["away"])] = float(row.get("xg_for_form_A_decay", 0.0))
+            if "xg_against_form_A_decay" in row.index:
+                latest_xg_against_decay_away[str(row["away"])] = float(row.get("xg_against_form_A_decay", 0.0))
+        except Exception as e:
+            logger.debug(f"xG away stats error for {row['away']}: {e}")
 
     upcoming_path = Path(args.data_dir) / "upcoming - Copy.CSV"
     if not upcoming_path.exists():
@@ -495,6 +520,31 @@ def main() -> None:
     missing = [c for c in required if c not in up.columns]
     if missing:
         raise ValueError(f"upcoming missing columns: {missing}")
+    
+    # Fallback: also load unplayed fixtures (0-0 scores) from multiple seasons.csv
+    # This ensures matches like Dec 26-27 Boxing Day fixtures are included
+    ms_path = Path(args.data_dir) / "multiple seasons.csv"
+    if ms_path.exists():
+        try:
+            ms_df = pd.read_csv(ms_path, sep=None, engine="python", encoding="latin1")
+            # Filter to unplayed matches only (scor1=0 and scor2=0)
+            if "scor1" in ms_df.columns and "scor2" in ms_df.columns:
+                ms_df["scor1"] = pd.to_numeric(ms_df["scor1"], errors="coerce").fillna(0)
+                ms_df["scor2"] = pd.to_numeric(ms_df["scor2"], errors="coerce").fillna(0)
+                future_ms = ms_df[(ms_df["scor1"] == 0) & (ms_df["scor2"] == 0)].copy()
+                # Only add if all required columns exist
+                if all(c in future_ms.columns for c in required):
+                    # Create match key for deduplication
+                    up["_match_key"] = up["datameci"].astype(str) + "_" + up["txtechipa1"].astype(str) + "_" + up["txtechipa2"].astype(str)
+                    future_ms["_match_key"] = future_ms["datameci"].astype(str) + "_" + future_ms["txtechipa1"].astype(str) + "_" + future_ms["txtechipa2"].astype(str)
+                    # Only add matches not already in upcoming
+                    new_fixtures = future_ms[~future_ms["_match_key"].isin(up["_match_key"])]
+                    if len(new_fixtures) > 0:
+                        logger.info("[FALLBACK] Adding %d fixtures from multiple seasons.csv", len(new_fixtures))
+                        up = pd.concat([up, new_fixtures[up.columns.intersection(new_fixtures.columns)]], ignore_index=True)
+                    up = up.drop(columns=["_match_key"], errors="ignore")
+        except Exception as e:
+            logger.warning("[FALLBACK] Could not load multiple seasons.csv: %s", str(e))
 
     # Build fixture_datetime for scope filtering (drop NaT deterministically).
     scope_counts: dict[str, object] = {"upcoming_rows_in": int(len(up))}
@@ -618,6 +668,18 @@ def main() -> None:
     model_h = joblib.load(model_h_path)
     model_a = joblib.load(model_a_path)
 
+    # Milestone 13: Load Calibration Models
+    calib_models = {}
+    for name in ["home", "away", "over", "btts"]:
+        cp = Path(args.models_dir) / "calibration" / f"calib_{name}.pkl"
+        if cp.exists():
+            try:
+                calib_models[name] = joblib.load(cp)
+                logger.info(f"[CALIB] Loaded {name} calibrator from {cp}")
+            except Exception as e:
+                logger.warning(f"[CALIB] Failed to load {name} calibrator: {e}")
+
+
     # Feature contract audit
     feat_cols_h = getattr(model_h, "feature_names_in_", None)
     if feat_cols_h is None or len(feat_cols_h) == 0:
@@ -671,9 +733,19 @@ def main() -> None:
         away = normalize_team(away_raw, reg)
 
         if home not in latest_home.index or away not in latest_away.index:
+            # Log which team is unseen for debugging
+            if home not in latest_home.index:
+                logger.warning("[UNSEEN] home team '%s' (raw: '%s') not in history - using defaults", home, home_raw)
+            if away not in latest_away.index:
+                logger.warning("[UNSEEN] away team '%s' (raw: '%s') not in history - using defaults", away, away_raw)
             skipped.append((home, away, "missing_snapshot"))
             continue
         if counts.get(home, 0) < args.min_matches or counts.get(away, 0) < args.min_matches:
+            # Log low-history teams
+            if counts.get(home, 0) < args.min_matches:
+                logger.warning("[LOW_HISTORY] home '%s' has only %d matches (min=%d)", home, counts.get(home, 0), args.min_matches)
+            if counts.get(away, 0) < args.min_matches:
+                logger.warning("[LOW_HISTORY] away '%s' has only %d matches (min=%d)", away, counts.get(away, 0), args.min_matches)
             skipped.append((home, away, "insufficient_history"))
             continue
 
@@ -686,7 +758,8 @@ def main() -> None:
         home_bonus = league_meta.get(league, {}).get("home_bonus_elo", 0.0)
         try:
             home_bonus_f = float(home_bonus) if home_bonus is not None else 0.0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Home bonus error for {league}: {e}")
             home_bonus_f = 0.0
 
         elo_home = latest_elos.get(home)
@@ -890,7 +963,31 @@ def main() -> None:
             "sterile_A": sterile_a,
             "assassin_H": assassin_h,
             "assassin_A": assassin_a,
+            # Milestone 9: Decay features
+            "press_form_H_decay": float(latest_press_decay_home.get(home, 0.5)),
+            "press_form_A_decay": float(latest_press_decay_away.get(away, 0.5)),
+            "xg_for_form_H_decay": float(latest_xg_for_decay_home.get(home, 0.0)),
+            "xg_against_form_H_decay": float(latest_xg_against_decay_home.get(home, 0.0)),
+            "xg_for_form_A_decay": float(latest_xg_for_decay_away.get(away, 0.0)),
+            "xg_against_form_A_decay": float(latest_xg_against_decay_away.get(away, 0.0)),
         }
+
+        # Milestone 11: League-Specific Features (scoring patterns per competition)
+        league_features_enabled = getattr(config, "LEAGUE_FEATURES_ENABLED", True)
+        if league_features_enabled:
+            lg_feats = get_league_features_for_fixture(
+                hist, country=str(country or ""), league=str(league or ""), as_of=as_of
+            )
+            feats.update(lg_feats)
+
+        # Milestone 10: Head-to-Head Features (direct matchup patterns)
+        h2h_enabled = getattr(config, "H2H_ENABLED", True)
+        if h2h_enabled:
+            h2h_feats = get_h2h_features_for_fixture(
+                hist, home=home, away=away, as_of_datetime=as_of
+            )
+            feats.update(h2h_feats)
+
 
         for w in args.windows:
             feats[f"H_gf_L{w}"] = snap_h.get(f"H_gf_L{w}", np.nan)
@@ -976,10 +1073,41 @@ def main() -> None:
                 log_path=trace_path,
             )
 
+        # Milestone 13: Apply Probability Calibration
+        # We modify the probabilities IN-PLACE before EV calculation
+        if calib_models:
+             try:
+                 # 1. Home/Away (normalize afterward to sum to 1.0 - p_draw)
+                 # Actually, strict calibration means we trust the calibrator.
+                 # But we must respect the draw probabilty? 
+                 # Isotonic maps p -> p_calib.
+                 if "home" in calib_models:
+                     probs["p_home"] = float(calib_models["home"].predict([probs["p_home"]])[0])
+                 if "away" in calib_models:
+                     probs["p_away"] = float(calib_models["away"].predict([probs["p_away"]])[0])
+                 # Re-normalize 1X2 so they sum to 1?
+                 # Or just recalibrate draw? We don't have draw calibrator.
+                 # Let's adjust Draw to be 1 - H - A (if < 0, normalize)
+                 total_prob = probs["p_home"] + probs["p_away"] + probs["p_draw"]
+                 if total_prob != 1.0 and total_prob > 0:
+                     scale = 1.0 / total_prob
+                     probs["p_home"] *= scale
+                     probs["p_away"] *= scale
+                     probs["p_draw"] *= scale
+
+                 # 2. Over 2.5
+                 if "over" in calib_models:
+                     probs["p_over25"] = float(calib_models["over"].predict([probs["p_over25"]])[0])
+                     probs["p_under25"] = 1.0 - probs["p_over25"]
+
+             except Exception as e:
+                 logger.debug(f"[CALIB] Error applying calibration: {e}")
+
         def ev(prob, odds):
             try:
                 return prob * float(odds) - 1.0
-            except Exception:
+            except Exception as e:
+                logger.debug(f"EV calc error: prob={prob}, odds={odds}, err={e}")
                 return np.nan
 
         ev_home = ev(probs["p_home"], odds_home)
@@ -993,8 +1121,17 @@ def main() -> None:
         try:
             p_btts_yes = float((1.0 - np.exp(-mu_h)) * (1.0 - np.exp(-mu_a)))
             p_btts_yes = float(np.clip(p_btts_yes, 0.0, 1.0))
-        except Exception:
+        except Exception as e:
+            logger.debug(f"BTTS calc error for mu_h={mu_h}, mu_a={mu_a}: {e}")
             p_btts_yes = np.nan
+        
+        # Calibration for BTTS
+        if "btts" in calib_models and np.isfinite(p_btts_yes):
+            try:
+                p_btts_yes = float(calib_models["btts"].predict([p_btts_yes])[0])
+            except Exception:
+                pass
+                
         p_btts_no = (1.0 - p_btts_yes) if np.isfinite(p_btts_yes) else np.nan
 
         odds_btts_yes = r.get("gg")

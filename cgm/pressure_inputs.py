@@ -16,6 +16,9 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 def _to_float(x) -> float | None:
@@ -29,7 +32,9 @@ def _to_float(x) -> float | None:
             return None
         s = s.replace(",", ".")
         return float(s)
-    except Exception:
+    except Exception as e:
+        # logging at debug level to avoid spamming for trivial parse errors
+        _logger.debug(f"_to_float: failed to parse '{x}': {e}")
         return None
 
 
@@ -50,7 +55,8 @@ def _split_ha(val) -> Tuple[float | None, float | None]:
             return (None, None)
         a, b = s.split("-", 1)
         return (_to_float(a), _to_float(b))
-    except Exception:
+    except Exception as e:
+        _logger.debug(f"_split_ha: failed to parse '{val}': {e}")
         return (None, None)
 
 

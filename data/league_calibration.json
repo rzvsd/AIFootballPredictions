@@ -1,0 +1,15 @@
+{
+  "Premier L": {
+    "sample_size": 111,
+    "actual_over25_rate": 0.6396396396396397,
+    "actual_btts_rate": 0.6126126126126126,
+    "ou25_optimal_threshold": 0.35,
+    "ou25_accuracy_at_optimal": 0.6036036036036037,
+    "ou25_bias": 0.17696828255401592,
+    "ou25_default_accuracy": 0.4774774774774775,
+    "btts_optimal_threshold": 0.35,
+    "btts_accuracy_at_optimal": 0.5945945945945946,
+    "btts_bias": 0.1683672090214885,
+    "btts_default_accuracy": 0.4954954954954955
+  }
+}

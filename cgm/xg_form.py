@@ -64,8 +64,9 @@ def add_xg_form_features(
     else:
         shots_h = pd.to_numeric(out.get("shots_H"), errors="coerce")
         shots_a = pd.to_numeric(out.get("shots_A"), errors="coerce")
-        out["_xg_shot_quality_H_raw"] = out["xg_proxy_H"] / shots_h.where(shots_h > 0, 1.0)
-        out["_xg_shot_quality_A_raw"] = out["xg_proxy_A"] / shots_a.where(shots_a > 0, 1.0)
+        # Fix: When shots=0, shot quality is undefined (NaN), not xG/1
+        out["_xg_shot_quality_H_raw"] = np.where(shots_h > 0, out["xg_proxy_H"] / shots_h, np.nan)
+        out["_xg_shot_quality_A_raw"] = np.where(shots_a > 0, out["xg_proxy_A"] / shots_a, np.nan)
 
     if "finishing_luck_H" in out.columns and "finishing_luck_A" in out.columns:
         out["_xg_finishing_luck_H_raw"] = pd.to_numeric(out["finishing_luck_H"], errors="coerce")
@@ -96,6 +97,35 @@ def add_xg_form_features(
     def _roll_post_sum(g: pd.DataFrame, value_col: str) -> pd.Series:
         return g[value_col].rolling(window, min_periods=1).sum()
 
+    # Milestone 9: Time decay weighted rolling (recent matches count more)
+    try:
+        import config
+        decay_half_life = getattr(config, "DECAY_HALF_LIFE", 5)
+        decay_enabled = getattr(config, "DECAY_ENABLED", True)
+    except ImportError:
+        decay_half_life = 5
+        decay_enabled = True
+
+    def _decay_weights(n: int, half_life: float) -> np.ndarray:
+        """Generate exponential decay weights: most recent = 1.0, older = less."""
+        ages = np.arange(n - 1, -1, -1)  # [n-1, n-2, ..., 1, 0] oldest to newest
+        return np.exp(-0.693 * ages / half_life)
+
+    def _roll_pre_decay(g: pd.DataFrame, value_col: str) -> pd.Series:
+        """Exponentially weighted rolling mean (pre-match, excludes current)."""
+        vals = g[value_col].shift().values
+        result = np.full(len(vals), np.nan)
+        for i in range(1, len(vals)):
+            start_idx = max(0, i - window)
+            window_vals = vals[start_idx:i]
+            valid_mask = ~np.isnan(window_vals)
+            if valid_mask.sum() == 0:
+                continue
+            w = _decay_weights(len(window_vals), decay_half_life)[valid_mask]
+            v = window_vals[valid_mask]
+            result[i] = np.sum(w * v) / np.sum(w)
+        return pd.Series(result, index=g.index)
+
     # Home-context rolling
     out["xg_for_form_H"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_for_H_raw")
@@ -118,6 +148,15 @@ def add_xg_form_features(
     out["xg_stats_n_H"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
     ).fillna(0.0)
+
+    # Milestone 9: Time decay xG features (home context)
+    if decay_enabled:
+        out["xg_for_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_for_H_raw")
+        ).fillna(0.0)
+        out["xg_against_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_against_H_raw")
+        ).fillna(0.0)
 
     # Post-match home states
     out["_xg_for_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
@@ -164,6 +203,15 @@ def add_xg_form_features(
     out["xg_stats_n_A"] = out.groupby(away_col, group_keys=False).apply(
         lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
     ).fillna(0.0)
+
+    # Milestone 9: Time decay xG features (away context)
+    if decay_enabled:
+        out["xg_for_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_for_A_raw")
+        ).fillna(0.0)
+        out["xg_against_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_against_A_raw")
+        ).fillna(0.0)
 
     # Post-match away states
     out["_xg_for_form_A_post"] = out.groupby(away_col, group_keys=False).apply(

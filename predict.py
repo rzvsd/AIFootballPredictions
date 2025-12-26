@@ -10,14 +10,20 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 ROOT = Path(__file__).resolve().parent
+
+
+# Pipeline step tracking
+_pipeline_steps: List[Dict[str, Any]] = []
 
 
 def _run(cmd: List[str], *, cwd: Optional[Path] = None, env: Optional[dict] = None) -> None:
@@ -25,6 +31,65 @@ def _run(cmd: List[str], *, cwd: Optional[Path] = None, env: Optional[dict] = No
     proc = subprocess.run(cmd, cwd=str(cwd or ROOT), env=env or os.environ.copy())
     if proc.returncode != 0:
         raise SystemExit(proc.returncode)
+
+
+def _run_step(step_name: str, cmd: List[str], *, cwd: Optional[Path] = None) -> bool:
+    """Run a pipeline step with logging. Returns True on success, False on failure."""
+    print(f"\n{'='*60}")
+    print(f"[STEP] {step_name}")
+    print(f"{'='*60}")
+    start = time.time()
+    step_info: Dict[str, Any] = {"step": step_name, "start": dt.datetime.now().isoformat()}
+    try:
+        _run(cmd, cwd=cwd)
+        elapsed = time.time() - start
+        step_info["status"] = "OK"
+        step_info["elapsed_sec"] = round(elapsed, 2)
+        print(f"[OK] {step_name} completed in {elapsed:.1f}s")
+        _pipeline_steps.append(step_info)
+        return True
+    except SystemExit as e:
+        elapsed = time.time() - start
+        step_info["status"] = "FAILED"
+        step_info["exit_code"] = e.code
+        step_info["elapsed_sec"] = round(elapsed, 2)
+        print(f"[FAILED] {step_name} failed with exit code {e.code}")
+        _pipeline_steps.append(step_info)
+        return False
+
+
+def _print_pipeline_summary(reports_dir: Path) -> None:
+    """Print a human-readable summary of the pipeline run."""
+    print(f"\n{'='*60}")
+    print("PIPELINE RUN SUMMARY")
+    print(f"{'='*60}")
+    ok_count = sum(1 for s in _pipeline_steps if s.get("status") == "OK")
+    fail_count = sum(1 for s in _pipeline_steps if s.get("status") == "FAILED")
+    total = len(_pipeline_steps)
+    
+    for s in _pipeline_steps:
+        status = s.get("status", "?")
+        elapsed = s.get("elapsed_sec", 0)
+        icon = "✓" if status == "OK" else "✗"
+        print(f"  {icon} {s['step']}: {status} ({elapsed:.1f}s)")
+    
+    print(f"\nTotal: {ok_count}/{total} steps OK")
+    if fail_count > 0:
+        print(f"FAILURES: {fail_count} step(s) failed - check output above for details")
+    else:
+        print("All steps completed successfully!")
+    
+    # Write summary to JSON
+    summary_path = reports_dir / "pipeline_summary.json"
+    summary = {
+        "run_time": dt.datetime.now().isoformat(),
+        "steps": _pipeline_steps,
+        "ok_count": ok_count,
+        "fail_count": fail_count,
+    }
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+    print(f"\nSummary written to: {summary_path}")
 
 
 def _utc_today_iso() -> str:
@@ -164,6 +229,8 @@ def main() -> None:
                 str(reports_dir / "picks_explained_preview.txt"),
             ]
         )
+        # Print pipeline summary for predict-only mode
+        _print_pipeline_summary(reports_dir)
         return
 
     # 1) Build match history (missing, forced, or CGM data newer)
@@ -369,6 +436,7 @@ def main() -> None:
         ]
     )
 
-
+    # Print pipeline summary
+    _print_pipeline_summary(reports_dir)
 if __name__ == "__main__":
     main()

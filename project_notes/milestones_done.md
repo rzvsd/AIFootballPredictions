@@ -252,3 +252,156 @@ What was done
   - Deterministic templates translate model vs implied percentages, expected goals, evidence labels, and risk flags into plain language (no raw “EV=”, “neff_min”, etc).
 - New audit: `scripts/audit_narrator.py`
   - Checks determinism (hash match on double run), presence of narrator columns, ensures no forbidden raw tokens leak into narratives, and that narratives contain key human elements.
+
+Milestone 9 - Time Decay Weighting (Dec 2025)
+
+Goal
+- Make recent matches count more than older ones in form calculations, so teams on hot/cold streaks are captured faster.
+
+What was done
+- Config: added `DECAY_HALF_LIFE = 5` and `DECAY_ENABLED = True` to `config.py`.
+- Pressure form: added exponential decay weighted rolling to `cgm/pressure_form.py`:
+  - New features: `press_form_H_decay`, `press_form_A_decay`
+  - Formula: `weight = exp(-0.693 * match_age / half_life)`
+- xG form: added exponential decay weighted rolling to `cgm/xg_form.py`:
+  - New features: `xg_for_form_H_decay`, `xg_against_form_H_decay`, `xg_for_form_A_decay`, `xg_against_form_A_decay`
+- Decay can be toggled off with `DECAY_ENABLED = False` in config.
+
+Key artifacts
+- Updated `config.py` with decay settings.
+- Updated `cgm/pressure_form.py` with `_roll_pre_decay()` function and decay features.
+- Updated `cgm/xg_form.py` with `_roll_pre_decay()` function and decay features.
+
+Milestone 10 - Head-to-Head History (Dec 2025)
+
+Goal
+- Track direct matchup patterns between specific teams to capture rivalry effects and psychological factors.
+
+What was done
+- Config: added `H2H_MIN_MATCHES = 3`, `H2H_MAX_LOOKBACK_YEARS = 5`, `H2H_ENABLED = True` to `config.py`.
+- New module: `cgm/h2h_features.py`:
+  - `add_h2h_features()`: computes H2H stats for all rows in training data
+  - `get_h2h_features_for_fixture()`: computes H2H stats at inference time
+  - Leakage-safe: only uses matches strictly before current match datetime
+  - Handles reversed matchups (A vs B treated same as B vs A, with perspective flip)
+- New features: `h2h_matches`, `h2h_home_win_rate`, `h2h_goals_avg`, `h2h_btts_rate`, `h2h_over25_rate`, `h2h_usable`
+- Integration: `cgm/build_frankenstein.py` now calls `add_h2h_features()` after xG features
+
+Key artifacts
+- `cgm/h2h_features.py` (new module)
+- Updated `config.py` with H2H settings
+- Updated `cgm/build_frankenstein.py` with H2H integration
+
+Milestone 11 - League-Specific Features (Dec 2025)
+
+Goal
+- Capture league-specific scoring patterns (EPL = high scoring, Serie A = defensive) so the model can adjust predictions based on competition characteristics.
+
+What was done
+- Config: added `LEAGUE_FEATURES_ENABLED = True`, `LEAGUE_MIN_MATCHES = 50`, `LEAGUE_PROFILE_WINDOW = 100` to `config.py`.
+- New module: `cgm/league_features.py`:
+  - `add_league_features()`: computes rolling league profile stats for all rows in training data
+  - `get_league_features_for_fixture()`: computes league profile at inference time
+  - Leakage-safe: only uses matches strictly before current match datetime
+  - Rolling window ensures recent league patterns are weighted appropriately
+- New features: `lg_goals_per_match`, `lg_home_win_rate`, `lg_btts_rate`, `lg_over25_rate`, `lg_home_advantage`, `lg_defensive_idx`, `lg_profile_usable`
+- Integration: `cgm/build_frankenstein.py` now calls `add_league_features()` after H2H features
+- Inference: `cgm/predict_upcoming.py` now calls `get_league_features_for_fixture()` for each upcoming fixture
+
+Key artifacts
+- `cgm/league_features.py` (new module)
+- Updated `config.py` with league feature settings
+- Updated `cgm/build_frankenstein.py` with league features integration
+- Updated `cgm/predict_upcoming.py` with inference-time league lookup
+
+Milestone 12 - Backtest System & Streamlit UI Enhancement (Dec 2025)
+
+Goal
+- Enable historical performance validation by running "time-travel" backtests that simulate predictions as if made on past dates (no future leakage).
+- Add a dedicated Streamlit tab to visualize backtest results per round, focusing on GG/NG and Over/Under 2.5 markets.
+
+What Was Done
+
+1. Backtest Script (`scripts/run_backtest.py`):
+   - New orchestrator that loops through historical match dates.
+   - For each date:
+     - Creates a **filtered history CSV** (matches strictly before test date).
+     - Creates a **blind upcoming CSV** (no result columns) for that day's matches.
+     - Runs `cgm/predict_upcoming.py` with `--as-of-date` to ensure no future leakage.
+   - Aggregates all predictions and merges with actual results from history.
+   - Outputs: `reports/backtest_epl_2025.csv` (or similar).
+
+2. Bug Fix in `cgm/predict_upcoming.py`:
+   - **Issue**: Model crashed with `Missing features: ['press_form_H_decay', ...]`.
+   - **Root Cause**: Milestone 9 decay features were computed in history but not extracted for inference.
+   - **Fix**: Added 6 decay snapshot dictionaries (`latest_press_decay_home/away`, `latest_xg_for/against_decay_home/away`) and corresponding extraction logic in the row loop (~line 450-500), plus 6 new entries in the `feats` dict (~line 930).
+
+3. Streamlit UI Enhancement (`ui/streamlit_app.py`):
+   - Added `load_backtest()` function to read backtest CSV files.
+   - Added 4th tab: **"🔙 Backtest Results"**.
+   - Tab features:
+     - **Summary metrics**: Matches analyzed, O/U 2.5 accuracy, GG/NG accuracy, actual Over 2.5 rate.
+     - **Per-round picker**: Dropdown to select specific match day.
+     - **Match cards**: Show final score, bot's O/U 2.5 prediction vs actual (✅/❌), bot's GG/NG prediction vs actual (✅/❌).
+     - **Raw data expander**: View underlying backtest CSV.
+
+Key Artifacts
+- `scripts/run_backtest.py` (new script)
+- Updated `cgm/predict_upcoming.py` with decay feature fixes
+- Updated `ui/streamlit_app.py` with Backtest Results tab
+- `reports/backtest_epl_2025.csv` (example output)
+
+Usage
+```bash
+# Run backtest for EPL 2025-2026 season
+python -m scripts.run_backtest --league "Premier L" --season "2025-2026" --start-date "2025-09-01"
+
+# Launch Streamlit to view results
+python -m streamlit run ui/streamlit_app.py
+```
+
+Milestone 13 - League-Specific Probability Calibration (Dec 2025)
+
+Goal
+- Automatically detect and correct league-specific prediction bias so the bot's probabilities better match real-world outcomes.
+
+What Was Done
+
+1. Calibration Script (`scripts/calibrate_league.py`):
+   - Analyzes backtest results to find optimal decision thresholds per league.
+   - Calculates bias (how much model over/underestimates).
+   - Outputs JSON file: `data/league_calibration.json`.
+
+2. Example Calibration Results (EPL 2025-2026):
+   - Default O/U 2.5 accuracy: 47.7%
+   - Optimal O/U 2.5 threshold: 35% → accuracy: 60.4%
+   - Bias: +17.7% (model underestimates Over probability)
+
+3. Config Updates (`config.py`):
+   - Added `CALIBRATION_ENABLED = True`
+   - Added `CALIBRATION_FILE = "data/league_calibration.json"`
+   - Added `CALIBRATION_MIN_SAMPLES = 50`
+
+4. Pick Engine Integration (`cgm/pick_engine_goals.py`):
+   - Added `_load_calibration()` to load JSON at startup.
+   - Added `_get_calibrated_threshold()` for league-specific thresholds.
+
+5. Streamlit UI Enhancement:
+   - Added experiment sliders for threshold tuning in Backtest Results tab.
+   - Real-time accuracy feedback as user adjusts thresholds.
+
+Key Artifacts
+- `scripts/calibrate_league.py` (new script)
+- `data/league_calibration.json` (generated calibration data)
+- Updated `config.py` with calibration settings
+- Updated `cgm/pick_engine_goals.py` with calibration loading
+
+Usage
+```bash
+# Run calibration for EPL
+python -m scripts.calibrate_league --input reports/backtest_epl_2025.csv --league "Premier L"
+
+# View calibration file
+cat data/league_calibration.json
+```
+

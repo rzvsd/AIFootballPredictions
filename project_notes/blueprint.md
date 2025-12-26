@@ -36,8 +36,33 @@ Inference
 - Safety: `cgm/pick_engine.py` also enforces the same live scope (fixture_datetime must be strictly > run_asof_datetime and within the configured window) so it cannot accidentally emit picks for past seasons if the upstream feed is a schedule dump.
   - `cgm/pick_engine_goals.py` applies the same scope protections.
 
+Backtest (Milestone 12)
+- `scripts/run_backtest.py`: "time-travel" backtest orchestrator that simulates predictions on historical dates.
+  - For each test date: creates filtered history (matches before test date) + blind upcoming file (no results).
+  - Runs `cgm/predict_upcoming.py` with `--as-of-date` to ensure leakage-safe predictions.
+  - Aggregates predictions, merges with actual results, outputs `reports/backtest_*.csv`.
+- Decay feature fix: `cgm/predict_upcoming.py` updated to extract Milestone 9 decay features (`press_form_*_decay`, `xg_*_form_*_decay`) for inference alignment.
+
+Streamlit UI
+- `ui/streamlit_app.py`: web dashboard for predictions, picks, and backtest visualization.
+  - Tabs: Predictions, Picks (Value Bets), Statistics, **Backtest Results**.
+  - Backtest tab: summary metrics (O/U 2.5 accuracy, GG/NG accuracy), per-round picker, match cards with ✅/❌ icons.
+
 Models/strategy
 - Frankenstein mu models (home/away) power Poisson probability layer; EV computed directly vs market odds from CGM upcoming CSV.
+
+Configuration (single source of truth)
+- `config.py`: contains all tuneable constants for the CGM pipeline:
+  - `ELO_SIM_SIGMA_PER_LEAGUE`: Gaussian kernel width for Elo-similarity features.
+  - `LIVE_SCOPE_*`: country, league, season dates, horizon for live prediction filtering.
+  - Pick engine gates (used by both `pick_engine.py` and `pick_engine_goals.py`, plus audits):
+    - `ODDS_MIN_FULL`, `ODDS_MIN_GOALS`: minimum odds to consider (1.01 vs 1.05).
+    - `MU_TOTAL_MIN`, `MU_TOTAL_MAX`: expected goals bounds for pick eligibility.
+    - `NEFF_MIN_*`, `PRESS_EVID_MIN_*`, `XG_EVID_MIN_*`: evidence thresholds (stricter for goals-only).
+    - `EV_MIN_*`: minimum expected value thresholds per market type.
+    - Risk-adjusted thresholds: `EV_MIN_STERILE_*`, `EV_MIN_ASSASSIN_*`, `EV_MIN_LATE_HEAVY_*`.
+    - Assassin stricter evidence: `ASSASSIN_NEFF_MIN_OU25`, `ASSASSIN_PRESS_EVID_MIN_OU25`, `ASSASSIN_XG_EVID_MIN_OU25`.
+  - To tune thresholds, edit `config.py` once; all modules import from it.
 
 Audits
 - `python -m scripts.audit_pressure --cutoff YYYY-MM-DD`: Pressure coverage + no-leak tripwires (date parsing summary, shift checks, training scan for `_press_*`, raw-stat reconstruction checks).
@@ -48,4 +73,5 @@ Audits
 - `python -m scripts.audit_no_odds --upcoming PATH --as-of-date YYYY-MM-DD`: verifies `no_odds` mu/probabilities are invariant to odds changes in the upcoming feed.
 
 Open considerations
-- Fine-tune band thresholds and sigma per league; add EV/mu safety filters; run historical backtests. Ensure Elo recompute always runs with a cutoff to avoid future leakage.
+- Fine-tune band thresholds and sigma per league; add EV/mu safety filters. Ensure Elo recompute always runs with a cutoff to avoid future leakage.
+- Extend backtest to more leagues and longer date ranges; track cumulative profit/loss over time.

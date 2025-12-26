@@ -28,6 +28,8 @@ from cgm.pressure_form import add_pressure_form_features
 from cgm.pressure_divergence import add_pressure_divergence_features
 from cgm.xg_form import add_xg_form_features
 from cgm.pressure_xg_disagreement import add_pressure_xg_disagreement_features
+from cgm.h2h_features import add_h2h_features
+from cgm.league_features import add_league_features
 
 
 def _load(path: str | Path) -> pd.DataFrame:
@@ -226,6 +228,16 @@ def build_frankenstein(data_dir: str = "data/enhanced",
     # Milestone 3: xG-proxy Sniper (venue-aware rolling xG form + Pressure-vs-xG disagreement)
     df_roll = add_xg_form_features(df_roll, window=10)
     df_roll = add_pressure_xg_disagreement_features(df_roll, add_debug_parts=True)
+
+    # Milestone 10: Head-to-Head History (direct matchup patterns)
+    h2h_enabled = getattr(config, "H2H_ENABLED", True)
+    if h2h_enabled:
+        df_roll = add_h2h_features(df_roll)
+
+    # Milestone 11: League-Specific Features (scoring patterns per competition)
+    league_features_enabled = getattr(config, "LEAGUE_FEATURES_ENABLED", True)
+    if league_features_enabled:
+        df_roll = add_league_features(df_roll)
 
     # Drop internal post-match helper columns (not features; contain current-match info)
     df_roll = df_roll.drop(

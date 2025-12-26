@@ -137,10 +137,16 @@ def add_pressure_xg_disagreement_features(
             press_z_h_list.append(pz_h)
             press_z_a_list.append(pz_a)
 
-            sterile_h.append(int((pz_h >= z_thresh) and (xz_h <= -z_thresh)))
-            sterile_a.append(int((pz_a >= z_thresh) and (xz_a <= -z_thresh)))
-            assassin_h.append(int((pz_h <= -z_thresh) and (xz_h >= z_thresh)))
-            assassin_a.append(int((pz_a <= -z_thresh) and (xz_a >= z_thresh)))
+            # Evidence gating: require xG data before setting sterile/assassin flags.
+            # This matches the inference logic in predict_upcoming.py (lines 778-781).
+            # Without this check, flags could be set even when xG z-scores are meaningless.
+            xg_n_h = float(row.get("_xg_stats_n_H_post", 0.0) or 0.0)
+            xg_n_a = float(row.get("_xg_stats_n_A_post", 0.0) or 0.0)
+
+            sterile_h.append(int((xg_n_h > 0) and (pz_h >= z_thresh) and (xz_h <= -z_thresh)))
+            sterile_a.append(int((xg_n_a > 0) and (pz_a >= z_thresh) and (xz_a <= -z_thresh)))
+            assassin_h.append(int((xg_n_h > 0) and (pz_h <= -z_thresh) and (xz_h >= z_thresh)))
+            assassin_a.append(int((xg_n_a > 0) and (pz_a <= -z_thresh) and (xz_a >= z_thresh)))
 
             # Advance states AFTER this match.
             try:

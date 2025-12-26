@@ -17,25 +17,34 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+# Import centralized constants from config.py
+try:
+    import config
+except ImportError:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    import config
+
 
 ALLOWED_MARKETS = {"1X2_HOME", "1X2_DRAW", "1X2_AWAY", "OU25_OVER", "OU25_UNDER"}
-ODDS_MIN = 1.01
 
-# Gate thresholds (must match cgm.pick_engine defaults)
-MU_TOTAL_MIN = 1.6
-MU_TOTAL_MAX = 3.4
-NEFF_MIN = 6.0
-PRESS_EVID_MIN = 2.0
-XG_EVID_MIN = 2.0
+# Gate thresholds - imported from config.py (single source of truth)
+ODDS_MIN = getattr(config, "ODDS_MIN_FULL", 1.01)
+MU_TOTAL_MIN = getattr(config, "MU_TOTAL_MIN", 1.6)
+MU_TOTAL_MAX = getattr(config, "MU_TOTAL_MAX", 3.4)
+NEFF_MIN = getattr(config, "NEFF_MIN_FULL", 6.0)
+PRESS_EVID_MIN = getattr(config, "PRESS_EVID_MIN_FULL", 2.0)
+XG_EVID_MIN = getattr(config, "XG_EVID_MIN_FULL", 2.0)
 
-EV_MIN_1X2 = 0.05
-EV_MIN_OU25 = 0.04
-EV_MIN_STERILE_1X2 = 0.07
-EV_MIN_ASSASSIN_ANY = 0.07
+EV_MIN_1X2 = getattr(config, "EV_MIN_1X2", 0.05)
+EV_MIN_OU25 = getattr(config, "EV_MIN_OU25", 0.04)
+EV_MIN_STERILE_1X2 = getattr(config, "EV_MIN_STERILE_1X2", 0.07)
+EV_MIN_ASSASSIN_ANY = getattr(config, "EV_MIN_ASSASSIN_ANY", 0.07)
 
-ASSASSIN_NEFF_MIN_OU25 = 7.0
-ASSASSIN_PRESS_EVID_MIN_OU25 = 3.0
-ASSASSIN_XG_EVID_MIN_OU25 = 3.0
+ASSASSIN_NEFF_MIN_OU25 = getattr(config, "ASSASSIN_NEFF_MIN_OU25", 7.0)
+ASSASSIN_PRESS_EVID_MIN_OU25 = getattr(config, "ASSASSIN_PRESS_EVID_MIN_OU25", 3.0)
+ASSASSIN_XG_EVID_MIN_OU25 = getattr(config, "ASSASSIN_XG_EVID_MIN_OU25", 3.0)
 
 
 def _print_header(title: str) -> None:
@@ -44,8 +53,9 @@ def _print_header(title: str) -> None:
     print("=" * 80)
 
 
-def _md5_file(path: Path) -> str:
-    h = hashlib.md5()
+def _sha256_file(path: Path) -> str:
+    """SHA256 hash for file integrity (consistent with pick engines)."""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -81,7 +91,7 @@ def main() -> None:
     if not pred_path.exists():
         raise SystemExit(f"[audit_picks] predictions not found: {pred_path}")
 
-    input_hash = _md5_file(pred_path)
+    input_hash = _sha256_file(pred_path)
 
     _print_header("Reproducibility (run twice -> same hash)")
     with tempfile.TemporaryDirectory() as td:
@@ -95,8 +105,8 @@ def main() -> None:
         subprocess.run(cmd + [str(out1), "--debug-out", str(dbg1)], check=True)
         subprocess.run(cmd + [str(out2), "--debug-out", str(dbg2)], check=True)
 
-        h1 = _md5_file(out1)
-        h2 = _md5_file(out2)
+        h1 = _sha256_file(out1)
+        h2 = _sha256_file(out2)
         print("hash1:", h1)
         print("hash2:", h2)
         print("reproducible:", bool(h1 == h2))

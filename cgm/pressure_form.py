@@ -30,7 +30,12 @@ def _neutral_dom() -> float:
     return 0.5
 
 
+import logging
+_logger = logging.getLogger(__name__)
+
+
 def _dom_ratio(for_v: float | None, against_v: float | None) -> float:
+    """Calculate dominance ratio (for / (for + against)) with safety checks."""
     try:
         if for_v is None or against_v is None:
             return _neutral_dom()
@@ -41,11 +46,14 @@ def _dom_ratio(for_v: float | None, against_v: float | None) -> float:
         if np.isnan(val):
             return _neutral_dom()
         return float(np.clip(val, 0.0, 1.0))
-    except Exception:
+    except Exception as e:
+        # Log the exception instead of silently swallowing it
+        _logger.warning(f"_dom_ratio fallback to neutral: for={for_v}, against={against_v}, error={e}")
         return _neutral_dom()
 
 
 def _poss_share(pos_v: float | None) -> float:
+    """Calculate possession share with safety checks."""
     try:
         if pos_v is None:
             return _neutral_dom()
@@ -57,7 +65,9 @@ def _poss_share(pos_v: float | None) -> float:
         if 0.0 <= val <= 100.0:
             return float(np.clip(val / 100.0, 0.0, 1.0))
         return _neutral_dom()
-    except Exception:
+    except Exception as e:
+        # Log the exception instead of silently swallowing it
+        _logger.warning(f"_poss_share fallback to neutral: pos={pos_v}, error={e}")
         return _neutral_dom()
 
 
@@ -147,6 +157,35 @@ def add_pressure_form_features(
     def _roll_post_sum(g: pd.DataFrame, value_col: str) -> pd.Series:
         return g[value_col].rolling(window, min_periods=1).sum().fillna(0).clip(0, window)
 
+    # Milestone 9: Time decay weighted rolling (recent matches count more)
+    try:
+        import config
+        decay_half_life = getattr(config, "DECAY_HALF_LIFE", 5)
+        decay_enabled = getattr(config, "DECAY_ENABLED", True)
+    except ImportError:
+        decay_half_life = 5
+        decay_enabled = True
+
+    def _decay_weights(n: int, half_life: float) -> np.ndarray:
+        """Generate exponential decay weights: most recent = 1.0, older = less."""
+        ages = np.arange(n - 1, -1, -1)  # [n-1, n-2, ..., 1, 0] oldest to newest
+        return np.exp(-0.693 * ages / half_life)
+
+    def _roll_pre_decay(g: pd.DataFrame, value_col: str) -> pd.Series:
+        """Exponentially weighted rolling mean (pre-match, excludes current)."""
+        vals = g[value_col].shift().values
+        result = np.full(len(vals), np.nan)
+        for i in range(1, len(vals)):
+            start_idx = max(0, i - window)
+            window_vals = vals[start_idx:i]
+            valid_mask = ~np.isnan(window_vals)
+            if valid_mask.sum() == 0:
+                continue
+            w = _decay_weights(len(window_vals), decay_half_life)[valid_mask]
+            v = window_vals[valid_mask]
+            result[i] = np.sum(w * v) / np.sum(w)
+        return pd.Series(result, index=g.index)
+
     # Evidence signal: per-match availability of complete inputs.
     # Used ONLY to derive rolling counts; it is not leakage-safe by itself.
     if "pressure_usable" in out.columns:
@@ -166,6 +205,12 @@ def add_pressure_form_features(
     out["press_n_H"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_pre_count(g.sort_values(datetime_col), "_press_index_H")
     ).fillna(0.0)
+
+    # Milestone 9: Time decay weighted rolling (if enabled)
+    if decay_enabled:
+        out["press_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_press_index_H")
+        ).fillna(_neutral_dom())
 
     out["press_dom_shots_H"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_shots_H_raw")
@@ -215,6 +260,12 @@ def add_pressure_form_features(
     out["press_n_A"] = out.groupby(away_col, group_keys=False).apply(
         lambda g: _roll_pre_count(g.sort_values(datetime_col), "_press_index_A")
     ).fillna(0.0)
+
+    # Milestone 9: Time decay weighted rolling (away context)
+    if decay_enabled:
+        out["press_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_press_index_A")
+        ).fillna(_neutral_dom())
 
     out["press_dom_shots_A"] = out.groupby(away_col, group_keys=False).apply(
         lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_shots_A_raw")

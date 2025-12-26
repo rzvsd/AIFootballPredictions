@@ -27,6 +27,15 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+# Import centralized constants from config.py
+try:
+    import config
+except ImportError:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    import config
+
 
 ALLOWED_MARKETS = {
     "OU25_OVER",
@@ -59,25 +68,70 @@ MARKET_PRIORITY = [
 ]
 MARKET_PRIORITY_RANK = {m: i for i, m in enumerate(MARKET_PRIORITY)}
 
-# Gates (deterministic defaults)
-ODDS_MIN = 1.05
-MU_TOTAL_MIN = 1.6
-MU_TOTAL_MAX = 3.4
-NEFF_MIN = 8.0
-PRESS_EVID_MIN = 3.0
-XG_EVID_MIN = 3.0
+# Gates - imported from config.py (uses stricter _GOALS variants)
+ODDS_MIN = getattr(config, "ODDS_MIN_GOALS", 1.05)
+MU_TOTAL_MIN = getattr(config, "MU_TOTAL_MIN", 1.6)
+MU_TOTAL_MAX = getattr(config, "MU_TOTAL_MAX", 3.4)
+NEFF_MIN = getattr(config, "NEFF_MIN_GOALS", 8.0)
+PRESS_EVID_MIN = getattr(config, "PRESS_EVID_MIN_GOALS", 3.0)
+XG_EVID_MIN = getattr(config, "XG_EVID_MIN_GOALS", 3.0)
 
-# EV thresholds
-EV_MIN_OU25 = 0.04
-EV_MIN_BTTS = 0.04
-EV_MIN_TIMING = 0.05
-EV_MIN_STERILE_OVER = 0.08
-EV_MIN_ASSASSIN_UNDER = 0.08
-EV_MIN_LATE_HEAVY_UNDER = 0.08
+# EV thresholds - imported from config.py
+EV_MIN_OU25 = getattr(config, "EV_MIN_OU25", 0.04)
+EV_MIN_BTTS = getattr(config, "EV_MIN_BTTS", 0.04)
+EV_MIN_TIMING = getattr(config, "EV_MIN_TIMING", 0.05)
+EV_MIN_STERILE_OVER = getattr(config, "EV_MIN_STERILE_OVER", 0.08)
+EV_MIN_ASSASSIN_UNDER = getattr(config, "EV_MIN_ASSASSIN_UNDER", 0.08)
+EV_MIN_LATE_HEAVY_UNDER = getattr(config, "EV_MIN_LATE_HEAVY_UNDER", 0.08)
+
+# Milestone 13: League calibration
+CALIBRATION_ENABLED = getattr(config, "CALIBRATION_ENABLED", True)
+CALIBRATION_FILE = getattr(config, "CALIBRATION_FILE", "data/league_calibration.json")
+CALIBRATION_MIN_SAMPLES = getattr(config, "CALIBRATION_MIN_SAMPLES", 50)
+
+import json
+import logging
+_logger = logging.getLogger(__name__)
+
+def _load_calibration() -> dict:
+    """Load league calibration from JSON file."""
+    try:
+        import os
+        cal_path = Path(__file__).resolve().parents[1] / CALIBRATION_FILE
+        if cal_path.exists():
+            with open(cal_path, "r") as f:
+                cal = json.load(f)
+            _logger.info(f"Loaded calibration for {len(cal)} leagues from {cal_path}")
+            return cal
+    except Exception as e:
+        _logger.warning(f"Could not load calibration: {e}")
+    return {}
+
+_CALIBRATION = _load_calibration() if CALIBRATION_ENABLED else {}
 
 
-def file_md5(path: Path) -> str:
-    h = hashlib.md5()
+def _get_calibrated_threshold(league: str, market_type: str) -> float:
+    """
+    Get the optimal threshold for a league/market from calibration.
+    Returns 0.50 as default if no calibration exists.
+    """
+    if not CALIBRATION_ENABLED or league not in _CALIBRATION:
+        return 0.50
+    
+    cal = _CALIBRATION[league]
+    if cal.get("sample_size", 0) < CALIBRATION_MIN_SAMPLES:
+        return 0.50
+    
+    if market_type == "OU25":
+        return cal.get("ou25_optimal_threshold", 0.50)
+    elif market_type == "BTTS":
+        return cal.get("btts_optimal_threshold", 0.50)
+    return 0.50
+
+
+def file_sha256(path: Path) -> str:
+    """SHA256 hash for file integrity (consistent with predict_upcoming.py)."""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -852,7 +906,7 @@ def main() -> None:
     ]
     _require_columns(df, required, context=str(in_path))
 
-    input_hash = file_md5(in_path)
+    input_hash = file_sha256(in_path)
     run_id = f"PICKS_GOALS_{input_hash[:12]}"
 
     picks_df, debug_df = build_picks(df, input_hash=input_hash, run_id=run_id)

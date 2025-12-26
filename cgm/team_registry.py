@@ -96,7 +96,8 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
             continue
         try:
             df = _read_csv(path)
-        except Exception:
+        except Exception as e:
+            _logger.warning(f"Error reading {path}: {e}")
             continue
         pairs: list[Tuple[str, str]] = []
         # Canonical: match exports with explicit team code + team name columns.
@@ -137,14 +138,30 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
     return {"code_to_name": code_to_name, "name_to_code": name_to_code, "aliases": {k: sorted(v) for k, v in aliases.items()}}
 
 
-def normalize_team(value: str, registry: Dict[str, Dict[str, str]]) -> str:
+import logging
+_logger = logging.getLogger(__name__)
+
+
+def normalize_team(value, registry: Dict[str, Dict[str, str]]) -> str:
     """
     Normalize a team code or name to the canonical name using the registry.
     If the value cannot be resolved, return the stripped original.
+    
+    Type-safe: handles None, non-string inputs gracefully with logging.
     """
-    val = "" if value is None else str(value).strip()
-    if not val:
-        return val
+    # Type safety: handle None and non-string inputs
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        try:
+            value = str(value)
+        except Exception as e:
+            _logger.warning(f"normalize_team: cannot convert {type(value)} to str: {e}")
+            return ""
+    
+    val = value.strip()
+    if not val or val.lower() == "nan":
+        return ""
     if val in registry.get("code_to_name", {}):
         return registry["code_to_name"][val]
     if val in registry.get("name_to_code", {}):
@@ -159,12 +176,14 @@ def main() -> None:
     ap.add_argument("--out", default=None, help="Optional path to write JSON mapping")
     args = ap.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
     reg = build_team_registry(args.data_dir)
-    print(f"codes: {len(reg['code_to_name'])}, aliases: {sum(len(v) for v in reg['aliases'].values())}")
+    _logger.info(f"codes: {len(reg['code_to_name'])}, aliases: {sum(len(v) for v in reg['aliases'].values())}")
     if args.out:
         out_path = Path(args.out)
         out_path.write_text(json.dumps(reg, indent=2), encoding="utf-8")
-        print(f"Wrote registry -> {out_path}")
+        _logger.info(f"Wrote registry -> {out_path}")
 
 
 if __name__ == "__main__":

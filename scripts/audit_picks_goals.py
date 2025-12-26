@@ -17,6 +17,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+# Import centralized constants from config.py
+try:
+    import config
+except ImportError:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    import config
+
 
 ALLOWED_MARKETS = {
     "OU25_OVER",
@@ -32,21 +41,21 @@ ALLOWED_MARKETS = {
     "GOAL_AFTER_75_YES",
     "GOAL_AFTER_75_NO",
 }
-ODDS_MIN = 1.05
 
-# Gate thresholds (must match cgm.pick_engine_goals defaults)
-MU_TOTAL_MIN = 1.6
-MU_TOTAL_MAX = 3.4
-NEFF_MIN = 8.0
-PRESS_EVID_MIN = 3.0
-XG_EVID_MIN = 3.0
+# Gate thresholds - imported from config.py (uses stricter _GOALS variants)
+ODDS_MIN = getattr(config, "ODDS_MIN_GOALS", 1.05)
+MU_TOTAL_MIN = getattr(config, "MU_TOTAL_MIN", 1.6)
+MU_TOTAL_MAX = getattr(config, "MU_TOTAL_MAX", 3.4)
+NEFF_MIN = getattr(config, "NEFF_MIN_GOALS", 8.0)
+PRESS_EVID_MIN = getattr(config, "PRESS_EVID_MIN_GOALS", 3.0)
+XG_EVID_MIN = getattr(config, "XG_EVID_MIN_GOALS", 3.0)
 
-EV_MIN_OU25 = 0.04
-EV_MIN_BTTS = 0.04
-EV_MIN_TIMING = 0.05
-EV_MIN_STERILE_OVER = 0.08
-EV_MIN_ASSASSIN_UNDER = 0.08
-EV_MIN_LATE_HEAVY_UNDER = 0.08
+EV_MIN_OU25 = getattr(config, "EV_MIN_OU25", 0.04)
+EV_MIN_BTTS = getattr(config, "EV_MIN_BTTS", 0.04)
+EV_MIN_TIMING = getattr(config, "EV_MIN_TIMING", 0.05)
+EV_MIN_STERILE_OVER = getattr(config, "EV_MIN_STERILE_OVER", 0.08)
+EV_MIN_ASSASSIN_UNDER = getattr(config, "EV_MIN_ASSASSIN_UNDER", 0.08)
+EV_MIN_LATE_HEAVY_UNDER = getattr(config, "EV_MIN_LATE_HEAVY_UNDER", 0.08)
 
 
 def _print_header(title: str) -> None:
@@ -55,8 +64,9 @@ def _print_header(title: str) -> None:
     print("=" * 80)
 
 
-def _md5_file(path: Path) -> str:
-    h = hashlib.md5()
+def _sha256_file(path: Path) -> str:
+    """SHA256 hash for file integrity (consistent with pick engines)."""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -107,8 +117,8 @@ def main() -> None:
         subprocess.run(cmd + [str(out1), "--debug-out", str(dbg1)], check=True)
         subprocess.run(cmd + [str(out2), "--debug-out", str(dbg2)], check=True)
 
-        h1 = _md5_file(out1)
-        h2 = _md5_file(out2)
+        h1 = _sha256_file(out1)
+        h2 = _sha256_file(out2)
         print("hash1:", h1)
         print("hash2:", h2)
         print("reproducible:", bool(h1 == h2))

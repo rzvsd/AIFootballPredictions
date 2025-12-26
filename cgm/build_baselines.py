@@ -142,15 +142,36 @@ def build_baselines(data_dir: str = "CGM data",
         .rename(columns={"home": "team"})
     )
 
-    # Load team season stats
-    team_stats = _read_csv(Path(data_dir) / "goal statistics 2.csv")
-    team_stats["team"] = team_stats.get("echipa", "").astype(str).apply(lambda x: normalize_team(x, reg))
-    if "sezonul" in team_stats.columns:
-        team_stats["season"] = team_stats["sezonul"].astype(str).str.replace(".0", "", regex=False)
-    else:
-        team_stats["season"] = np.nan
+    # Derive team season stats from match history (eliminates need for goal statistics 2.csv)
+    # Aggregate goals scored/conceded per team per season from match-level data
+    mh_for_stats = mh.copy()
+    for col in ["ft_home", "ft_away"]:
+        if col in mh_for_stats.columns:
+            mh_for_stats[col] = pd.to_numeric(mh_for_stats[col], errors="coerce")
+    
+    # Home stats: goals scored at home (gmh), goals conceded at home (gph)
+    home_agg = (
+        mh_for_stats.groupby(["home", "season"], dropna=False)
+        .agg({"ft_home": "sum", "ft_away": "sum", "home": "count"})
+        .rename(columns={"ft_home": "gmh", "ft_away": "gph", "home": "matches_h"})
+        .reset_index()
+        .rename(columns={"home": "team"})
+    )
+    
+    # Away stats: goals scored away (gma), goals conceded away (gpa)
+    away_agg = (
+        mh_for_stats.groupby(["away", "season"], dropna=False)
+        .agg({"ft_away": "sum", "ft_home": "sum", "away": "count"})
+        .rename(columns={"ft_away": "gma", "ft_home": "gpa", "away": "matches_a"})
+        .reset_index()
+        .rename(columns={"away": "team"})
+    )
+    
+    # Merge home and away stats
+    team_stats = home_agg.merge(away_agg, on=["team", "season"], how="outer")
     team_stats["season"] = team_stats["season"].astype(str)
     mh_map["season"] = mh_map["season"].astype(str)
+    
     # Fill league/country from match history mapping
     team_stats = team_stats.merge(mh_map, how="left", on=["team", "season"])
     if "league" not in team_stats.columns:

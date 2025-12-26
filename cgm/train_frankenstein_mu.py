@@ -20,8 +20,16 @@ from sklearn.metrics import mean_squared_error
 from xgboost import XGBRegressor
 import joblib
 
+import logging
+_logger = logging.getLogger(__name__)
+
 
 def poisson_log_likelihood(mu: np.ndarray, y: np.ndarray) -> float:
+    """Compute Poisson log-likelihood, with logging for bad predictions."""
+    # Warn if model predicted very low mu values (potential issue)
+    bad_count = int(np.sum(mu < 0.01))
+    if bad_count > 0:
+        _logger.warning(f"poisson_log_likelihood: {bad_count} mu values < 0.01 (will be clipped)")
     mu = np.clip(mu, 1e-6, None)
     y = np.clip(y, 0, None)
     return float(np.mean(y * np.log(mu) - mu))
@@ -129,6 +137,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42, help="Training seed (XGBoost random_state)")
     args = ap.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
     X, y_home, y_away = load_data(args.data, variant=str(args.variant))
     out = train_models(X, y_home, y_away, seed=args.seed)
     out_dir = Path(args.out_dir)
@@ -136,10 +146,10 @@ def main() -> None:
     home_path, away_path = _model_paths(out_dir, variant=str(args.variant))
     joblib.dump(out["model_home"], home_path)
     joblib.dump(out["model_away"], away_path)
-    print(f"[ok] saved models -> {home_path}, {away_path}")
-    print(f"[variant] {args.variant}")
-    print(f"[seed] {args.seed}")
-    print("[metrics]", json.dumps(out["metrics"], indent=2))
+    _logger.info(f"[ok] saved models -> {home_path}, {away_path}")
+    _logger.info(f"[variant] {args.variant}")
+    _logger.info(f"[seed] {args.seed}")
+    _logger.info(f"[metrics] {json.dumps(out['metrics'], indent=2)}")
 
 
 if __name__ == "__main__":

@@ -185,7 +185,7 @@ def compute_elo_series(
         ratings[home_id] = r_home + delta
         ratings[away_id] = r_away - delta
 
-    return pd.Series(elo_home_list), pd.Series(elo_away_list)
+    return pd.Series(elo_home_list, index=df.index), pd.Series(elo_away_list, index=df.index)
 
 
 def band_from_diff(diff: float, thresh: float) -> str:

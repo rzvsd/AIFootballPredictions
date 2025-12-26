@@ -27,33 +27,43 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+# Import centralized constants from config.py
+try:
+    import config
+except ImportError:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    import config
+
 
 ALLOWED_MARKETS = {"1X2_HOME", "1X2_DRAW", "1X2_AWAY", "OU25_OVER", "OU25_UNDER"}
 MARKET_PRIORITY = ["OU25_OVER", "OU25_UNDER", "1X2_HOME", "1X2_AWAY", "1X2_DRAW"]
 MARKET_PRIORITY_RANK = {m: i for i, m in enumerate(MARKET_PRIORITY)}
 
-# Gates (deterministic defaults)
-ODDS_MIN = 1.01
-MU_TOTAL_MIN = 1.6
-MU_TOTAL_MAX = 3.4
-NEFF_MIN = 6.0
-PRESS_EVID_MIN = 2.0
-XG_EVID_MIN = 2.0
+# Gates - imported from config.py (single source of truth)
+ODDS_MIN = getattr(config, "ODDS_MIN_FULL", 1.01)
+MU_TOTAL_MIN = getattr(config, "MU_TOTAL_MIN", 1.6)
+MU_TOTAL_MAX = getattr(config, "MU_TOTAL_MAX", 3.4)
+NEFF_MIN = getattr(config, "NEFF_MIN_FULL", 6.0)
+PRESS_EVID_MIN = getattr(config, "PRESS_EVID_MIN_FULL", 2.0)
+XG_EVID_MIN = getattr(config, "XG_EVID_MIN_FULL", 2.0)
 
-# EV thresholds
-EV_MIN_1X2 = 0.05
-EV_MIN_OU25 = 0.04
-EV_MIN_STERILE_1X2 = 0.07
-EV_MIN_ASSASSIN_ANY = 0.07
+# EV thresholds - imported from config.py
+EV_MIN_1X2 = getattr(config, "EV_MIN_1X2", 0.05)
+EV_MIN_OU25 = getattr(config, "EV_MIN_OU25", 0.04)
+EV_MIN_STERILE_1X2 = getattr(config, "EV_MIN_STERILE_1X2", 0.07)
+EV_MIN_ASSASSIN_ANY = getattr(config, "EV_MIN_ASSASSIN_ANY", 0.07)
 
-# Assassin stricter reliability for O/U (deterministic; spec requires a stricter threshold)
-ASSASSIN_NEFF_MIN_OU25 = 7.0
-ASSASSIN_PRESS_EVID_MIN_OU25 = 3.0
-ASSASSIN_XG_EVID_MIN_OU25 = 3.0
+# Assassin stricter reliability for O/U
+ASSASSIN_NEFF_MIN_OU25 = getattr(config, "ASSASSIN_NEFF_MIN_OU25", 7.0)
+ASSASSIN_PRESS_EVID_MIN_OU25 = getattr(config, "ASSASSIN_PRESS_EVID_MIN_OU25", 3.0)
+ASSASSIN_XG_EVID_MIN_OU25 = getattr(config, "ASSASSIN_XG_EVID_MIN_OU25", 3.0)
 
 
-def file_md5(path: Path) -> str:
-    h = hashlib.md5()
+def file_sha256(path: Path) -> str:
+    """SHA256 hash for file integrity (consistent with predict_upcoming.py)."""
+    h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -646,7 +656,7 @@ def main() -> None:
     ]
     _require_columns(df, required, context=str(in_path))
 
-    input_hash = file_md5(in_path)
+    input_hash = file_sha256(in_path)
     run_id = f"PICKS_{input_hash[:12]}"
 
     picks_df, debug_df = build_picks(df, input_hash=input_hash, run_id=run_id)
