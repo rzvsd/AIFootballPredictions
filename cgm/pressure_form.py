@@ -137,7 +137,7 @@ def add_pressure_form_features(
         + W_POS * out["_press_dom_pos_A_raw"]
     )
 
-    out = out.sort_values(datetime_col)
+    out = out.sort_values([datetime_col, home_col, away_col], kind="mergesort")
 
     def _roll_pre(g: pd.DataFrame, value_col: str) -> pd.Series:
         return g[value_col].shift().rolling(window, min_periods=1).mean()
@@ -200,111 +200,111 @@ def add_pressure_form_features(
 
     # Home-context rolling (venue-aware)
     out["press_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_index_H")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_index_H")
     ).fillna(_neutral_dom())
     out["press_n_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre_count(g.sort_values(datetime_col), "_press_index_H")
+        lambda g: _roll_pre_count(g.sort_values(datetime_col, kind="mergesort"), "_press_index_H")
     ).fillna(0.0)
 
     # Milestone 9: Time decay weighted rolling (if enabled)
     if decay_enabled:
         out["press_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_press_index_H")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_press_index_H")
         ).fillna(_neutral_dom())
 
     out["press_dom_shots_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_shots_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_H_raw")
     ).fillna(_neutral_dom())
     out["press_dom_sot_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_sot_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_sot_H_raw")
     ).fillna(_neutral_dom())
     out["press_dom_corners_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_corners_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_corners_H_raw")
     ).fillna(_neutral_dom())
     out["press_dom_pos_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_pos_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_H_raw")
     ).fillna(_neutral_dom())
 
     # Post-match home states (including current match) for inference snapshots
     out["_press_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_index_H")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_index_H")
     ).fillna(_neutral_dom())
     out["_press_n_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post_count(g.sort_values(datetime_col), "_press_index_H")
+        lambda g: _roll_post_count(g.sort_values(datetime_col, kind="mergesort"), "_press_index_H")
     ).fillna(0.0)
     out["_press_dom_shots_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_shots_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_H_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_sot_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_sot_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_sot_H_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_corners_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_corners_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_corners_H_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_pos_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_pos_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_H_raw")
     ).fillna(_neutral_dom())
 
     # Rolling evidence counts (how many matches in the window had complete stats).
     out["press_stats_n_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_press_stats_present_raw")
+        lambda g: _roll_pre_sum(g.sort_values(datetime_col, kind="mergesort"), "_press_stats_present_raw")
     ).fillna(0.0)
     out["_press_stats_n_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post_sum(g.sort_values(datetime_col), "_press_stats_present_raw")
+        lambda g: _roll_post_sum(g.sort_values(datetime_col, kind="mergesort"), "_press_stats_present_raw")
     ).fillna(0.0)
 
     # Away-context rolling (venue-aware)
     out["press_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_index_A")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_index_A")
     ).fillna(_neutral_dom())
     out["press_n_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre_count(g.sort_values(datetime_col), "_press_index_A")
+        lambda g: _roll_pre_count(g.sort_values(datetime_col, kind="mergesort"), "_press_index_A")
     ).fillna(0.0)
 
     # Milestone 9: Time decay weighted rolling (away context)
     if decay_enabled:
         out["press_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_press_index_A")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_press_index_A")
         ).fillna(_neutral_dom())
 
     out["press_dom_shots_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_shots_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_A_raw")
     ).fillna(_neutral_dom())
     out["press_dom_sot_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_sot_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_sot_A_raw")
     ).fillna(_neutral_dom())
     out["press_dom_corners_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_corners_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_corners_A_raw")
     ).fillna(_neutral_dom())
     out["press_dom_pos_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_press_dom_pos_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_A_raw")
     ).fillna(_neutral_dom())
 
     # Post-match away states (including current match) for inference snapshots
     out["_press_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_index_A")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_index_A")
     ).fillna(_neutral_dom())
     out["_press_n_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post_count(g.sort_values(datetime_col), "_press_index_A")
+        lambda g: _roll_post_count(g.sort_values(datetime_col, kind="mergesort"), "_press_index_A")
     ).fillna(0.0)
     out["_press_dom_shots_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_shots_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_A_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_sot_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_sot_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_sot_A_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_corners_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_corners_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_corners_A_raw")
     ).fillna(_neutral_dom())
     out["_press_dom_pos_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_press_dom_pos_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_A_raw")
     ).fillna(_neutral_dom())
 
     out["press_stats_n_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_press_stats_present_raw")
+        lambda g: _roll_pre_sum(g.sort_values(datetime_col, kind="mergesort"), "_press_stats_present_raw")
     ).fillna(0.0)
     out["_press_stats_n_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post_sum(g.sort_values(datetime_col), "_press_stats_present_raw")
+        lambda g: _roll_post_sum(g.sort_values(datetime_col, kind="mergesort"), "_press_stats_present_raw")
     ).fillna(0.0)
 
     # Remove per-match-only internal indices (leakage if kept)

@@ -22,11 +22,11 @@ Put these files in the `CGM data/` folder:
 | File | What It Contains |
 |------|-----------------|
 | `multiple seasons.csv` | Historical match results |
-| `upcoming - Copy.CSV` | Future matches with odds |
+| `multiple leagues and seasons/allratingv.csv` | Future matches list (odds via upcoming.csv if present) |
 | `goals statistics.csv` | Shot/corner/possession stats |
 | `AGS.CSV` | Goal timing data (when goals were scored) |
 
-💡 **Important:** The `upcoming - Copy.CSV` file must contain FUTURE matches. If it only has past matches, you'll get 0 predictions.
+💡 **Important:** The `multiple leagues and seasons/allratingv.csv` file must contain FUTURE matches. If it only has past matches, you'll get 0 predictions.
 
 ---
 
@@ -82,8 +82,6 @@ Here's what the columns mean:
 
 | Code | English |
 |------|---------|
-| `1X2_HOME` | Home team wins |
-| `1X2_AWAY` | Away team wins |
 | `OU25_OVER` | More than 2.5 goals total |
 | `OU25_UNDER` | Less than 2.5 goals total |
 | `BTTS_YES` | Both teams score |
@@ -94,7 +92,7 @@ Here's what the columns mean:
 ## ⚠️ Troubleshooting
 
 ### "0 picks"
-- Your `upcoming - Copy.CSV` might be outdated
+- Your `multiple leagues and seasons/allratingv.csv` might be outdated
 - Export fresh data from CGM
 
 ### "[UNSEEN] team not in history"

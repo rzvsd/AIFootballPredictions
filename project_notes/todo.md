@@ -1,12 +1,43 @@
-- (Process) Define a "multi-agent pipeline" concept (builder/tester/QA gates) as repeatable scripts + CI checks, then list them as `AGENTS.md` tasks.
-- (Data) Export multi-season EPL stats into `cgmbetdatabase.csv` (or `.xls`) to push Pressure/xG coverage toward 100% for those seasons (current coverage is current-season-only).
-- (Milestone 3) Tune `sterile_*` / `assassin_*` thresholds and decide whether to standardize xG/Pressure z-scores using only teams with evidence (vs including neutral defaults).
-- (Data) Expand scope to multiple leagues + multiple seasons (target: >= 5 seasons per league) while keeping strict "history vs upcoming" separation (history can be huge; upcoming must be future-only).
-- (Model) Add Dixon-Coles adjustment for 1X2 probabilities as an extra layer over Poisson (apply only to 1X2; keep O/U derived from base goal model unless explicitly extended).
+# TODO List
 
-## Upcoming Milestones
+## ✅ Completed
+- [x] Milestone 9: Time Decay Weighting
+- [x] Milestone 10: Head-to-Head History
+- [x] Milestone 11: League-Specific Features
+- [x] Milestone 13: Probability Calibration
+- [x] Milestone 14: Streamlit UI Redesign
+- [x] Milestone 15: Multi-League Support (12 leagues now supported)
+- [x] Milestone 16: Audit Infrastructure (`run_all_audits.py` - 10/10 pass)
 
-- **Milestone 12: Dixon-Coles Adjustment** — Apply Dixon-Coles correction to 1X2 probabilities for low-scoring matches.
-- **Milestone 13: Multi-League Expansion** — Expand data scope to 5+ leagues to fully activate league-specific features.
+## 🚧 In Progress
+- [/] **Milestone 17: Telegram Notifications** — Scripts created, needs user setup
 
+### High Priority
+- [ ] **Milestone 17: Multi-League Backtest** — Complete backtest for all 12 leagues
+  - `run_multi_league_backtest.py` created (needs debugging)
+  - Aggregate results across leagues
+  - Calibration per league
 
+- [ ] **Milestone 18: Google Sheets Integration** — Push daily picks to a Google Sheet
+  - View picks on phone without PC
+  - Shareable with friends
+  - ~30 min implementation
+
+### Medium Priority
+- [ ] **Milestone 19: Cloud Scheduler Automation** — Auto-run predictions daily at 8am
+  - No manual triggering needed
+  - Uses Google Cloud Functions
+  - Free tier available
+
+- [ ] **Milestone 20: Dixon-Coles Adjustment** — Legacy full engine only (1X2); not used in goals-only outputs
+
+### Low Priority / Future
+- [ ] Vertex AI Integration (only if scaling to 100+ leagues)
+- [ ] Mobile App (Firebase backend)
+- [ ] Real-time odds streaming (Pub/Sub)
+
+## 🗒️ Notes
+- Google Cloud services are optional enhancements, not critical for core functionality
+- Current XGBoost model performs well locally
+- Historical data (2018+) is needed for Elo accuracy
+- 12 leagues supported: Premier L, Championship, Serie A, Serie B, Primera, Bundesliga, Ligue 1, Ligue 2, Primeira L, Eredivisie, Super Lig, Liga 1

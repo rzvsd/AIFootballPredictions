@@ -7,7 +7,8 @@ Why:
 
 Inputs:
   - data/enhanced/cgm_match_history_with_elo.csv (canonical history + Elo)
-  - CGM data/goals statistics.csv (or richer stats export; per-match stats; combined "H-A" strings: sut/sutt/cor/ballp)
+  - CGM data/goals statistics.csv or CGM data/multiple leagues and seasons/upcoming.csv
+    (per-match stats; split columns or combined "H-A" strings: sut/sutt/cor/ballp)
 
 Output:
   - data/enhanced/cgm_match_history_with_elo_stats.csv (history + split numeric stat columns)
@@ -179,6 +180,15 @@ def backfill_match_stats(
     data_dir: Path,
 ) -> Path:
     hist = pd.read_csv(history_path)
+    if not stats_path.exists():
+        # Optional stats file missing: emit history with empty stat columns.
+        print(f"[warn] stats file not found: {stats_path}. Writing history with empty stats.")
+        hist = ensure_pressure_inputs(hist)
+        hist["pressure_usable"] = 0
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        hist.to_csv(out_path, index=False)
+        print(f"[ok] wrote -> {out_path} (rows={len(hist)})")
+        return out_path
     stats = _read_table(stats_path)
 
     # Prepare keys in history

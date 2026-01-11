@@ -87,6 +87,14 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
         base / "multiple seasons.csv",
         base / "upcoming - Copy.CSV",
     ]
+    multi = base / "multiple leagues and seasons"
+    if multi.exists():
+        files.extend(
+            [
+                multi / "allratingv.csv",
+                multi / "upcoming.csv",
+            ]
+        )
 
     # Accumulate name occurrences per code
     names_for_code: dict[str, Counter] = defaultdict(Counter)

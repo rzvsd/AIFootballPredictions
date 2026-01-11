@@ -126,7 +126,7 @@ def main() -> None:
     ap.add_argument("--reports-dir", default="reports", help="Reports/log output directory")
     ap.add_argument("--max-date", default=None, help="Elo cutoff date (YYYY-MM-DD). Defaults to today UTC.")
     ap.add_argument("--model-variant", choices=["full", "no_odds"], default="full", help="Model variant (feature set)")
-    ap.add_argument("--pick-engine", choices=["full", "goals"], default="full", help="Pick engine: full (1X2+OU25) or goals (OU25+BTTS)")
+    ap.add_argument("--pick-engine", choices=["goals"], default="goals", help="Pick engine: goals-only (OU25+BTTS)")
 
     ap.add_argument("--rebuild-history", action="store_true", help="Force rebuild match history from CGM exports")
     ap.add_argument("--skip-train", action="store_true", help="Skip training (use existing models)")
@@ -154,6 +154,7 @@ def main() -> None:
     elo_stats_xg_csv = enhanced_dir / "cgm_match_history_with_elo_stats_xg.csv"
     franken_csv = enhanced_dir / "frankenstein_training.csv"
     stats_candidates = [
+        Path(data_dir) / "multiple leagues and seasons" / "upcoming.csv",
         Path(data_dir) / "cgmbetdatabase.csv",
         Path(data_dir) / "cgmbetdatabase.xls",
         Path(data_dir) / "goals statistics.csv",
@@ -407,7 +408,7 @@ def main() -> None:
         ]
     )
 
-    # 9) Milestone 4: Deterministic pick engine (1X2 + O/U 2.5)
+    # 9) Milestone 7: deterministic goals-only pick engine (O/U 2.5 + BTTS)
     pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
     _run(
         [

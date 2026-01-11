@@ -11,13 +11,13 @@ This is a running list of bugs found and fixed in the CGM-only engine. Each item
 
 2) Retro predictions/picks caused by “schedule dump” upcoming file
    - Symptom: `reports/cgm_upcoming_predictions.csv` and `reports/picks.csv` included past fixtures (older season rows).
-   - Root cause: `CGM data/upcoming - Copy.CSV` can contain a full season schedule/results, and the pipeline previously predicted every row.
-   - Fix: add deterministic “live scope” filtering in `cgm/predict_upcoming.py` (strict `fixture_datetime > run_asof_datetime`, plus league/country + season-window + optional horizon). Enforce scope again in `cgm/pick_engine.py`. Added `scripts/audit_upcoming_feed.py` + scope assertions in `scripts/audit_picks.py`.
+   - Root cause: `CGM data/multiple leagues and seasons/allratingv.csv` can contain a full season schedule/results, and the pipeline previously predicted every row.
+   - Fix: add deterministic “live scope” filtering in `cgm/predict_upcoming.py` (strict `fixture_datetime > run_asof_datetime`, plus league/country + season-window + optional horizon). Enforce scope again in `cgm/pick_engine_goals.py`. Added `scripts/audit_upcoming_feed.py` + scope assertions in `scripts/audit_picks_goals.py`.
 
 3) Pick engine determinism / tie ambiguity
    - Symptom: tie scenarios could select a different market depending on incidental ordering; hard to debug selection without a score.
    - Root cause: no explicit market priority tie-break and no exported selection score.
-   - Fix: export `score` to `reports/picks.csv`, and add deterministic tie-break order (score -> EV -> neff -> fixed market priority list) in `cgm/pick_engine.py`.
+   - Fix: export `score` to `reports/picks.csv`, and add deterministic tie-break order (score -> EV -> neff -> fixed market priority list) in `cgm/pick_engine_goals.py`.
 
 4) Corrupted team registry mappings (wrong team codes)
    - Symptom: incorrect team aliasing (e.g., “Crystal Palace -> Arsenal”), which can break deterministic joins and degrade training/inference.
@@ -27,7 +27,7 @@ This is a running list of bugs found and fixed in the CGM-only engine. Each item
 5) Pressure reliability signal was misleading (`press_n_*` counted matches, not evidence)
    - Symptom: `press_n_H/press_n_A` looked “healthy” even when match stats were missing, because missing stats fall back to neutral dominance (0.5).
    - Root cause: rolling counts were based on `_press_index_*` which always exists.
-   - Fix: add `press_stats_n_H/press_stats_n_A` (rolling usable-stat counts) in `cgm/pressure_form.py` and export/use them in `cgm/predict_upcoming.py` + `cgm/pick_engine.py` quality gates.
+   - Fix: add `press_stats_n_H/press_stats_n_A` (rolling usable-stat counts) in `cgm/pressure_form.py` and export/use them in `cgm/predict_upcoming.py` + `cgm/pick_engine_goals.py` quality gates.
 
 6) Stats backfill: ambiguous date parsing + future rows (future-leakage risk)
    - Symptom: low join rate in older seasons; presence of future-dated rows in CGM stats exports.
@@ -53,7 +53,7 @@ This is a running list of bugs found and fixed in the CGM-only engine. Each item
    - Impact: after rebuild, expect fewer sterile/assassin flags (only confident ones remain).
 
 10) Scattered threshold constants (maintenance hazard)
-    - Symptom: tuning thresholds required editing 4+ files (`pick_engine.py`, `pick_engine_goals.py`, `audit_picks.py`, `audit_picks_goals.py`), risking inconsistencies.
+    - Symptom: tuning thresholds required editing 4+ files (`archive/legacy_full_engine/pick_engine.py`, `pick_engine_goals.py`, `archive/legacy_full_engine/audit_picks.py`, `audit_picks_goals.py`), risking inconsistencies.
     - Root cause: each module defined its own local constants for NEFF_MIN, ODDS_MIN, EV thresholds, etc.
     - Fix: centralize all pick engine constants in `config.py` with clear naming (`*_FULL` for 1X2+OU engine, `*_GOALS` for goals-only engine). All modules now import from config.
     - Impact: change thresholds in one place; all modules stay in sync.
@@ -62,7 +62,7 @@ This is a running list of bugs found and fixed in the CGM-only engine. Each item
     - Symptom: pick engines used MD5 while `predict_upcoming.py` used SHA256 for file integrity, causing confusion in logs.
     - Root cause: different modules were written at different times with different hash choices.
     - Fix: standardize all file hashing on SHA256 (`file_sha256()` function) for consistency with `predict_upcoming.py`.
-    - Files updated: `cgm/pick_engine.py`, `cgm/pick_engine_goals.py`, `scripts/audit_picks.py`, `scripts/audit_picks_goals.py`.
+    - Files updated: `archive/legacy_full_engine/pick_engine.py`, `cgm/pick_engine_goals.py`, `archive/legacy_full_engine/audit_picks.py`, `scripts/audit_picks_goals.py`.
 
 12) NaN propagation in Elo similarity blending
     - Symptom: when history is empty or has all-NaN values, blending would produce NaN output passed to the model.
@@ -131,3 +131,30 @@ This is a running list of bugs found and fixed in the CGM-only engine. Each item
     - Verification: after fix, 0 mismatches across all 30 teams in the dataset.
     - Impact: all previous runs had corrupted Elo data; pipeline must be rebuilt with `--rebuild-history` to fix.
 
+## 2025-12-27
+
+22) UnboundLocalError in build_match_history.py
+    - Symptom: `NameError: cannot access local variable 'ms'` when running `--rebuild-history`.
+    - Root cause: Code referenced `ms` variable before calling `_read_csv()` to load the file.
+    - Fix: Added `ms = _read_csv(ms_path)` call after determining the file path.
+    - File: `cgm/build_match_history.py` line 122.
+
+23) KeyError 'date' in build_match_history.py
+    - Symptom: `KeyError: 'date'` when parsing date columns for merge.
+    - Root cause: CGM files use column name `datameci` not `date`, but code referenced `ms['date']`.
+    - Fix: Added dynamic column detection: `date_col = 'datameci' if 'datameci' in ms.columns else 'date'`.
+    - File: `cgm/build_match_history.py` lines 167-175.
+
+24) NameError 'upcoming_path' in predict_upcoming.py
+    - Symptom: `NameError: name 'upcoming_path' is not defined` after refactoring to direct source loading.
+    - Root cause: Variable `upcoming_path` was removed during refactoring but still referenced in log statements.
+    - Fix: Replaced all `upcoming_path` references with `primary_source`.
+    - Files: `cgm/predict_upcoming.py` lines 1372, 1397.
+
+## 2026-01-11
+
+25) Duplicate fixtures in upcoming feed (audit_no_odds failures)
+    - Symptom: duplicate fixtures in `reports/cgm_upcoming_predictions.csv` and `scripts.audit_no_odds` row mismatches.
+    - Root cause: `allratingv.csv` can contain duplicate future fixtures; inference pipeline did not dedupe before prediction.
+    - Fix: dedupe upcoming fixtures in `cgm/predict_upcoming.py` by fixture datetime + league + team codes/names, keeping the row with the most odds columns populated.
+    - Verification: 0 duplicates after dedupe; `python -m scripts.audit_no_odds --as-of-date 2026-01-11` passes.

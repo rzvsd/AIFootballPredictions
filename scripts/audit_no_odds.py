@@ -90,7 +90,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Audit that the no-odds model is invariant to odds columns in the upcoming feed")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv", help="History CSV used for inference")
     ap.add_argument("--models-dir", default="models", help="Directory with no-odds models")
-    ap.add_argument("--upcoming", default="CGM data/upcoming - Copy.CSV", help="Raw upcoming feed CSV (any CGM export)")
+    ap.add_argument("--upcoming", default="CGM data/multiple leagues and seasons/allratingv.csv", help="Raw upcoming feed CSV (any CGM export)")
     ap.add_argument("--as-of-date", default="2025-12-19", help="As-of date (YYYY-MM-DD) used by scope filter")
     args = ap.parse_args()
 
@@ -114,10 +114,12 @@ def main() -> None:
         td_path = Path(td)
         d1 = td_path / "d1"
         d2 = td_path / "d2"
-        d1.mkdir(parents=True, exist_ok=True)
-        d2.mkdir(parents=True, exist_ok=True)
-        (d1 / "upcoming - Copy.CSV").write_text(df.to_csv(index=False), encoding="utf-8")
-        (d2 / "upcoming - Copy.CSV").write_text(df_mod.to_csv(index=False), encoding="utf-8")
+        up1 = d1 / "multiple leagues and seasons"
+        up2 = d2 / "multiple leagues and seasons"
+        up1.mkdir(parents=True, exist_ok=True)
+        up2.mkdir(parents=True, exist_ok=True)
+        (up1 / "allratingv.csv").write_text(df.to_csv(index=False), encoding="utf-8")
+        (up2 / "allratingv.csv").write_text(df_mod.to_csv(index=False), encoding="utf-8")
         out1 = td_path / "pred1.csv"
         out2 = td_path / "pred2.csv"
 
@@ -128,7 +130,14 @@ def main() -> None:
         p2 = pd.read_csv(out2)
 
         key_cols = ["fixture_datetime", "league", "home", "away"]
-        cmp_cols = ["mu_home", "mu_away", "p_home", "p_draw", "p_away", "p_over_2_5", "p_under_2_5"]
+        cmp_cols = [
+            "mu_home",
+            "mu_away",
+            "p_over_2_5",
+            "p_under_2_5",
+            "p_btts_yes",
+            "p_btts_no",
+        ]
         for c in key_cols + cmp_cols:
             if c not in p1.columns or c not in p2.columns:
                 raise AssertionError(f"Missing required output column for audit: {c}")

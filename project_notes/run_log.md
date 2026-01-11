@@ -1,5 +1,9 @@
 Run log (human-readable, ELO-focused)
 
+2026-01-10 (UTC)
+- Goals-only outputs: removed 1X2 and timing markets from `reports/cgm_upcoming_predictions.csv` (OU2.5 + BTTS only).
+- Reporting scripts updated to surface only O/U 2.5 + BTTS.
+
 2025-12-19 (UTC)
 - Full rebuild: match_history -> baselines -> Elo (cutoff today UTC) -> backfill stats -> Frankenstein -> train -> predict.
   - `python predict.py --rebuild-history`
@@ -74,7 +78,7 @@ Run log (human-readable, ELO-focused)
 
 2025-12-20 (UTC) - Milestone 4 (Pick Engine)
 - Added deterministic pick selection layer (1X2 + O/U 2.5):
-  - `cgm/pick_engine.py` consumes `reports/cgm_upcoming_predictions.csv` and writes `reports/picks.csv` + `reports/picks_debug.csv` (candidate-level gate/score debug).
+  - `cgm/pick_engine_goals.py` consumes `reports/cgm_upcoming_predictions.csv` and writes `reports/picks.csv` + `reports/picks_debug.csv` (candidate-level gate/score debug).
   - Hard gates: odds sanity, mu_total bounds, minimum evidence (`neff_sim_*`, `press_stats_n_*`, `xg_stats_n_*`), sterile/assassin risk rules, minimum EV thresholds, single best pick per fixture.
   - Tie-breaks: if candidates tie, prefers higher EV, higher `neff_min`, then a fixed market priority order (OU25_OVER, OU25_UNDER, 1X2_HOME, 1X2_AWAY, 1X2_DRAW).
 - Inference export upgrade:
@@ -83,14 +87,14 @@ Run log (human-readable, ELO-focused)
   - `predict.py` now runs the pick engine as the last step (also in `--predict-only` mode).
 - Validation run:
   - `python predict.py --predict-only` -> predictions (530 rows) + picks (378 rows) written.
-  - `python -m scripts.audit_picks` clean (deterministic hash match; no gate violations; stake tiers consistent).
+  - `python -m scripts.audit_picks_goals` clean (deterministic hash match; no gate violations; stake tiers consistent).
 
 2025-12-21 (UTC) - Live scope filter (no past predictions)
 - Added deterministic live scope to stop "schedule dump" files from producing retro predictions/picks:
   - Defaults in `config.py` (EPL 2025-26 window + horizon).
   - `cgm/predict_upcoming.py` now filters fixtures strictly after `run_asof_datetime` and logs `UPCOMING_SCOPE` counts.
-  - `cgm/pick_engine.py` re-applies scope internally and requires `run_asof_datetime` + `scope_*` columns.
-- Test run (using the same `CGM data/upcoming - Copy.CSV`, which contains only played matches up to 2025-12-08):
+  - `cgm/pick_engine_goals.py` re-applies scope internally and requires `run_asof_datetime` + `scope_*` columns.
+- Test run (using the same `CGM data/multiple leagues and seasons/allratingv.csv`, which contains only played matches up to 2025-12-08):
   - `python predict.py --max-date 2025-12-19 --predict-only` -> predictions rows=0, picks rows=0 (correct; no future fixtures in feed).
   - `python -m scripts.audit_upcoming_feed --as-of-date 2025-12-19` confirms all 530 raw rows were dropped by the "drop past" filter.
 - Bugfix (inference odds/probability scaling):

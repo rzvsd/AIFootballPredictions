@@ -17,7 +17,7 @@ Core commands (run from repo root)
 CGM data/
 ├── multiple seasons.csv   ← Match history (outcomes, odds, Elo)
 ├── goals statistics.csv   ← Per-match stats (shots, corners)
-├── upcoming - Copy.CSV    ← Today's fixtures
+├── multiple leagues and seasons/allratingv.csv    ← Today's fixtures
 └── AGS.CSV               ← Goal timing data
 ```
 
@@ -46,3 +46,41 @@ Main engine files
 
 Legacy NGBoost pipeline archived under `archive/legacy_workflows` as of 2025-12-25.
 
+---
+
+## Audit Scripts
+
+Run all audits (10 scripts, validates all features):
+```bash
+python scripts/run_all_audits.py
+```
+
+Individual audits:
+```bash
+# Multi-league coverage verification
+python scripts/audit_multi_league.py
+
+# Picks engine validation
+(legacy) python archive/legacy_full_engine/audit_picks.py
+python -m scripts.audit_picks_goals
+
+# Feature validation
+python -m scripts.audit_pressure --cutoff YYYY-MM-DD
+python -m scripts.audit_xg
+python -m scripts.audit_decay
+python -m scripts.audit_h2h
+python -m scripts.audit_league_features
+
+# Feed and output validation
+python -m scripts.audit_upcoming_feed --as-of-date YYYY-MM-DD
+python -m scripts.audit_narrator
+```
+
+## Prediction Report
+
+Generate formatted predictions table:
+```bash
+python scripts/generate_predictions_report.py
+python scripts/generate_predictions_report.py --date YYYY-MM-DD
+python scripts/generate_predictions_report.py --league "Premier L"
+```

@@ -190,8 +190,14 @@ Unique run timestamps: 38 (walk-forward)
 
 ## Full Audit Command
 
-Run all audits with:
+Run all audits with one command (10 scripts, validates all features):
 ```bash
+python scripts/run_all_audits.py
+```
+
+Or run individual audits:
+```bash
+python scripts/audit_multi_league.py          # NEW: Multi-league coverage
 python scripts/investigate_elo.py
 python scripts/audit_pressure_form.py
 python scripts/audit_xg_form.py
@@ -199,5 +205,56 @@ python scripts/audit_decay.py
 python scripts/audit_h2h.py
 python scripts/audit_league_features.py
 python scripts/audit_backtest.py
+(legacy) python archive/legacy_full_engine/audit_picks.py
+python -m scripts.audit_picks_goals
+python -m scripts.audit_upcoming_feed --as-of-date YYYY-MM-DD
+python -m scripts.audit_narrator
 ```
 
+---
+
+## Milestone 15: Multi-League Audit (Dec 2025)
+
+### Script
+`scripts/audit_multi_league.py`
+
+### What It Verifies
+1. **History Coverage** - Matches per league, date ranges
+2. **Source Data** - Future fixtures per league from allratingv.csv
+3. **Predictions Generated** - Predictions coverage per league
+4. **Coverage Analysis** - Identifies missing leagues or low coverage
+
+### How to Run
+```bash
+python scripts/audit_multi_league.py
+```
+
+### Expected Output (2025-12-27)
+```
+12 leagues supported
+164 predictions across 10 active leagues
+Liga 1 and Super Lig on winter break (next fixtures Jan 16-18)
+[OK] All leagues with future fixtures have predictions
+```
+
+---
+
+## Milestone 16: Prediction Report (Dec 2025)
+
+### Script
+`scripts/generate_predictions_report.py`
+
+### What It Does
+Generates formatted prediction tables with O/U 2.5, BTTS probabilities and EV.
+
+### How to Run
+```bash
+python scripts/generate_predictions_report.py
+python scripts/generate_predictions_report.py --league "Premier L"
+python scripts/generate_predictions_report.py --date 2025-12-28
+```
+
+### Output
+- `reports/predictions_report.md` - Markdown table
+- `reports/predictions_report.txt` - Plain text table
+- Console output with summary

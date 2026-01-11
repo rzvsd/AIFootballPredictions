@@ -77,7 +77,7 @@ def add_xg_form_features(
         out["_xg_finishing_luck_H_raw"] = ft_h - out["xg_proxy_H"]
         out["_xg_finishing_luck_A_raw"] = ft_a - out["xg_proxy_A"]
 
-    out = out.sort_values(datetime_col)
+    out = out.sort_values([datetime_col, home_col, away_col], kind="mergesort")
 
     def _roll_pre(g: pd.DataFrame, value_col: str) -> pd.Series:
         return g[value_col].shift().rolling(window, min_periods=1).mean()
@@ -128,112 +128,112 @@ def add_xg_form_features(
 
     # Home-context rolling
     out["xg_for_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_for_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_H_raw")
     ).fillna(0.0)
     out["xg_against_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_against_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_H_raw")
     ).fillna(0.0)
     out["xg_diff_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_diff_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_diff_H_raw")
     ).fillna(0.0)
     out["xg_shot_quality_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_shot_quality_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_shot_quality_H_raw")
     ).fillna(0.0)
     out["xg_finishing_luck_form_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_finishing_luck_H_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_finishing_luck_H_raw")
     ).fillna(0.0)
     out["xg_n_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre_count(g.sort_values(datetime_col), datetime_col)
+        lambda g: _roll_pre_count(g.sort_values(datetime_col, kind="mergesort"), datetime_col)
     ).fillna(0.0)
     out["xg_stats_n_H"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
+        lambda g: _roll_pre_sum(g.sort_values(datetime_col, kind="mergesort"), "_xg_stats_present_raw")
     ).fillna(0.0)
 
     # Milestone 9: Time decay xG features (home context)
     if decay_enabled:
         out["xg_for_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_for_H_raw")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_H_raw")
         ).fillna(0.0)
         out["xg_against_form_H_decay"] = out.groupby(home_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_against_H_raw")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_H_raw")
         ).fillna(0.0)
 
     # Post-match home states
     out["_xg_for_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_for_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_H_raw")
     ).fillna(0.0)
     out["_xg_against_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_against_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_H_raw")
     ).fillna(0.0)
     out["_xg_diff_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_diff_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_diff_H_raw")
     ).fillna(0.0)
     out["_xg_shot_quality_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_shot_quality_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_shot_quality_H_raw")
     ).fillna(0.0)
     out["_xg_finishing_luck_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_finishing_luck_H_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_finishing_luck_H_raw")
     ).fillna(0.0)
     out["_xg_n_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post_count(g.sort_values(datetime_col), datetime_col)
+        lambda g: _roll_post_count(g.sort_values(datetime_col, kind="mergesort"), datetime_col)
     ).fillna(0.0)
     out["_xg_stats_n_H_post"] = out.groupby(home_col, group_keys=False).apply(
-        lambda g: _roll_post_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
+        lambda g: _roll_post_sum(g.sort_values(datetime_col, kind="mergesort"), "_xg_stats_present_raw")
     ).fillna(0.0)
 
     # Away-context rolling
     out["xg_for_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_for_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_A_raw")
     ).fillna(0.0)
     out["xg_against_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_against_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_A_raw")
     ).fillna(0.0)
     out["xg_diff_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_diff_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_diff_A_raw")
     ).fillna(0.0)
     out["xg_shot_quality_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_shot_quality_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_shot_quality_A_raw")
     ).fillna(0.0)
     out["xg_finishing_luck_form_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre(g.sort_values(datetime_col), "_xg_finishing_luck_A_raw")
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_xg_finishing_luck_A_raw")
     ).fillna(0.0)
     out["xg_n_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre_count(g.sort_values(datetime_col), datetime_col)
+        lambda g: _roll_pre_count(g.sort_values(datetime_col, kind="mergesort"), datetime_col)
     ).fillna(0.0)
     out["xg_stats_n_A"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_pre_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
+        lambda g: _roll_pre_sum(g.sort_values(datetime_col, kind="mergesort"), "_xg_stats_present_raw")
     ).fillna(0.0)
 
     # Milestone 9: Time decay xG features (away context)
     if decay_enabled:
         out["xg_for_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_for_A_raw")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_A_raw")
         ).fillna(0.0)
         out["xg_against_form_A_decay"] = out.groupby(away_col, group_keys=False).apply(
-            lambda g: _roll_pre_decay(g.sort_values(datetime_col), "_xg_against_A_raw")
+            lambda g: _roll_pre_decay(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_A_raw")
         ).fillna(0.0)
 
     # Post-match away states
     out["_xg_for_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_for_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_for_A_raw")
     ).fillna(0.0)
     out["_xg_against_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_against_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_against_A_raw")
     ).fillna(0.0)
     out["_xg_diff_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_diff_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_diff_A_raw")
     ).fillna(0.0)
     out["_xg_shot_quality_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_shot_quality_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_shot_quality_A_raw")
     ).fillna(0.0)
     out["_xg_finishing_luck_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post(g.sort_values(datetime_col), "_xg_finishing_luck_A_raw")
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_xg_finishing_luck_A_raw")
     ).fillna(0.0)
     out["_xg_n_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post_count(g.sort_values(datetime_col), datetime_col)
+        lambda g: _roll_post_count(g.sort_values(datetime_col, kind="mergesort"), datetime_col)
     ).fillna(0.0)
     out["_xg_stats_n_A_post"] = out.groupby(away_col, group_keys=False).apply(
-        lambda g: _roll_post_sum(g.sort_values(datetime_col), "_xg_stats_present_raw")
+        lambda g: _roll_post_sum(g.sort_values(datetime_col, kind="mergesort"), "_xg_stats_present_raw")
     ).fillna(0.0)
 
     # Drop per-match-only helper columns.

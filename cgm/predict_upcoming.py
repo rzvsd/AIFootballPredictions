@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List
 import hashlib
 import logging
+import random
 
 import joblib
 import numpy as np
@@ -69,7 +70,7 @@ def _load_history(path: Path) -> pd.DataFrame:
         df["datetime"] = dt.fillna(dt2)
     else:
         df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
-    df = df.sort_values("datetime")
+    df = df.sort_values(["datetime", "home", "away"], kind="mergesort")
     # Milestone 2: parse/split combined CGM stats before numeric coercion
     df = ensure_pressure_inputs(df)
     for col in df.columns:
@@ -79,11 +80,18 @@ def _load_history(path: Path) -> pd.DataFrame:
     return df
 
 
+def _stable_sort_history(df: pd.DataFrame) -> pd.DataFrame:
+    cols = [c for c in ["datetime", "home", "away"] if c in df.columns]
+    if not cols:
+        return df
+    return df.sort_values(cols, kind="mergesort")
+
+
 def _rolling_stats(df: pd.DataFrame, windows: List[int]) -> pd.DataFrame:
     df = df.copy()
 
     def _roll_home(g):
-        g = g.sort_values("datetime").copy()
+        g = g.sort_values(["datetime", "away"], kind="mergesort").copy()
         for w in windows:
             g[f"H_gf_L{w}"] = g["ft_home"].rolling(w, min_periods=1).mean()
             g[f"H_ga_L{w}"] = g["ft_away"].rolling(w, min_periods=1).mean()
@@ -96,7 +104,7 @@ def _rolling_stats(df: pd.DataFrame, windows: List[int]) -> pd.DataFrame:
     df = df.groupby("home", group_keys=False).apply(_roll_home)
 
     def _roll_away(g):
-        g = g.sort_values("datetime").copy()
+        g = g.sort_values(["datetime", "home"], kind="mergesort").copy()
         for w in windows:
             g[f"A_gf_L{w}"] = g["ft_away"].rolling(w, min_periods=1).mean()
             g[f"A_ga_L{w}"] = g["ft_home"].rolling(w, min_periods=1).mean()
@@ -144,8 +152,9 @@ def _add_franken_features(df: pd.DataFrame, windows: List[int], alpha: float = 0
 
 def _latest_side_snapshots(df_roll: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return latest home-context and away-context rows per team."""
-    latest_home = df_roll.sort_values("datetime").groupby("home", as_index=False).tail(1).set_index("home")
-    latest_away = df_roll.sort_values("datetime").groupby("away", as_index=False).tail(1).set_index("away")
+    ordered = df_roll.sort_values(["datetime", "home", "away"], kind="mergesort")
+    latest_home = ordered.groupby("home", as_index=False).tail(1).set_index("home")
+    latest_away = ordered.groupby("away", as_index=False).tail(1).set_index("away")
     return latest_home, latest_away
 
 
@@ -255,8 +264,8 @@ def _log_run(meta: dict, out_path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Predict upcoming fixtures using Frankenstein models")
-    ap.add_argument("--data-dir", default="CGM data", help="CGM data directory containing upcoming - Copy.CSV")
-    ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats.csv", help="Match history with features")
+    ap.add_argument("--data-dir", default="CGM data", help="CGM data directory containing allratingv.csv/upcoming.csv")
+    ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv", help="Match history with features")
     ap.add_argument("--models-dir", default="models", help="Directory with frankenstein_mu_home/away.pkl")
     ap.add_argument("--model-variant", choices=["full", "no_odds"], default="full", help="Model variant (feature set)")
     ap.add_argument("--out", default="reports/cgm_upcoming_predictions.csv", help="Output predictions CSV")
@@ -335,13 +344,44 @@ def main() -> None:
     run_asof_datetime = (
         pd.Timestamp(as_of_date).normalize() + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
     )
+    # History cutoff: prevent leakage by excluding rows after the run cutoff.
+    hist_dt = pd.to_datetime(hist["datetime"], errors="coerce")
+    future_mask = hist_dt.notna() & (hist_dt > run_asof_datetime)
+    dropped_future = int(future_mask.sum())
+    if dropped_future:
+        hist = hist.loc[~future_mask].copy()
+    na_hist = int(hist_dt.isna().sum())
+    logger.info(
+        "[HISTORY] cutoff=%s dropped_future=%d kept=%d na_datetime=%d",
+        str(run_asof_datetime),
+        dropped_future,
+        len(hist),
+        na_hist,
+    )
+    log_json(
+        {
+            "event": "HISTORY_CUTOFF",
+            "cutoff": str(run_asof_datetime),
+            "rows_before": int(len(hist) + dropped_future),
+            "rows_after": int(len(hist)),
+            "dropped_future": int(dropped_future),
+            "na_datetime": int(na_hist),
+        },
+        log_path=Path(args.log_json),
+    )
+    hist = _stable_sort_history(hist)
     hist = _rolling_stats(hist, args.windows)
+    hist = _stable_sort_history(hist)
     hist = _add_franken_features(hist, args.windows)
+    hist = _stable_sort_history(hist)
     # Milestone 2: Pressure Cooker features (needed if models were trained with them)
     hist = ensure_pressure_inputs(hist)
+    hist = _stable_sort_history(hist)
     hist = add_pressure_form_features(hist, window=10)
+    hist = _stable_sort_history(hist)
     # Milestone 3: xG-proxy form (needed if models were trained with xg_* / div_px_* features)
     hist = add_xg_form_features(hist, window=10)
+    hist = _stable_sort_history(hist)
     band_stats = _precompute_band_stats(hist)
     # Prepare Elo histories for similarity features (kernel)
     elo_histories = prepare_histories(hist)
@@ -380,7 +420,7 @@ def main() -> None:
 
     league_avg_cols = ["lg_avg_gf_home", "lg_avg_gf_away", "lg_avg_sot_home", "lg_avg_sot_away",
                        "lg_avg_cor_home", "lg_avg_cor_away", "lg_avg_poss_home", "lg_avg_poss_away"]
-    league_meta = (hist.sort_values("datetime").groupby("league").tail(1)
+    league_meta = (hist.sort_values(["datetime", "home", "away"], kind="mergesort").groupby("league").tail(1)
                    [["league", "home_bonus_elo"] + league_avg_cols].set_index("league").to_dict("index"))
 
     # Prefer recalculated Elo columns if present
@@ -435,7 +475,7 @@ def main() -> None:
     latest_xg_finishing_luck_away: dict[str, float] = {}
     latest_xg_n_away: dict[str, float] = {}
     latest_xg_stats_n_away: dict[str, float] = {}
-    for _, row in hist.sort_values("datetime").iterrows():
+    for _, row in hist.sort_values(["datetime", "home", "away"], kind="mergesort").iterrows():
         for team, col_name in [(row["home"], elo_home_col), (row["away"], elo_away_col)]:
             try:
                 val = float(row[col_name])
@@ -509,52 +549,109 @@ def main() -> None:
         except Exception as e:
             logger.debug(f"xG away stats error for {row['away']}: {e}")
 
-    upcoming_path = Path(args.data_dir) / "upcoming - Copy.CSV"
-    if not upcoming_path.exists():
-        raise FileNotFoundError(f"{upcoming_path} not found")
-    upcoming_hash = file_hash(upcoming_path)
-    up = pd.read_csv(upcoming_path, sep=None, engine="python")
-    required = ["datameci", "txtechipa1", "txtechipa2", "cotaa", "cotae", "cotad", "cotao", "cotau"]
-    if scope_league and "league" not in required:
-        required.append("league")
-    missing = [c for c in required if c not in up.columns]
-    if missing:
-        raise ValueError(f"upcoming missing columns: {missing}")
-    
-    # Fallback: also load unplayed fixtures (0-0 scores) from multiple seasons.csv
-    # This ensures matches like Dec 26-27 Boxing Day fixtures are included
-    ms_path = Path(args.data_dir) / "multiple seasons.csv"
-    if ms_path.exists():
-        try:
-            ms_df = pd.read_csv(ms_path, sep=None, engine="python", encoding="latin1")
-            # Filter to unplayed matches only (scor1=0 and scor2=0)
-            if "scor1" in ms_df.columns and "scor2" in ms_df.columns:
-                ms_df["scor1"] = pd.to_numeric(ms_df["scor1"], errors="coerce").fillna(0)
-                ms_df["scor2"] = pd.to_numeric(ms_df["scor2"], errors="coerce").fillna(0)
-                future_ms = ms_df[(ms_df["scor1"] == 0) & (ms_df["scor2"] == 0)].copy()
-                # Only add if all required columns exist
-                if all(c in future_ms.columns for c in required):
-                    # Create match key for deduplication
-                    up["_match_key"] = up["datameci"].astype(str) + "_" + up["txtechipa1"].astype(str) + "_" + up["txtechipa2"].astype(str)
-                    future_ms["_match_key"] = future_ms["datameci"].astype(str) + "_" + future_ms["txtechipa1"].astype(str) + "_" + future_ms["txtechipa2"].astype(str)
-                    # Only add matches not already in upcoming
-                    new_fixtures = future_ms[~future_ms["_match_key"].isin(up["_match_key"])]
-                    if len(new_fixtures) > 0:
-                        logger.info("[FALLBACK] Adding %d fixtures from multiple seasons.csv", len(new_fixtures))
-                        up = pd.concat([up, new_fixtures[up.columns.intersection(new_fixtures.columns)]], ignore_index=True)
-                    up = up.drop(columns=["_match_key"], errors="ignore")
-        except Exception as e:
-            logger.warning("[FALLBACK] Could not load multiple seasons.csv: %s", str(e))
+    # PATH DETERMINATION for upcoming fixtures
+    # Use allratingv.csv for future fixtures; optionally enrich with gg/ng from upcoming.csv.
+    base_dir = Path(args.data_dir)
+    multi_league_dir = base_dir / "multiple leagues and seasons"
 
-    # Build fixture_datetime for scope filtering (drop NaT deterministically).
+    odds_source = None
+    if multi_league_dir.exists():
+        allrating_csv = multi_league_dir / "allratingv.csv"
+        upcoming_csv = multi_league_dir / "upcoming.csv"
+        if allrating_csv.exists():
+            primary_source = allrating_csv
+            logger.info(f"[SOURCE] Using primary source: {primary_source}")
+            if upcoming_csv.exists():
+                odds_source = upcoming_csv
+                logger.info(f"[SOURCE] Will enrich odds from: {odds_source}")
+        elif upcoming_csv.exists():
+            primary_source = upcoming_csv
+            logger.info(f"[SOURCE] Using fallback source: {primary_source}")
+        else:
+            primary_source = base_dir / "multiple seasons.csv"
+            logger.info(f"[SOURCE] Using legacy fallback source: {primary_source}")
+    else:
+        # Legacy single-league fallback
+        primary_source = base_dir / "multiple seasons.csv"
+        logger.info(f"[SOURCE] Using fallback source: {primary_source}")
+    
+    # Load upcoming data directly from the primary source (contains future fixtures)
+    if primary_source.exists():
+        try:
+            up = pd.read_csv(primary_source, encoding="latin1", low_memory=False)
+            logger.info(f"[SOURCE] Loaded {len(up)} total rows from {primary_source.name}")
+            
+            # Parse dates to identify future fixtures
+            up["_fixture_dt"] = up.apply(
+                lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")),
+                axis=1
+            )
+            
+            # Filter to only future fixtures (after run_asof_datetime)
+            total_rows = len(up)
+            up = up[up["_fixture_dt"] > run_asof_datetime].copy()
+            logger.info(f"[SOURCE] Filtered to {len(up)} future fixtures (from {total_rows} total, after {run_asof_datetime.date()})")
+            
+        except Exception as e:
+            logger.error(f"[SOURCE] Failed to load {primary_source}: {e}")
+            up = pd.DataFrame()
+    else:
+        logger.warning(f"[SOURCE] Primary source not found: {primary_source}")
+        up = pd.DataFrame()
+
+    # Build fixture_datetime for scope filtering
     scope_counts: dict[str, object] = {"upcoming_rows_in": int(len(up))}
-    up["_fixture_dt"] = up.apply(
-        lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")),
-        axis=1,
-    )
     scope_counts["upcoming_rows_parsed"] = int(up["_fixture_dt"].notna().sum())
     up = up[up["_fixture_dt"].notna()].copy()
     up["fixture_datetime"] = up["_fixture_dt"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Optional enrichment: pull gg/ng (BTTS odds) from upcoming.csv for the same fixtures.
+    if odds_source is not None and odds_source.exists():
+        try:
+            up_odds = pd.read_csv(odds_source, encoding="latin1", low_memory=False)
+            up_odds["_fixture_dt"] = up_odds.apply(
+                lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")),
+                axis=1,
+            )
+            up_odds = up_odds[up_odds["_fixture_dt"].notna()].copy()
+            up_odds = up_odds[up_odds["_fixture_dt"] > run_asof_datetime].copy()
+
+            def _norm_code_col(df: pd.DataFrame, col: str) -> None:
+                if col in df.columns:
+                    s = df[col].astype(str).str.strip()
+                    s = s.str.replace(r"\.0$", "", regex=True)
+                    df[col] = s
+
+            for c in ("codechipa1", "codechipa2"):
+                _norm_code_col(up, c)
+                _norm_code_col(up_odds, c)
+
+            up["_date_only"] = up["_fixture_dt"].dt.date
+            up_odds["_date_only"] = up_odds["_fixture_dt"].dt.date
+
+            if {"codechipa1", "codechipa2"}.issubset(up.columns) and {"codechipa1", "codechipa2"}.issubset(up_odds.columns):
+                merge_keys = ["_date_only", "codechipa1", "codechipa2"]
+            else:
+                merge_keys = ["_date_only", "txtechipa1", "txtechipa2"]
+
+            cols = [c for c in ["gg", "ng", "cotao", "cotau", "cotaa", "cotae", "cotad"] if c in up_odds.columns]
+            if cols:
+                up = up.merge(
+                    up_odds[merge_keys + cols],
+                    how="left",
+                    on=merge_keys,
+                    suffixes=("", "_odds"),
+                )
+                for c in cols:
+                    if f"{c}_odds" in up.columns:
+                        if c in up.columns:
+                            up[c] = up[c].combine_first(up[f"{c}_odds"])
+                        else:
+                            up[c] = up[f"{c}_odds"]
+                        up.drop(columns=[f"{c}_odds"], inplace=True, errors="ignore")
+            up.drop(columns=["_date_only"], inplace=True, errors="ignore")
+        except Exception as e:
+            logger.warning(f"[SOURCE] Failed to enrich odds from {odds_source}: {e}")
 
     # Apply deterministic live scope filters with step-by-step counts.
     up = up[up["_fixture_dt"] > run_asof_datetime].copy()
@@ -574,10 +671,31 @@ def main() -> None:
         horizon_end = run_asof_datetime + pd.Timedelta(days=int(horizon_days))
         up = up[up["_fixture_dt"] <= horizon_end].copy()
     scope_counts["upcoming_rows_after_horizon"] = int(len(up))
+    # Dedupe fixtures (prefer rows with more odds info when duplicates exist).
+    dedupe_cols = ["_fixture_dt"]
+    if "league" in up.columns:
+        dedupe_cols.append("league")
+    if {"codechipa1", "codechipa2"}.issubset(up.columns):
+        dedupe_cols.extend(["codechipa1", "codechipa2"])
+    elif {"txtechipa1", "txtechipa2"}.issubset(up.columns):
+        dedupe_cols.extend(["txtechipa1", "txtechipa2"])
+    if len(dedupe_cols) > 1:
+        score_cols = [c for c in ["cotaa", "cotae", "cotad", "cotao", "cotau", "gg", "ng"] if c in up.columns]
+        if score_cols:
+            up["_dupe_score"] = up[score_cols].notna().sum(axis=1)
+            up = up.sort_values(dedupe_cols + ["_dupe_score"], ascending=[True] * len(dedupe_cols) + [False], kind="mergesort")
+        before = len(up)
+        up = up.drop_duplicates(subset=dedupe_cols, keep="first")
+        scope_counts["upcoming_rows_after_dedupe"] = int(len(up))
+        if len(up) != before:
+            logger.info("[SCOPE] deduped %d duplicate fixtures", int(before - len(up)))
+        up.drop(columns=["_dupe_score"], inplace=True, errors="ignore")
+    else:
+        scope_counts["upcoming_rows_after_dedupe"] = int(len(up))
     scope_counts["upcoming_rows_after_filters"] = int(len(up))
 
     logger.info(
-        "[SCOPE] asof=%s run_asof_datetime=%s rows_in=%s parsed=%s after_past=%s after_window=%s after_league=%s after_horizon=%s",
+        "[SCOPE] asof=%s run_asof_datetime=%s rows_in=%s parsed=%s after_past=%s after_window=%s after_league=%s after_horizon=%s after_dedupe=%s",
         str(as_of_date),
         str(run_asof_datetime),
         scope_counts.get("upcoming_rows_in"),
@@ -586,6 +704,7 @@ def main() -> None:
         scope_counts.get("upcoming_rows_after_window"),
         scope_counts.get("upcoming_rows_after_league"),
         scope_counts.get("upcoming_rows_after_horizon"),
+        scope_counts.get("upcoming_rows_after_dedupe"),
     )
     log_json(
         {
@@ -860,6 +979,11 @@ def main() -> None:
         odds_under = r.get("cotau")
         imp_1x2 = _implied_probs_1x2(odds_home, odds_draw, odds_away)
         imp_ou = _implied_probs_two_way(odds_over, odds_under)
+        if model_variant == "no_odds":
+            odds_home = odds_draw = odds_away = np.nan
+            odds_over = odds_under = np.nan
+            imp_1x2 = {"p_home": np.nan, "p_draw": np.nan, "p_away": np.nan}
+            imp_ou = {"p_over": np.nan, "p_under": np.nan}
 
         # Elo similarity features (kernel-based, venue-aware) with cutoff at fixture datetime
         fixture_dt = pd.to_datetime(r.get("_fixture_dt"), errors="coerce")
@@ -1110,9 +1234,6 @@ def main() -> None:
                 logger.debug(f"EV calc error: prob={prob}, odds={odds}, err={e}")
                 return np.nan
 
-        ev_home = ev(probs["p_home"], odds_home)
-        ev_draw = ev(probs["p_draw"], odds_draw)
-        ev_away = ev(probs["p_away"], odds_away)
         ev_over = ev(probs["p_over25"], odds_over)
         ev_under = ev(probs["p_under25"], odds_under)
 
@@ -1139,7 +1260,7 @@ def main() -> None:
         ev_btts_yes = ev(p_btts_yes, odds_btts_yes)
         ev_btts_no = ev(p_btts_no, odds_btts_no)
 
-        # Milestone 7.2: minute-goals timing probabilities (does NOT change mu).
+        # Milestone 7.2: timing flags used for risk gating (no timing markets exported).
         timing = compute_match_timing(
             home=home,
             away=away,
@@ -1148,24 +1269,21 @@ def main() -> None:
             profiles=timing_profiles,
             meta=timing_meta,
         )
-
-        odds_1h_over_0_5 = r.get("odds_1h_over_0_5", np.nan)
-        odds_1h_under_0_5 = r.get("odds_1h_under_0_5", np.nan)
-        odds_2h_over_0_5 = r.get("odds_2h_over_0_5", np.nan)
-        odds_2h_under_0_5 = r.get("odds_2h_under_0_5", np.nan)
-        odds_2h_over_1_5 = r.get("odds_2h_over_1_5", np.nan)
-        odds_2h_under_1_5 = r.get("odds_2h_under_1_5", np.nan)
-        odds_goal_after_75_yes = r.get("odds_goal_after_75_yes", np.nan)
-        odds_goal_after_75_no = r.get("odds_goal_after_75_no", np.nan)
-
-        ev_1h_over_0_5 = ev(timing.get("p_1h_over_0_5"), odds_1h_over_0_5)
-        ev_1h_under_0_5 = ev(timing.get("p_1h_under_0_5"), odds_1h_under_0_5)
-        ev_2h_over_0_5 = ev(timing.get("p_2h_over_0_5"), odds_2h_over_0_5)
-        ev_2h_under_0_5 = ev(timing.get("p_2h_under_0_5"), odds_2h_under_0_5)
-        ev_2h_over_1_5 = ev(timing.get("p_2h_over_1_5"), odds_2h_over_1_5)
-        ev_2h_under_1_5 = ev(timing.get("p_2h_under_1_5"), odds_2h_under_1_5)
-        ev_goal_after_75_yes = ev(timing.get("p_goal_after_75_yes"), odds_goal_after_75_yes)
-        ev_goal_after_75_no = ev(timing.get("p_goal_after_75_no"), odds_goal_after_75_no)
+        timing_payload = {
+            "timing_usable": int(timing.get("timing_usable", 0) or 0),
+            "timing_home_usable": int(timing.get("timing_home_usable", 0) or 0),
+            "timing_away_usable": int(timing.get("timing_away_usable", 0) or 0),
+            "timing_home_matches": int(timing.get("timing_home_matches", 0) or 0),
+            "timing_away_matches": int(timing.get("timing_away_matches", 0) or 0),
+            "timing_home_goals_scored": int(timing.get("timing_home_goals_scored", 0) or 0),
+            "timing_home_goals_conceded": int(timing.get("timing_home_goals_conceded", 0) or 0),
+            "timing_away_goals_scored": int(timing.get("timing_away_goals_scored", 0) or 0),
+            "timing_away_goals_conceded": int(timing.get("timing_away_goals_conceded", 0) or 0),
+            "timing_early_share": timing.get("timing_early_share", np.nan),
+            "timing_late_share": timing.get("timing_late_share", np.nan),
+            "slow_start_flag": int(timing.get("slow_start_flag", 0) or 0),
+            "late_goal_flag": int(timing.get("late_goal_flag", 0) or 0),
+        }
 
         preds.append(
             {
@@ -1190,27 +1308,19 @@ def main() -> None:
                 "upcoming_rows_after_window": int(scope_counts.get("upcoming_rows_after_window", 0) or 0),
                 "upcoming_rows_after_league": int(scope_counts.get("upcoming_rows_after_league", 0) or 0),
                 "upcoming_rows_after_horizon": int(scope_counts.get("upcoming_rows_after_horizon", 0) or 0),
+                "upcoming_rows_after_dedupe": int(scope_counts.get("upcoming_rows_after_dedupe", 0) or 0),
                 "upcoming_rows_after_filters": int(scope_counts.get("upcoming_rows_after_filters", 0) or 0),
                 "mu_home": mu_h,
                 "mu_away": mu_a,
                 "mu_total": mu_h + mu_a,
-                "p_home": probs["p_home"],
-                "p_draw": probs["p_draw"],
-                "p_away": probs["p_away"],
                 "p_over25": probs["p_over25"],
                 "p_under25": probs["p_under25"],
                 "p_over_2_5": probs["p_over25"],
                 "p_under_2_5": probs["p_under25"],
-                "odds_home": odds_home,
-                "odds_draw": odds_draw,
-                "odds_away": odds_away,
                 "odds_over25": odds_over,
                 "odds_under25": odds_under,
                 "odds_over_2_5": odds_over,
                 "odds_under_2_5": odds_under,
-                "EV_home": ev_home,
-                "EV_draw": ev_draw,
-                "EV_away": ev_away,
                 "EV_over25": ev_over,
                 "EV_under25": ev_under,
                 "p_btts_yes": p_btts_yes,
@@ -1219,24 +1329,8 @@ def main() -> None:
                 "odds_btts_no": odds_btts_no,
                 "EV_btts_yes": ev_btts_yes,
                 "EV_btts_no": ev_btts_no,
-                # Milestone 7.2 timing probabilities (optional markets)
-                **timing,
-                "odds_1h_over_0_5": odds_1h_over_0_5,
-                "odds_1h_under_0_5": odds_1h_under_0_5,
-                "odds_2h_over_0_5": odds_2h_over_0_5,
-                "odds_2h_under_0_5": odds_2h_under_0_5,
-                "odds_2h_over_1_5": odds_2h_over_1_5,
-                "odds_2h_under_1_5": odds_2h_under_1_5,
-                "odds_goal_after_75_yes": odds_goal_after_75_yes,
-                "odds_goal_after_75_no": odds_goal_after_75_no,
-                "EV_1h_over_0_5": ev_1h_over_0_5,
-                "EV_1h_under_0_5": ev_1h_under_0_5,
-                "EV_2h_over_0_5": ev_2h_over_0_5,
-                "EV_2h_under_0_5": ev_2h_under_0_5,
-                "EV_2h_over_1_5": ev_2h_over_1_5,
-                "EV_2h_under_1_5": ev_2h_under_1_5,
-                "EV_goal_after_75_yes": ev_goal_after_75_yes,
-                "EV_goal_after_75_no": ev_goal_after_75_no,
+                # Milestone 7.2 timing flags (risk gating only)
+                **timing_payload,
                 # Reliability/evidence (required by Milestone 4 pick engine)
                 "neff_sim_H": n_h,
                 "neff_sim_A": n_a,
@@ -1280,27 +1374,19 @@ def main() -> None:
                 "upcoming_rows_after_window",
                 "upcoming_rows_after_league",
                 "upcoming_rows_after_horizon",
+                "upcoming_rows_after_dedupe",
                 "upcoming_rows_after_filters",
                 "mu_home",
                 "mu_away",
                 "mu_total",
-                "p_home",
-                "p_draw",
-                "p_away",
                 "p_over25",
                 "p_under25",
                 "p_over_2_5",
                 "p_under_2_5",
-                "odds_home",
-                "odds_draw",
-                "odds_away",
                 "odds_over25",
                 "odds_under25",
                 "odds_over_2_5",
                 "odds_under_2_5",
-                "EV_home",
-                "EV_draw",
-                "EV_away",
                 "EV_over25",
                 "EV_under25",
                 "p_btts_yes",
@@ -1309,7 +1395,7 @@ def main() -> None:
                 "odds_btts_no",
                 "EV_btts_yes",
                 "EV_btts_no",
-                # Milestone 7.2 timing (minute-goals)
+                # Milestone 7.2 timing flags (risk gating only)
                 "timing_usable",
                 "timing_home_usable",
                 "timing_away_usable",
@@ -1323,30 +1409,6 @@ def main() -> None:
                 "timing_late_share",
                 "slow_start_flag",
                 "late_goal_flag",
-                "p_1h_over_0_5",
-                "p_1h_under_0_5",
-                "p_2h_over_0_5",
-                "p_2h_under_0_5",
-                "p_2h_over_1_5",
-                "p_2h_under_1_5",
-                "p_goal_after_75_yes",
-                "p_goal_after_75_no",
-                "odds_1h_over_0_5",
-                "odds_1h_under_0_5",
-                "odds_2h_over_0_5",
-                "odds_2h_under_0_5",
-                "odds_2h_over_1_5",
-                "odds_2h_under_1_5",
-                "odds_goal_after_75_yes",
-                "odds_goal_after_75_no",
-                "EV_1h_over_0_5",
-                "EV_1h_under_0_5",
-                "EV_2h_over_0_5",
-                "EV_2h_under_0_5",
-                "EV_2h_over_1_5",
-                "EV_2h_under_1_5",
-                "EV_goal_after_75_yes",
-                "EV_goal_after_75_no",
                 "neff_sim_H",
                 "neff_sim_A",
                 "press_stats_n_H",
@@ -1370,7 +1432,7 @@ def main() -> None:
     mu_total = out_df["mu_home"] + out_df["mu_away"] if not out_df.empty else pd.Series(dtype=float)
 
     _log_run({"task": "predict_upcoming", "history": str(Path(args.history).resolve()),
-              "upcoming": str(upcoming_path.resolve()),
+              "upcoming": str(primary_source.resolve()),
               "model_variant": model_variant,
               "models": [str(model_h_path), str(model_a_path)],
               "windows": args.windows, "rows": len(out_df), "skipped": skipped[:10],
@@ -1394,8 +1456,8 @@ def main() -> None:
             "event": "ELO_PRED_SUMMARY",
             "history": str(Path(args.history)),
             "history_hash": hist_hash,
-            "upcoming": str(upcoming_path),
-            "upcoming_hash": upcoming_hash,
+            "upcoming": str(primary_source),
+            "upcoming_hash": file_hash(primary_source) if primary_source.exists() else None,
             "models": {
                 "home": str(model_h_path),
                 "home_hash": model_h_hash,

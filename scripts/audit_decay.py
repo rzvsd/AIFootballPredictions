@@ -40,9 +40,9 @@ def main():
     
     for col in expected_decay:
         if col in df.columns:
-            print(f"  ✓ {col}")
+            print(f"  [OK] {col}")
         else:
-            print(f"  ❌ {col} MISSING")
+            print(f"  [X] {col} MISSING")
             issues += 1
     
     # Audit 2: Decay values should differ from non-decay
@@ -68,7 +68,7 @@ def main():
             
             # If all rows are identical, decay isn't working
             if identical > 95:
-                print(f"    ⚠️ WARNING: Decay barely differs from base!")
+                print(f"    [!] WARNING: Decay barely differs from base!")
         else:
             print(f"  {base} or {decay} missing")
     
@@ -83,7 +83,7 @@ def main():
             # Pressure form should be in [0, 1]
             if 'press' in col:
                 if min_v < 0 or max_v > 1:
-                    print(f"    ⚠️ Out of [0, 1] range!")
+                    print(f"    [!] Out of [0, 1] range!")
                     issues += 1
     
     # Audit 4: Verify decay weight formula with a sample
@@ -103,9 +103,9 @@ def main():
     
     print("\n" + "="*80)
     if issues == 0:
-        print("✅ Time Decay Audit PASSED!")
+        print("[OK] Time Decay Audit PASSED!")
     else:
-        print(f"⚠️ Found {issues} issues")
+        print(f"[!] Found {issues} issues")
     print("="*80)
 
 

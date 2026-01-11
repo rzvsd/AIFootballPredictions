@@ -1,6 +1,6 @@
 """
 Full Retroactive Backtest for 2025 ROI
-Calculates ROI for all betting markets: 1X2, O/U, BTTS
+Calculates ROI for O/U 2.5 and BTTS markets.
 """
 import pandas as pd
 import numpy as np
@@ -13,10 +13,6 @@ def poisson_probs(mu_h, mu_a):
     home_probs = [poisson.pmf(i, mu_h) for i in range(max_goals)]
     away_probs = [poisson.pmf(i, mu_a) for i in range(max_goals)]
     
-    p_home = sum(home_probs[i] * sum(away_probs[j] for j in range(i)) for i in range(max_goals))
-    p_away = sum(away_probs[j] * sum(home_probs[i] for i in range(j)) for j in range(max_goals))
-    p_draw = sum(home_probs[i] * away_probs[i] for i in range(max_goals))
-    
     # O/U 2.5
     p_under = sum(home_probs[i] * away_probs[j] for i in range(max_goals) for j in range(max_goals) if i + j <= 2)
     p_over = 1 - p_under
@@ -26,8 +22,8 @@ def poisson_probs(mu_h, mu_a):
     p_btts_no = 1 - p_btts_yes
     
     return {
-        'p_home': p_home, 'p_draw': p_draw, 'p_away': p_away,
-        'p_over25': p_over, 'p_under25': p_under,
+        'p_over25': p_over,
+        'p_under25': p_under,
         'p_btts_yes': p_btts_yes, 'p_btts_no': p_btts_no
     }
 
@@ -48,7 +44,7 @@ def main():
     # Load calibration models
     import joblib
     calib_models = {}
-    for name in ["home", "away", "over", "btts"]:
+    for name in ["over", "btts"]:
         cp = Path('models/calibration') / f"calib_{name}.pkl"
         if cp.exists():
             calib_models[name] = joblib.load(cp)
@@ -65,17 +61,6 @@ def main():
         probs = poisson_probs(mu_h, mu_a)
         
         # Apply Calibration
-        if "home" in calib_models:
-             probs["p_home"] = float(calib_models["home"].predict([probs["p_home"]])[0])
-        if "away" in calib_models:
-             probs["p_away"] = float(calib_models["away"].predict([probs["p_away"]])[0])
-        # Renormalize 1X2
-        tot = probs["p_home"] + probs["p_away"] + probs["p_draw"]
-        if tot > 0:
-            probs["p_home"] /= tot
-            probs["p_away"] /= tot
-            probs["p_draw"] /= tot
-            
         if "over" in calib_models:
              probs["p_over25"] = float(calib_models["over"].predict([probs["p_over25"]])[0])
              probs["p_under25"] = 1.0 - probs["p_over25"]
@@ -85,9 +70,6 @@ def main():
              probs["p_btts_no"] = 1.0 - probs["p_btts_yes"]
         
         # Actual results
-        actual_home_win = row['ft_home'] > row['ft_away']
-        actual_draw = row['ft_home'] == row['ft_away']
-        actual_away_win = row['ft_home'] < row['ft_away']
         actual_over25 = (row['ft_home'] + row['ft_away']) > 2.5
         actual_btts = (row['ft_home'] > 0) and (row['ft_away'] > 0)
         
@@ -98,14 +80,8 @@ def main():
             'ft_home': row['ft_home'],
             'ft_away': row['ft_away'],
             **probs,
-            'odds_home': row.get('odds_home', 2.0),
-            'odds_draw': row.get('odds_draw', 3.5),
-            'odds_away': row.get('odds_away', 3.0),
             'odds_over': row.get('odds_over', 1.9),
             'odds_under': row.get('odds_under', 1.9),
-            'actual_home_win': actual_home_win,
-            'actual_draw': actual_draw,
-            'actual_away_win': actual_away_win,
             'actual_over25': actual_over25,
             'actual_btts': actual_btts,
         })
@@ -113,9 +89,6 @@ def main():
     bt = pd.DataFrame(results)
     
     # Calculate EV
-    bt['EV_home'] = bt['p_home'] * bt['odds_home'] - 1
-    bt['EV_draw'] = bt['p_draw'] * bt['odds_draw'] - 1
-    bt['EV_away'] = bt['p_away'] * bt['odds_away'] - 1
     bt['EV_over25'] = bt['p_over25'] * bt['odds_over'] - 1
     bt['EV_under25'] = bt['p_under25'] * bt['odds_under'] - 1
     
@@ -135,16 +108,6 @@ def main():
     print("\n" + "="*70)
     print("2025 ROI ANALYSIS - FULL BACKTEST")
     print("="*70)
-    
-    # 1X2
-    print("\n1X2 MARKET (betting when EV > 0%):")
-    print("-" * 50)
-    h_roi, h_wr, h_w, h_n = calc_roi(bt, 'p_home', 'actual_home_win', 'odds_home', 'EV_home', 0)
-    d_roi, d_wr, d_w, d_n = calc_roi(bt, 'p_draw', 'actual_draw', 'odds_draw', 'EV_draw', 0)
-    a_roi, a_wr, a_w, a_n = calc_roi(bt, 'p_away', 'actual_away_win', 'odds_away', 'EV_away', 0)
-    print(f"  Home Win:  ROI={h_roi:+.1f}%  WinRate={h_wr:.1f}%  ({h_w}/{h_n} bets)")
-    print(f"  Draw:      ROI={d_roi:+.1f}%  WinRate={d_wr:.1f}%  ({d_w}/{d_n} bets)")
-    print(f"  Away Win:  ROI={a_roi:+.1f}%  WinRate={a_wr:.1f}%  ({a_w}/{a_n} bets)")
     
     # O/U 2.5
     print("\nO/U 2.5 MARKET (betting when EV > 0%):")
@@ -173,9 +136,10 @@ def main():
     print("SUMMARY - Best Markets by ROI:")
     print("="*70)
     all_markets = [
-        ('Home Win', h_roi, h_n), ('Draw', d_roi, d_n), ('Away Win', a_roi, a_n),
-        ('Over 2.5', o_roi, o_n), ('Under 2.5', u_roi, u_n),
-        ('BTTS Yes', by_roi, by_n), ('BTTS No', bn_roi, bn_n)
+        ('Over 2.5', o_roi, o_n),
+        ('Under 2.5', u_roi, u_n),
+        ('BTTS Yes', by_roi, by_n),
+        ('BTTS No', bn_roi, bn_n),
     ]
     sorted_markets = sorted(all_markets, key=lambda x: x[1], reverse=True)
     for name, roi, bets in sorted_markets:

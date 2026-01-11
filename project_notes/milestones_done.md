@@ -1,3 +1,5 @@
+Note (2026-01-10): 1X2 full engine is legacy; current pipeline outputs O/U 2.5 + BTTS only.
+
 Milestone 1 - Elo Rebuild, Similarity Bands, and Wiring (Dec 2025)
 
 Goal
@@ -126,7 +128,7 @@ Goal
 - Enforce hard quality gates, select at most one pick per fixture (or none), assign stake tiers, and write stable pick artifacts.
 
 What was done
-- New module: `cgm/pick_engine.py`
+- Legacy module archived: `archive/legacy_full_engine/pick_engine.py`
   - Reads `reports/cgm_upcoming_predictions.csv` and fails fast if required columns are missing.
   - Applies deterministic gates:
     - G1 odds sanity per market (requires complete 1X2 odds and complete OU2.5 odds).
@@ -142,7 +144,7 @@ What was done
   - Now writes pick-engine-required columns into `reports/cgm_upcoming_predictions.csv` (fixture_datetime, league, reliability evidence, sterile/assassin flags, and OU2.5 canonical naming).
 - Pipeline wiring: `predict.py`
   - Runs the pick engine as the final step (also in `--predict-only` mode).
-- Audits: `scripts/audit_picks.py`
+- Audits: `scripts/audit_picks_goals.py` (goals-only)
   - Checks determinism (two runs -> identical hash), allowed markets only, odds sanity, mu bounds, reliability gates, sterile/assassin blocks, EV thresholds, stake-tier mapping, and input_hash integrity.
 
 Key artifacts
@@ -162,7 +164,7 @@ What was done
   - Parses `fixture_datetime` from `datameci` + `orameci`.
   - Applies deterministic scope filters (drop past strictly > `run_asof_datetime`, then season window, then league/country, then optional horizon) and logs counts at each step.
   - Writes scope metadata into every prediction row (`run_asof_datetime`, `scope_*`, counts) and logs `UPCOMING_SCOPE` into `reports/run_log.jsonl`.
-- `cgm/pick_engine.py` now:
+- Legacy full engine (archived) notes:
   - Requires `run_asof_datetime` + `scope_*` columns in its input contract.
   - Re-applies the same scope filter internally, so it cannot output picks for past fixtures even if upstream export is a schedule dump.
 - New audit:
@@ -403,5 +405,98 @@ python -m scripts.calibrate_league --input reports/backtest_epl_2025.csv --leagu
 
 # View calibration file
 cat data/league_calibration.json
+```
+
+Milestone 15 - Multi-League Expansion (Dec 2025)
+
+Goal
+- Support all 12 leagues from a single data source (`allratingv.csv`) with automatic future fixture detection based on date (not scores).
+- Enable per-league round scheduling awareness (e.g., EPL plays Dec 28, Romania plays Jan 16).
+
+What was done
+1. **Direct Data Loading** (`cgm/predict_upcoming.py`):
+   - Changed from using merged files to reading directly from `CGM data/multiple leagues and seasons/allratingv.csv`.
+   - This single file contains ALL historical data AND future fixtures (identified by `datameci > today`).
+   - Removed complex fallback logic; simplified to date-based filtering.
+
+2. **Build Match History Fixes** (`cgm/build_match_history.py`):
+   - Fixed UnboundLocalError: `ms` variable was referenced before `_read_csv()` call.
+   - Fixed column name mismatch: CGM files use `datameci` not `date`.
+   - Added support for multi-league subfolder path detection.
+
+3. **Merge Script Enhancement** (`scripts/merge_cgm_data.py`):
+   - Added recursive subdirectory scanning (`rglob()` instead of `glob()`).
+   - Improved file type detection for league-specific filenames (epl1.csv, bundesliga.csv, etc.).
+   - Added backup folder exclusion.
+   - Note: This script is now optional - bot reads directly from source.
+
+4. **Verification Results**:
+   - Loaded 38,211 rows from `allratingv.csv` (12 leagues, multiple seasons).
+   - Filtered to 2,139 future fixtures.
+   - 164 fixtures within 14-day horizon.
+   - Generated 27 picks across 5 leagues.
+
+Key Artifacts
+- Modified `cgm/predict_upcoming.py` (lines 512-554)
+- Modified `cgm/build_match_history.py` (lines 118-175)
+- Modified `scripts/merge_cgm_data.py` (lines 1-120)
+
+Usage
+```bash
+# Full pipeline with rebuild
+python predict.py --rebuild-history
+
+# Predictions only (uses existing models/history)
+python predict.py --predict-only
+
+# Optional: merge data files (not required for predictions)
+python scripts/merge_cgm_data.py
+```
+
+Leagues Now Supported
+- England: Premier L, Championship
+- Italy: Serie A, Serie B
+- Spain: Primera
+- Germany: Bundesliga
+- France: Ligue 1, Ligue 2
+- Portugal: Primeira L
+- Netherlands: Eredivisie
+- Turkey: Super Lig
+- Romania: Liga 1
+
+Milestone 16 - Multi-League Backtest Infrastructure (Dec 2025) [PARTIAL]
+
+Goal
+- Provide tooling to run backtests across all 12 leagues.
+- Aggregate results and run calibration automatically.
+
+What was done
+1. **New Script Created** (`scripts/run_multi_league_backtest.py`):
+   - Wrapper to run backtests for all available leagues.
+   - Features: `--list-leagues` to show available data, `--leagues` to filter.
+   - Auto-detects leagues/seasons from history file.
+   - Aggregates results into single report.
+   - Runs calibration on aggregated results.
+
+2. **Updated `run_backtest.py`**:
+   - Changed default history to `cgm_match_history_with_elo_stats_xg.csv` (has all features).
+   - Removed filtered history creation (was losing columns).
+   - Uses full history with `--as-of-date` for date scoping.
+
+3. **Updated `calibrate_league.py`**:
+   - Already supports multi-league via `--all-leagues` pattern.
+
+Known Issue
+- Backtest subprocess encounters xG feature column errors when running.
+- Requires further debugging of feature dependencies in predict_upcoming.py.
+- The core infrastructure is in place; feature compatibility needs work.
+
+Usage
+```bash
+# List available leagues
+python scripts/run_multi_league_backtest.py --list-leagues
+
+# Run backtest for specific leagues
+python scripts/run_multi_league_backtest.py --start-date 2025-10-01 --leagues "Premier L,Serie A"
 ```
 

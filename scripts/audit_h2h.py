@@ -39,13 +39,13 @@ def main():
     
     for col in expected_h2h:
         if col in df.columns:
-            print(f"  ✓ {col}")
+            print(f"  [OK] {col}")
         else:
-            print(f"  ❌ {col} MISSING")
+            print(f"  [X] {col} MISSING")
             issues += 1
     
     if issues > 0:
-        print("\n⚠️ H2H features not found - cannot continue audit")
+        print("\n[!] H2H features not found - cannot continue audit")
         return
     
     # Audit 2: Value ranges
@@ -55,7 +55,7 @@ def main():
     min_m, max_m = df['h2h_matches'].min(), df['h2h_matches'].max()
     print(f"  h2h_matches: min={min_m}, max={max_m}")
     if min_m < 0:
-        print("    ⚠️ Negative match counts!")
+        print("    [!] Negative match counts!")
         issues += 1
     
     # Rates should be in [0, 1]
@@ -68,7 +68,7 @@ def main():
                 min_v, max_v = usable[col].min(), usable[col].max()
                 print(f"  {col}: min={min_v:.3f}, max={max_v:.3f} (when usable)")
                 if min_v < 0 or max_v > 1:
-                    print(f"    ⚠️ Out of [0, 1] range!")
+                    print(f"    [!] Out of [0, 1] range!")
                     issues += 1
     
     # Goals avg should be reasonable
@@ -77,7 +77,7 @@ def main():
         min_g, max_g = usable['h2h_goals_avg'].min(), usable['h2h_goals_avg'].max()
         print(f"  h2h_goals_avg: min={min_g:.2f}, max={max_g:.2f} (when usable)")
         if min_g < 0 or max_g > 10:
-            print("    ⚠️ Suspicious goal average range!")
+            print("    [!] Suspicious goal average range!")
     
     # Audit 3: Usability stats
     print("\n--- Audit 3: H2H Usability ---")
@@ -96,7 +96,7 @@ def main():
     print("\n--- Audit 4: No Future Leakage Check ---")
     print("  Note: H2H uses strictly-before logic, so current match never included")
     print("  (Detailed leakage check requires date-aware analysis - see h2h_features.py)")
-    print("  ✓ Assuming leakage-safe based on module design")
+    print("  [OK] Assuming leakage-safe based on module design")
     
     # Audit 5: Sample some known rivalries
     print("\n--- Audit 5: Sample Rivalry Check ---")
@@ -120,9 +120,9 @@ def main():
     
     print("\n" + "="*80)
     if issues == 0:
-        print("✅ H2H History Audit PASSED!")
+        print("[OK] H2H History Audit PASSED!")
     else:
-        print(f"⚠️ Found {issues} issues")
+        print(f"[!] Found {issues} issues")
     print("="*80)
 
 

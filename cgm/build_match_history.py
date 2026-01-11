@@ -2,9 +2,9 @@
 Build a unified CGM match history table (one row per played match).
 
 Inputs (from "CGM data"):
-  - multiple seasons.csv   (outcomes, Elo, CGM probs/odds)
-  - goals statistics.csv   (shots, shots on target, corners, possession)
-  - team_registry          (normalize codes/names)
+  - multiple seasons.csv / multiple leagues and seasons/allratingv.csv (outcomes, Elo, CGM probs/odds)
+  - goals statistics.csv or multiple leagues and seasons/upcoming.csv (shots, shots on target, corners, possession)
+  - team_registry (normalize codes/names)
 
 Output:
   data/enhanced/cgm_match_history.csv
@@ -36,6 +36,12 @@ except ImportError:
     from team_registry import build_team_registry, normalize_team  # type: ignore
 
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 def _read_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep=None, engine="python")
 
@@ -43,6 +49,11 @@ def _read_csv(path: Path) -> pd.DataFrame:
 def _normalize_df(df: pd.DataFrame, registry: Dict[str, Dict[str, str]]) -> pd.DataFrame:
     """Add normalized names and code strings."""
     df = df.copy()
+    def _col_series(name: str) -> pd.Series:
+        if name in df.columns:
+            return df[name]
+        return pd.Series([np.nan] * len(df), index=df.index)
+
     for col in ("codechipa1", "codechipa2"):
         if col in df.columns:
             s = df[col].astype(str).str.strip()
@@ -50,10 +61,12 @@ def _normalize_df(df: pd.DataFrame, registry: Dict[str, Dict[str, str]]) -> pd.D
             s = s.str.replace(r"\.0$", "", regex=True)
             s = s.replace({"nan": np.nan, "None": np.nan, "": np.nan})
             df[col] = s
-    df["home"] = df.get("txtechipa1", "").astype(str).apply(lambda x: normalize_team(x, registry))
-    df["away"] = df.get("txtechipa2", "").astype(str).apply(lambda x: normalize_team(x, registry))
-    df["code_home"] = df.get("codechipa1", "").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
-    df["code_away"] = df.get("codechipa2", "").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
+    home_raw = _col_series("txtechipa1").where(lambda s: s.notna(), "")
+    away_raw = _col_series("txtechipa2").where(lambda s: s.notna(), "")
+    df["home"] = home_raw.astype(str).apply(lambda x: normalize_team(x, registry))
+    df["away"] = away_raw.astype(str).apply(lambda x: normalize_team(x, registry))
+    df["code_home"] = _col_series("codechipa1").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
+    df["code_away"] = _col_series("codechipa2").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
     return df
 
 
@@ -66,6 +79,61 @@ def _split_possession(val) -> Tuple[float | None, float | None]:
     except Exception:
         return (None, None)
     return (None, None)
+
+
+def _parse_date_only(s: pd.Series) -> pd.Series:
+    """
+    Deterministically parse dates from CGM exports.
+
+    Mirrors cgm.backfill_match_stats._parse_date_only to keep joins consistent.
+    """
+    raw = s.astype(str).str.strip().replace({"nan": "", "None": "", "": ""})
+    raw = raw.str.split().str[0]
+
+    def _infer_ambiguous_slash_pref(vals: pd.Series, *, year_fmt: str) -> str:
+        parts = vals.str.split("/", n=2, expand=True)
+        a = pd.to_numeric(parts[0], errors="coerce")
+        b = pd.to_numeric(parts[1], errors="coerce")
+        mdy_def = int(((b > 12) & (a <= 12)).sum())
+        dmy_def = int(((a > 12) & (b <= 12)).sum())
+        if dmy_def > mdy_def:
+            return f"%d/%m/{year_fmt}"
+        return f"%m/%d/{year_fmt}"
+
+    dt = pd.Series(pd.NaT, index=s.index)
+    for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"]:
+        parsed = pd.to_datetime(raw, format=fmt, errors="coerce")
+        dt = dt.fillna(parsed)
+
+    def _parse_slash(mask: pd.Series, *, year_fmt: str) -> None:
+        if not mask.any():
+            return
+        vals = raw[mask]
+        parts = vals.str.split("/", n=2, expand=True)
+        a = pd.to_numeric(parts[0], errors="coerce")
+        b = pd.to_numeric(parts[1], errors="coerce")
+        mdy_unamb = (b > 12) & (a <= 12)
+        dmy_unamb = (a > 12) & (b <= 12)
+        amb_or_same = (a <= 12) & (b <= 12)
+        amb_fmt = _infer_ambiguous_slash_pref(vals, year_fmt=year_fmt)
+        fmt_mdy = f"%m/%d/{year_fmt}"
+        fmt_dmy = f"%d/%m/{year_fmt}"
+        parse_mdy = mdy_unamb | (amb_or_same & (amb_fmt == fmt_mdy))
+        parse_dmy = dmy_unamb | (amb_or_same & (amb_fmt == fmt_dmy))
+        if parse_mdy.any():
+            dt.loc[vals.index[parse_mdy]] = pd.to_datetime(vals[parse_mdy], format=fmt_mdy, errors="coerce")
+        if parse_dmy.any():
+            dt.loc[vals.index[parse_dmy]] = pd.to_datetime(vals[parse_dmy], format=fmt_dmy, errors="coerce")
+
+    _parse_slash(dt.isna() & raw.str.match(r"^\d{1,2}/\d{1,2}/\d{4}$", na=False), year_fmt="%Y")
+    _parse_slash(dt.isna() & raw.str.match(r"^\d{1,2}/\d{1,2}/\d{2}$", na=False), year_fmt="%y")
+
+    for pat, fmt in [(r"^\d{1,2}-\d{1,2}-\d{4}$", "%d-%m-%Y"), (r"^\d{1,2}\.\d{1,2}\.\d{4}$", "%d.%m.%Y")]:
+        mask = dt.isna() & raw.str.match(pat, na=False)
+        if mask.any():
+            dt.loc[mask] = pd.to_datetime(raw[mask], format=fmt, errors="coerce")
+
+    return dt.dt.date
 
 
 def build_match_history(
@@ -90,37 +158,99 @@ def build_match_history(
         cutoff = cutoff.tz_localize(None) if getattr(cutoff, "tzinfo", None) is not None else cutoff
         cutoff = cutoff.normalize() if not pd.isna(cutoff) else pd.Timestamp.utcnow().tz_localize(None).normalize()
     base = Path(data_dir)
-    ms_path = base / "multiple seasons.csv"
-    gs_path = base / "goals statistics.csv"
-    if not ms_path.exists() or not gs_path.exists():
-        raise FileNotFoundError("Required CGM CSVs not found in 'CGM data'")
+    multi_league_dir = base / "multiple leagues and seasons"
+    
+    # DETERMINE PATHS
+    # If the new multi-league folder exists, use it. Otherwise fallback to root.
+    if multi_league_dir.exists():
+        ms_path = multi_league_dir / "allratingv.csv"
+        # For goals statistics, we need to aggregate all small CSVs in the folder
+        # explicitly excluding the big combined files
+        all_files = list(multi_league_dir.glob("*.csv"))
+        stats_files = [
+            f for f in all_files 
+            if f.name.lower() not in ["allratingv.csv", "allags.csv", "allupcoming - copy.csv"]
+            and ("upcoming" not in f.name.lower() or f.name.lower() == "upcoming.csv")
+        ]
+    else:
+        # Legacy single-league fallback
+        ms_path = base / "multiple seasons.csv"
+        stats_files = [base / "goals statistics.csv"]
+
+    if not ms_path.exists():
+        raise FileNotFoundError(f"Required history file not found: {ms_path}")
 
     registry = build_team_registry(base)
-
-    # Base matches (multiple seasons)
+    
+    # 1. READ MATCH HISTORY (multiple seasons / allratingv.csv)
+    logger.info(f"Loading match history from: {ms_path}")
     ms = _read_csv(ms_path)
+    
+    # Normalize before merge
     ms = _normalize_df(ms, registry)
+    
+    # 2. READ & AGGREGATE STATS (goals statistics / laliga.csv, etc)
+    gs_list = []
+    
+    # Ensure we load the legacy stats file too if using multi-league (it often contains EPL stats)
+    if multi_league_dir.exists():
+        legacy_gs = base / "goals statistics.csv"
+        if legacy_gs.exists():
+            stats_files.append(legacy_gs)
 
-    # Stats per match (goals statistics)
-    gs = _read_csv(gs_path)
+    for sf in stats_files:
+        if sf.exists():
+            try:
+                temp_df = _read_csv(sf)
+                gs_list.append(temp_df)
+            except Exception as e:
+                logger.warning(f"Failed to read stats file {sf}: {e}")
+    
+    if gs_list:
+        gs = pd.concat(gs_list, ignore_index=True)
+    else:
+        logger.warning("No statistics files found. Creating empty stats dataframe.")
+        gs = pd.DataFrame()
+
     gs = _normalize_df(gs, registry)
+    
+    # Debug sizes
+    logger.info(f"Match History (MS) Rows: {len(ms)}")
+    logger.info(f"Goal Stats (GS) Rows: {len(gs)}")
+
     # Possession split
     if "ballp" in gs.columns:
         poss = gs["ballp"].apply(_split_possession)
         gs["ballph"] = poss.apply(lambda x: x[0])
         gs["ballpa"] = poss.apply(lambda x: x[1])
 
-    # Merge on season/date + codes if present, else names/date
-    merge_keys = []
-    if all(k in ms.columns for k in ["sezonul", "datameci", "codechipa1", "codechipa2"]):
-        merge_keys = ["sezonul", "datameci", "codechipa1", "codechipa2"]
-    elif all(k in ms.columns for k in ["datameci", "home", "away"]):
-        merge_keys = ["datameci", "home", "away"]
+    # Merge on date + codes if possible, else date+names
+    # Deterministic parsing to align with stats backfill.
+    date_col = "datameci" if "datameci" in ms.columns else "date"
+    ms["_date_only"] = _parse_date_only(ms[date_col])
 
-    if not merge_keys:
-        raise ValueError("Cannot determine merge keys for CGM match history.")
+    gs_date_col = "datameci" if "datameci" in gs.columns else "date"
+    if not gs.empty:
+        gs["_date_only"] = _parse_date_only(gs[gs_date_col])
+    else:
+        gs["_date_only"] = pd.Series(dtype="datetime64[ns]")
+    
+    # Try merging on codechipa if available (most reliable)
+    if "codechipa1" in ms.columns and "codechipa1" in gs.columns:
+        merge_keys = ["_date_only", "codechipa1", "codechipa2"]
+    else:
+        merge_keys = ["_date_only", "home", "away"]
 
+    logger.info(f"Merging with keys: {merge_keys}")
+
+    # Create temp merge frames to handle the date type explicitly
     merged = pd.merge(ms, gs, how="left", on=merge_keys, suffixes=("", "_gs"))
+    
+    logger.info(f"Merged Rows: {len(merged)}")
+    
+    # Drop temp date col
+    if "_date_only" in merged.columns:
+        merged = merged.drop(columns=["_date_only"])
 
     # Parse/clean season from 'sezonul' if present
     if "sezonul" in merged.columns:
@@ -152,9 +282,14 @@ def build_match_history(
 
     # Drop future matches (strict cutoff: max_date if provided, else today UTC)
     try:
-        merged["datetime"] = pd.to_datetime(merged["datameci"], errors="coerce")
-        # Keep unparsable rows (NaT); filter only where datetime is known.
-        merged = merged[merged["datetime"].isna() | (merged["datetime"] <= cutoff)]
+        date_src = "datameci" if "datameci" in merged.columns else "date"
+        parsed_dates = _parse_date_only(merged[date_src]) if date_src in merged.columns else pd.Series([pd.NaT] * len(merged))
+        na_dates = int(pd.isna(parsed_dates).sum())
+        if na_dates:
+            logger.warning("Dropping %d rows with unparseable dates in match history.", na_dates)
+        merged = merged[parsed_dates.notna()].copy()
+        merged = merged[parsed_dates <= cutoff.date()].copy()
+        merged["datetime"] = pd.to_datetime(merged[date_src], errors="coerce")
     except Exception as e:
         print(f"[warn] Could not filter future rows from CGM history: {e}")
 

@@ -15,17 +15,30 @@ ELO_SIM_SIGMA_PER_LEAGUE = {
     "I1": 45.0,
 }
 
+# Scope of leagues to process
+LIVE_SCOPE = {
+    "England": ["Premier L", "Championship"],
+    "Spain": ["Primera"],
+    "Germany": ["Bundesliga"],
+    "Italy": ["Serie A", "Serie B"],
+    "France": ["Ligue 1", "Ligue 2"],
+    "Netherlands": ["Eredivisie"],
+    "Portugal": ["Primeira L"],
+    "Turkey": ["Super Lig"],
+    "Romania": ["Liga 1"],
+}
+
 # ---------------------------------------------------------------------------
 # Live scope (single source of truth)
 #
 # These defaults define the "live" prediction window for Milestone 4+.
-# They can be overridden via CLI args in `cgm.predict_upcoming` / `cgm.pick_engine`.
+# They can be overridden via CLI args in `cgm.predict_upcoming` / `cgm.pick_engine_goals`.
 # ---------------------------------------------------------------------------
 
 # CGM league naming is not guaranteed to match bookmaker codes; use the literal values
 # found in your exports (example: "Premier L").
-LIVE_SCOPE_COUNTRY = "England"
-LIVE_SCOPE_LEAGUE = "Premier L"
+LIVE_SCOPE_COUNTRY = ""
+LIVE_SCOPE_LEAGUE = ""
 
 # Date-window is the most robust season selector (avoid season-label quirks).
 LIVE_SCOPE_SEASON_START = "2025-08-01"
@@ -37,12 +50,12 @@ LIVE_SCOPE_HORIZON_DAYS = 14
 # ---------------------------------------------------------------------------
 # Pick Engine Gates (single source of truth)
 #
-# These thresholds are used by both pick_engine.py (full) and pick_engine_goals.py.
-# Note: goals-only engine intentionally uses stricter values for some gates.
+# These thresholds are used by the goals-only engine.
+# Legacy full-engine values are retained for reference (archived).
 # ---------------------------------------------------------------------------
 
 # Odds sanity: reject odds below this value (too close to 1.0 = no edge)
-ODDS_MIN_FULL = 1.01        # Used by pick_engine.py (1X2 + O/U)
+ODDS_MIN_FULL = 1.01        # Legacy full engine (1X2 + O/U)
 ODDS_MIN_GOALS = 1.05       # Used by pick_engine_goals.py (goals-only)
 
 # mu_total (expected total goals) must be in this range for a pick
@@ -60,11 +73,11 @@ XG_EVID_MIN_FULL = 2.0      # xG evidence minimum for full engine
 XG_EVID_MIN_GOALS = 3.0     # Stricter for goals-only engine
 
 # EV (Expected Value) thresholds
-EV_MIN_1X2 = 0.05           # Minimum EV for 1X2 picks
+EV_MIN_1X2 = 0.05           # Legacy full engine: minimum EV for 1X2 picks
 EV_MIN_OU25 = 0.04          # Minimum EV for Over/Under 2.5
 EV_MIN_BTTS = 0.04          # Minimum EV for BTTS
 EV_MIN_TIMING = 0.05        # Minimum EV for timing markets
-EV_MIN_STERILE_1X2 = 0.07   # Higher EV required for 1X2 with sterile flag
+EV_MIN_STERILE_1X2 = 0.07   # Legacy full engine: higher EV for 1X2 with sterile flag
 EV_MIN_STERILE_OVER = 0.08  # Higher EV required for Over with sterile flag
 EV_MIN_ASSASSIN_ANY = 0.07  # Higher EV required when assassin flag is set
 EV_MIN_ASSASSIN_UNDER = 0.08

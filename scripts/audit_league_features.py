@@ -39,13 +39,13 @@ def main():
     
     for col in expected_lg:
         if col in df.columns:
-            print(f"  ✓ {col}")
+            print(f"  [OK] {col}")
         else:
-            print(f"  ❌ {col} MISSING")
+            print(f"  [X] {col} MISSING")
             issues += 1
     
     if issues > 0:
-        print("\n⚠️ League features not found - cannot continue audit")
+        print("\n[!] League features not found - cannot continue audit")
         return
     
     # Audit 2: Value ranges
@@ -58,14 +58,14 @@ def main():
     min_g, max_g, mean_g = usable['lg_goals_per_match'].min(), usable['lg_goals_per_match'].max(), usable['lg_goals_per_match'].mean()
     print(f"  lg_goals_per_match: min={min_g:.2f}, max={max_g:.2f}, mean={mean_g:.2f}")
     if min_g < 1.5 or max_g > 4.5:
-        print("    ⚠️ Unusual goals per match range")
+        print("    [!] Unusual goals per match range")
     
     # Rates should be in [0, 1]
     for col in ['lg_home_win_rate', 'lg_btts_rate', 'lg_over25_rate']:
         min_v, max_v = usable[col].min(), usable[col].max()
         print(f"  {col}: min={min_v:.3f}, max={max_v:.3f}")
         if min_v < 0 or max_v > 1:
-            print(f"    ⚠️ Out of [0, 1] range!")
+            print(f"    [!] Out of [0, 1] range!")
             issues += 1
     
     # Home advantage - typically 1.2-1.5
@@ -104,15 +104,15 @@ def main():
     print(f"    lg_home_win_rate: std={std_home:.4f}")
     
     if std_goals < 0.01 and std_btts < 0.01:
-        print("    ⚠️ Very low variation - features may not differentiate leagues")
+        print("    [!] Very low variation - features may not differentiate leagues")
     else:
-        print("    ✓ Sufficient variation detected")
+        print("    [OK] Sufficient variation detected")
     
     print("\n" + "="*80)
     if issues == 0:
-        print("✅ League Features Audit PASSED!")
+        print("[OK] League Features Audit PASSED!")
     else:
-        print(f"⚠️ Found {issues} issues")
+        print(f"[!] Found {issues} issues")
     print("="*80)
 
 

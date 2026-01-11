@@ -32,14 +32,6 @@ ALLOWED_MARKETS = {
     "OU25_UNDER",
     "BTTS_YES",
     "BTTS_NO",
-    "1H_OU05_OVER",
-    "1H_OU05_UNDER",
-    "2H_OU05_OVER",
-    "2H_OU05_UNDER",
-    "2H_OU15_OVER",
-    "2H_OU15_UNDER",
-    "GOAL_AFTER_75_YES",
-    "GOAL_AFTER_75_NO",
 }
 
 # Gate thresholds - imported from config.py (uses stricter _GOALS variants)
@@ -83,7 +75,7 @@ def _expected_ev_min(market: str, sterile: int, assassin: int, timing_usable: in
         return float(ev_min)
     if market.startswith("BTTS_"):
         return EV_MIN_BTTS
-    return EV_MIN_TIMING
+    return EV_MIN_OU25
 
 
 def _stake_from_confidence(confidence: float) -> tuple[str, float]:

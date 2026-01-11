@@ -35,37 +35,56 @@ def _read_history(path: Path) -> pd.DataFrame:
 
 def _create_temp_upcoming(df_day: pd.DataFrame, out_dir: Path) -> Path:
     """
-    Creates a temporary 'upcoming - Copy.CSV' for a specific day.
+    Creates temporary "upcoming" inputs for a specific day.
     CRITICAL: Drops result columns so the bot CANNOT see the outcome.
+
+    Note: predict_upcoming prefers upcoming.csv (multi-league) or allratingv.csv (fallback),
+    so we write both to keep the backtest deterministic.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / "upcoming - Copy.CSV"
+    out_file = out_dir / "multiple seasons.csv"
 
     # Map history columns back to the "upcoming" format expected by predict_upcoming.py
     # CGM Column Legend used for mapping:
     # datameci, txtechipa1, txtechipa2, cotaa, cotae, cotad, cotao, cotau
     
     upcoming_df = pd.DataFrame()
-    upcoming_df["datameci"] = df_day["date"]
-    upcoming_df["orameci"] = df_day["time"].astype(str).str.replace(":", "").str.ljust(4, "0") # rough approximation if needed
-    upcoming_df["txtechipa1"] = df_day["home"] # Note: normalize might need original names, but we use normalized in history. 
-    # Logic check: predict_upcoming calls normalize_team. If we pass mostly normalized names, it should be fine 
-    # IF the registry maps them to themselves or if they are already standard.
-    # To be safe, we use 'home'/'away' which are likely already normalized.
     
+    # Extract date and time from datetime column
+    if "datetime" in df_day.columns:
+        dt_col = pd.to_datetime(df_day["datetime"], errors="coerce")
+        upcoming_df["datameci"] = dt_col.dt.strftime("%Y-%m-%d")
+        # Convert time to HHMM format (e.g., 1530 for 15:30)
+        upcoming_df["orameci"] = (dt_col.dt.hour * 100 + dt_col.dt.minute).astype(str).str.zfill(4)
+    elif "date" in df_day.columns:
+        upcoming_df["datameci"] = df_day["date"]
+        # Try to extract time if available
+        if "time" in df_day.columns:
+            upcoming_df["orameci"] = df_day["time"].astype(str).str.replace(":", "").str.ljust(4, "0")
+        else:
+            upcoming_df["orameci"] = "1500"  # Default 3pm
+    else:
+        raise ValueError("DataFrame must have either 'datetime' or 'date' column")
+    
+    upcoming_df["txtechipa1"] = df_day["home"]
     upcoming_df["txtechipa2"] = df_day["away"]
     upcoming_df["cotaa"] = df_day["odds_home"]
     upcoming_df["cotae"] = df_day["odds_draw"]
     upcoming_df["cotad"] = df_day["odds_away"]
-    upcoming_df["cotao"] = df_day["odds_over"]
-    upcoming_df["cotau"] = df_day["odds_under"]
+    upcoming_df["cotao"] = df_day.get("odds_over", 1.9)  # Defaults if missing
+    upcoming_df["cotau"] = df_day.get("odds_under", 1.9)
     
     # We add league/country to help scope filtering if needed
-    upcoming_df["league"] = df_day["league"]
-    upcoming_df["country"] = df_day["country"]
-    upcoming_df["sezonul"] = df_day["season"]
+    upcoming_df["league"] = df_day.get("league", "")
+    upcoming_df["country"] = df_day.get("country", "")
+    upcoming_df["sezonul"] = df_day.get("season", "")
 
+    # Write in all supported locations for predict_upcoming.
+    multi_dir = out_dir / "multiple leagues and seasons"
+    multi_dir.mkdir(parents=True, exist_ok=True)
     upcoming_df.to_csv(out_file, index=False)
+    upcoming_df.to_csv(multi_dir / "allratingv.csv", index=False)
+    upcoming_df.to_csv(multi_dir / "upcoming.csv", index=False)
     return out_dir
 
 
@@ -121,34 +140,13 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
             # We bypass the full pipeline and call predict_upcoming directly via python -m to save time?
             # Or use predict.py? predict.py recalculates everything. predict_upcoming.py is faster if features are mostly static.
             # However, predict_upcoming needs HISTORY.
-            # IMPORTANT: predict_upcoming loads history. We must tell it to IGNORE future rows.
-            # It has an `--as-of-date` param for "Live Scope" but does it filter history?
-            # Looking at predict_upcoming.py: 
-            #   parser argument --as-of-date is used for live scope filtering.
-            #   It does NOT seem to reload/filter the history CSV passed in --history.
-            #   WAIT. `predict_upcoming.py` does NOT filter history rows by date?
-            #   Let's check code...
-            #   `hist = _load_history(Path(args.history))` -> `_rolling_stats` -> `_add_franken_features`.
-            #   It seems `predict_upcoming.py` uses the WHOLE history file provided to it.
-            #   
-            #   CORRECTION: We need to pass a "history as of X" to avoid leakage in rolling features (e.g. form).
-            #   If we pass the full history (which contains the match we are predicting), 
-            #   `predict_upcoming.py` might see it?
-            #   
-            #   `predict_upcoming.py`:
-            #   `latest_home, latest_away = _latest_side_snapshots(hist)`
-            #   `latest_home = df_roll.sort_values("datetime").groupby("home").tail(1)`
-            #   
-            #   If `hist` contains the match on `test_date`, then "latest snapshot" will be THAT match (including its result if features use it? No, features are pre-match).
-            #   BUT `cgm_match_history.csv` has `ft_home` etc.
-            #   
-            #   Ideally, we should filter the HISTORY file too. 
-            #   We can create a filtered history file for each step.
+            # IMPORTANT: predict_upcoming applies an internal history cutoff at run_asof_datetime,
+            # so using the full history file is safe for leakage (future rows are dropped).
             
-            # 4a. Create FILTERED history (matches strictly BEFORE test_date)
-            hist_subset = df[df["datetime"].dt.date < test_date].copy()
-            temp_hist_path = temp_data_dir / "filtered_history.csv"
-            hist_subset.to_csv(temp_hist_path, index=False)
+            # 4a. Use the FULL history file (--as-of-date handles filtering)
+            # Note: We pass the original history_path, not a filtered copy, because:
+            # - predict_upcoming.py expects enhanced columns (xG, pressure, etc.)
+            # - --as-of-date controls which fixtures are treated as "upcoming"
             
             # 4b. Run prediction command
             pred_out_file = temp_out_dir / f"pred_{test_date}.csv"
@@ -156,10 +154,10 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
             cmd = [
                 sys.executable, "-m", "cgm.predict_upcoming",
                 "--data-dir", str(temp_data_dir),
-                "--history", str(temp_hist_path),
+                "--history", str(history_path),  # Use full history, not filtered
                 "--out", str(pred_out_file),
                 "--as-of-date", as_of_arg,
-                "--log-level", "WARNING" # Reduce spam
+                "--log-level", "WARNING"  # Reduce spam
             ]
             
             res = subprocess.run(cmd, capture_output=True, text=True)
@@ -170,7 +168,7 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
             # 5. Run Pick Engine (to get gates/scoring)
             picks_out_file = temp_out_dir / f"picks_{test_date}.csv"
             cmd_picks = [
-                sys.executable, "-m", "cgm.pick_engine",
+                sys.executable, "-m", "cgm.pick_engine_goals",
                 "--in", str(pred_out_file),
                 "--out", str(picks_out_file)
             ]
@@ -237,7 +235,7 @@ def main():
     parser.add_argument("--league", required=True)
     parser.add_argument("--season", required=True)
     parser.add_argument("--start-date", required=True)
-    parser.add_argument("--history", default="data/enhanced/cgm_match_history.csv")
+    parser.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv")
     parser.add_argument("--out", default="reports/latest_backtest.csv")
     
     args = parser.parse_args()

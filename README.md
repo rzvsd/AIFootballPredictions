@@ -9,19 +9,30 @@ Legacy Understat/odds/bot code has been archived to `archive/legacy_non_cgm_engi
 1) Build history: merge CGM season tables, drop future rows, recompute Elo with a strict cutoff (no leakage).
 2) Engineer features: rolling form (L5/L10), Elo similarity kernels, Pressure (dominance) form, xG-proxy Sniper form, Pressure-vs-xG disagreement, attack/defense indices.
 3) Train models: XGBoost Poisson `mu_home` / `mu_away` (variants: `full`, `no_odds`).
-4) Predict upcoming: apply live scope filters (no past fixtures; league/date window), compute mu/probabilities/EV vs CGM odds, add BTTS + timing probabilities if AGS goal-minute data is present.
-5) Select picks: deterministic pick engine (Milestone 4 full 1X2+OU, or Milestone 7 goals-only with BTTS and timing markets) with quality gates, risk flags, stake tiers.
+4) Predict upcoming: apply live scope filters (no past fixtures; league/date window), compute mu/probabilities/EV for O/U 2.5 + BTTS, add timing risk flags if AGS goal-minute data is present.
+5) Select picks: deterministic goals-only pick engine (O/U 2.5 + BTTS) with quality gates, risk flags, stake tiers.
 6) Verbalize (Milestone 8): narrator turns each pick into a readable paragraph (`picks_explained.csv` + preview text).
 
 ## Required Input Files (CGM data/)
 
-- `multiple seasons.csv` — historical matches/results + basic odds/probs.
-- `cgmbetdatabase.xls` or `.csv` — preferred per-match stats (shots/SOT/corners/possession) for Pressure + xG-proxy.
-- `goals statistics.csv` — fallback per-match stats if `cgmbetdatabase.*` is missing (may have partial coverage).
-- `goal statistics 2.csv` — team season aggregates/standings.
-- `leageue statistics.csv` — optional; league averages are recomputed anyway.
-- `upcoming - Copy.CSV` — upcoming fixtures with odds.
-- `AGS.CSV` — goal-minute lists (enables timing probabilities/flags for Milestone 7.2).
+**Primary data sources** (Milestone 15 - Multi-League):
+- `multiple leagues and seasons/allratingv.csv` = historical matches + future fixtures list (used for predictions).
+- `multiple leagues and seasons/upcoming.csv` = supplemental odds/stats (BTTS odds `gg/ng`, per-match stats when available).
+
+**Optional files** (for enhanced features):
+- `AGS.CSV` = goal-minute lists (enables timing flags for Milestone 7.2).
+- `goals statistics.csv` = per-match stats backup.
+
+**Supported Leagues (12)**:
+- England: Premier L, Championship
+- Italy: Serie A, Serie B  
+- Spain: Primera
+- Germany: Bundesliga
+- France: Ligue 1, Ligue 2
+- Portugal: Primeira L
+- Netherlands: Eredivisie
+- Turkey: Super Lig
+- Romania: Liga 1
 
 ## Install
 
@@ -39,7 +50,10 @@ History rebuilds automatically when any file in `CGM data/` is newer than
 python predict.py --max-date YYYY-MM-DD
 ```
 
-Goals-only picks (Milestone 7: O/U 2.5 + BTTS, plus optional timing markets in 7.2 when their odds exist; no 1X2 picks):
+Default picks are goals-only: O/U 2.5 + BTTS (GG/NG).
+Legacy 1X2 pick engine and audits are archived under `archive/legacy_full_engine/`.
+
+Goals-only picks (Milestone 7: O/U 2.5 + BTTS only):
 
 ```
 python predict.py --max-date YYYY-MM-DD --pick-engine goals
@@ -76,7 +90,7 @@ Narrator runs automatically after picks and writes `reports/picks_explained.csv`
   - `models/frankenstein_mu_away_no_odds.pkl` (optional)
 - Predictions:
   - `reports/cgm_upcoming_predictions.csv`
-    - includes BTTS probabilities/odds/EV and timing probabilities/flags (1H/2H/after-75) when `AGS.CSV` is present
+    - includes BTTS probabilities/odds/EV and timing risk flags (no timing markets) when `AGS.CSV` is present
 - Picks:
   - `reports/picks.csv`
   - `reports/picks_debug.csv` (candidate-level gate/score debug)
@@ -87,28 +101,16 @@ Narrator runs automatically after picks and writes `reports/picks_explained.csv`
   - `reports/run_log.jsonl`
   - `reports/elo_trace.jsonl` (optional sampled traces; see `cgm/predict_upcoming.py`)
 
-## Pick Engine (Milestone 4)
+## Pick Engine (Goals-only)
 
 Run standalone (consumes `reports/cgm_upcoming_predictions.csv`):
-
-```
-python -m cgm.pick_engine --in reports/cgm_upcoming_predictions.csv --out reports/picks.csv
-```
-
-Output note: `reports/picks.csv` includes a `score` column (EV + small reliability nudges) used to deterministically select the single best market per fixture, plus narrator-friendly columns (`model_prob`, `implied_prob`, `value_margin`, `risk_flags`).
-
-Audit (determinism + gate correctness):
-
-```
-python -m scripts.audit_picks
-```
-
-Goals-only pick engine (Milestone 7: goals-only + optional timing markets)
 
 ```
 python -m cgm.pick_engine_goals --in reports/cgm_upcoming_predictions.csv --out reports/picks.csv
 python -m scripts.audit_picks_goals --predictions reports/cgm_upcoming_predictions.csv
 ```
+
+Output note: `reports/picks.csv` includes a `score` column (EV + small reliability nudges) used to deterministically select the single best market per fixture, plus narrator-friendly columns (`model_prob`, `implied_prob`, `value_margin`, `risk_flags`).
 
 Narrator (Milestone 8: human-readable explanations)
 
@@ -120,7 +122,7 @@ python -m scripts.audit_narrator
 Audit no-odds invariance (mu/probs unchanged if odds change):
 
 ```
-python -m scripts.audit_no_odds --upcoming "CGM data/upcoming - Copy.CSV" --as-of-date YYYY-MM-DD
+python -m scripts.audit_no_odds --upcoming "CGM data/multiple leagues and seasons/allratingv.csv" --as-of-date YYYY-MM-DD
 ```
 
 Upcoming feed scope audit (shows how many rows get dropped by each filter step):
@@ -128,6 +130,41 @@ Upcoming feed scope audit (shows how many rows get dropped by each filter step):
 ```
 python -m scripts.audit_upcoming_feed --as-of-date YYYY-MM-DD
 ```
+
+Run ALL audits (10 scripts, comprehensive validation):
+
+```
+python scripts/run_all_audits.py
+```
+
+Multi-league coverage audit:
+
+```
+python scripts/audit_multi_league.py
+```
+
+## Prediction Report
+
+Generate formatted prediction tables (O/U, BTTS, EV):
+
+```
+python scripts/generate_predictions_report.py
+python scripts/generate_predictions_report.py --league "Premier L"
+```
+
+Output: `reports/predictions_report.md` and `reports/predictions_report.txt`
+
+## Telegram Automation (Weekly)
+
+Weekly picks snapshot (Monday report, picks only, grouped by date/league):
+
+```
+python scripts/telegram_weekly.py
+```
+
+Notes:
+- Weekly snapshots are stored under `reports/weekly_snapshots/YYYY-MM-DD/`.
+- Filters: only picks with odds >= `TELEGRAM_MIN_ODDS` are reported (odds are not shown in the message).
 
 ## Backtest (Milestone 12)
 
@@ -192,10 +229,10 @@ CGM exports use multiple screens/tables, and column names can vary slightly betw
   - `goalsa`: minute list for away goals.
   - `goalsha`: combined list with team markers (format varies by export).
 
-### Odds (1X2 + goals lines)
+### Odds (goals lines)
 
-- `cotaa` / `cotae` / `cotad` = odds for Home win / Draw / Away win.
 - `cotao` / `cotau` = odds for Over 2.5 / Under 2.5.
+- `cotaa` / `cotae` / `cotad` = 1X2 odds (legacy full engine only; goals-only pipeline ignores them).
 - Some exports also include extra totals lines using a consistent naming pattern:
   - `cotao0` / `cotau0` (inferred) = Over/Under 0.5
   - `cotao1` / `cotau1` (inferred) = Over/Under 1.5

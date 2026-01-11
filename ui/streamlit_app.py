@@ -31,11 +31,11 @@ from ui.components import (
     inject_dark_theme,
     hero_pick_card,
     pick_card,
-    result_card,
     track_record_widget,
     confidence_stars,
     probability_bar,
-    format_pick_type,
+    format_op_pick,
+    value_badge,
 )
 
 
@@ -48,9 +48,12 @@ def load_predictions() -> pd.DataFrame:
     reports_dir = _ROOT / "reports"
     current = reports_dir / "cgm_upcoming_predictions.csv"
     if current.exists():
-        df = pd.read_csv(current)
-        if len(df) > 0:
-            return df
+        try:
+            df = pd.read_csv(current)
+            if len(df) > 0:
+                return df
+        except Exception:
+            pass
     return pd.DataFrame()
 
 
@@ -64,6 +67,9 @@ def load_picks() -> pd.DataFrame:
         if path.exists():
             df = pd.read_csv(path)
             if len(df) > 0:
+                # Normalize column names
+                if 'fixture_datetime' in df.columns:
+                    df = df.rename(columns={'fixture_datetime': 'date'})
                 return df
     
     return pd.DataFrame()
@@ -72,9 +78,11 @@ def load_picks() -> pd.DataFrame:
 def load_backtest() -> pd.DataFrame:
     """Load backtest results."""
     reports_dir = _ROOT / "reports"
-    path = reports_dir / "backtest_epl_2025.csv"
-    if path.exists():
-        return pd.read_csv(path)
+    # Prefer the full backtest we just ran
+    for name in ["full_backtest_2025.csv", "backtest_epl_2025.csv"]:
+        path = reports_dir / name
+        if path.exists():
+            return pd.read_csv(path)
     return pd.DataFrame()
 
 
@@ -169,17 +177,137 @@ def main():
     backtest = load_backtest()
     
     # Main tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Predictions Table",
         "🎯 Today's Picks",
-        "📊 Track Record",
+        "📈 Track Record",
         "🔍 Match Explorer",
         "⚙️ Settings"
     ])
     
     # ─────────────────────────────────────────────────────────────────────────
-    # TAB 1: TODAY'S PICKS
+    # TAB 1: PREDICTIONS TABLE (NEW - like generate_predictions_report.py)
     # ─────────────────────────────────────────────────────────────────────────
     with tab1:
+        st.markdown("### 📊 Multi-League Predictions")
+        
+        if predictions.empty:
+            st.info("🔄 No predictions available. Run the pipeline to generate predictions.")
+        else:
+            # League picker
+            leagues = ["All Leagues"] + sorted(predictions['league'].dropna().unique().tolist())
+            selected_league = st.selectbox("🌍 Select League", leagues, key="league_picker")
+            
+            # Filter by league
+            if selected_league != "All Leagues":
+                df = predictions[predictions['league'] == selected_league].copy()
+            else:
+                df = predictions.copy()
+            
+            if df.empty:
+                st.warning(f"No predictions for {selected_league}")
+            else:
+                # Calculate best value for each match
+                def get_best_value(row):
+                    ev_cols = {
+                        'Over 2.5': row.get('EV_over25', float('-inf')),
+                        'Under 2.5': row.get('EV_under25', float('-inf')),
+                        'BTTS Yes': row.get('EV_btts_yes', float('-inf')),
+                        'BTTS No': row.get('EV_btts_no', float('-inf')),
+                    }
+                    valid_evs = {k: v for k, v in ev_cols.items() if pd.notna(v) and v > -100}
+                    if not valid_evs:
+                        return "—", 0
+                    best = max(valid_evs, key=valid_evs.get)
+                    return best, valid_evs[best]
+                
+                df['best_pick'], df['best_ev'] = zip(*df.apply(get_best_value, axis=1))
+                
+                # Date filter
+                df['date'] = pd.to_datetime(df.get('fixture_datetime'), errors='coerce')
+                dates = ["All Dates"] + sorted(df['date'].dt.date.dropna().unique().astype(str).tolist())
+                selected_date = st.selectbox("📅 Filter by Date", dates, key="date_picker")
+                
+                if selected_date != "All Dates":
+                    df = df[df['date'].dt.date.astype(str) == selected_date]
+                
+                # Summary stats
+                st.markdown(f"**{len(df)} matches** | League: {selected_league}")
+                
+                st.markdown("---")
+                
+                # Top 10 by EV Section
+                st.markdown("### 🏆 Top 10 Value Bets (by EV)")
+                top10 = df.nlargest(10, 'best_ev')
+                
+                for idx, (_, row) in enumerate(top10.iterrows()):
+                    medal = ["🥇", "🥈", "🥉"][idx] if idx < 3 else f"#{idx+1}"
+                    home = row.get('home', '?')
+                    away = row.get('away', '?')
+                    league = row.get('league', '?')
+                    best_pick = row['best_pick']
+                    best_ev = row['best_ev']
+                    
+                    ev_color = "#22c55e" if best_ev > 0.05 else "#fbbf24" if best_ev > 0 else "#ef4444"
+                    
+                    st.markdown(f"""
+                    <div style="background: #0f172a; border-radius: 8px; padding: 12px 16px; margin: 4px 0; border-left: 4px solid {ev_color};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-size: 18px; margin-right: 8px;">{medal}</span>
+                                <span style="color: #f1f5f9; font-weight: 600;">{home} vs {away}</span>
+                                <span style="color: #64748b; margin-left: 8px;">({league})</span>
+                            </div>
+                            <div>
+                                <span style="color: #60a5fa; font-weight: 600; margin-right: 12px;">{best_pick}</span>
+                                <span style="color: {ev_color}; font-weight: 700;">+{best_ev*100:.1f}% EV</span>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("---")
+                
+                # Full Predictions Table
+                st.markdown("### 📋 All Predictions")
+                
+                # Create display dataframe
+                display_cols = []
+                for _, row in df.iterrows():
+                    home = row.get('home', '?')
+                    away = row.get('away', '?')
+                    league = row.get('league', '?')
+                    match_date = row['date'].strftime('%m/%d') if pd.notna(row['date']) else '?'
+                    
+                    # O/U and BTTS
+                    p_over = row.get('p_over25', 0) * 100 if pd.notna(row.get('p_over25')) else 0
+                    p_under = row.get('p_under25', 0) * 100 if pd.notna(row.get('p_under25')) else 0
+                    p_btts_yes = row.get('p_btts_yes', 0) * 100 if pd.notna(row.get('p_btts_yes')) else 0
+                    p_btts_no = row.get('p_btts_no', 0) * 100 if pd.notna(row.get('p_btts_no')) else 0
+                    
+                    # EVs
+                    ev_over = row.get('EV_over25', 0) * 100 if pd.notna(row.get('EV_over25')) else 0
+                    ev_btts = row.get('EV_btts_yes', 0) * 100 if pd.notna(row.get('EV_btts_yes')) else 0
+                    
+                    display_cols.append({
+                        'Date': match_date,
+                        'League': league,
+                        'Match': f"{home} vs {away}",
+                        'O2.5': f"{p_over:.0f}%",
+                        'U2.5': f"{p_under:.0f}%",
+                        'BTTS Y': f"{p_btts_yes:.0f}%",
+                        'BTTS N': f"{p_btts_no:.0f}%",
+                        'Best Pick': row['best_pick'],
+                        'EV': f"+{row['best_ev']*100:.1f}%" if row['best_ev'] > 0 else f"{row['best_ev']*100:.1f}%",
+                    })
+                
+                display_df = pd.DataFrame(display_cols)
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # TAB 2: TODAY'S PICKS
+    # ─────────────────────────────────────────────────────────────────────────
+    with tab2:
         if picks.empty:
             st.info("🔄 No picks available yet. Run the pipeline to generate predictions.")
         else:
@@ -215,9 +343,9 @@ def main():
                     pick_card(row)
     
     # ─────────────────────────────────────────────────────────────────────────
-    # TAB 2: TRACK RECORD
+    # TAB 3: TRACK RECORD
     # ─────────────────────────────────────────────────────────────────────────
-    with tab2:
+    with tab3:
         st.markdown("### 📊 Performance History")
         
         if backtest.empty:
@@ -272,9 +400,9 @@ def main():
                 """, unsafe_allow_html=True)
     
     # ─────────────────────────────────────────────────────────────────────────
-    # TAB 3: MATCH EXPLORER
+    # TAB 4: MATCH EXPLORER
     # ─────────────────────────────────────────────────────────────────────────
-    with tab3:
+    with tab4:
         st.markdown("### 🔍 Match Explorer")
         
         if predictions.empty:
@@ -325,52 +453,10 @@ def main():
                 # Value Bets Table
                 st.markdown("### 💰 Value Analysis")
                 
-                def get_ev_stars(ev):
-                    if ev >= 0.20: return "⭐⭐⭐⭐"
-                    if ev >= 0.10: return "⭐⭐⭐"
-                    if ev >= 0.05: return "⭐⭐"
-                    if ev > 0: return "⭐"
-                    return "❌"
-                
                 def format_ev(ev):
                     if ev > 0:
                         return f"+{ev*100:.1f}%"
                     return f"{ev*100:.1f}%"
-                
-                def value_badge(ev):
-                    if ev >= 0.20:
-                        return '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">BIG VALUE</span>'
-                    if ev >= 0.05:
-                        return '<span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">VALUE</span>'
-                    if ev > 0:
-                        return '<span style="background: #6b7280; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Edge</span>'
-                    return '<span style="color: #ef4444;">Avoid</span>'
-                
-                # 1X2 Section
-                st.markdown("#### 🏆 Match Result (1X2)")
-                markets_1x2 = [
-                    ("Home Win", match_row.get('p_home', 0), match_row.get('odds_home', 0), match_row.get('EV_home', 0)),
-                    ("Draw", match_row.get('p_draw', 0), match_row.get('odds_draw', 0), match_row.get('EV_draw', 0)),
-                    ("Away Win", match_row.get('p_away', 0), match_row.get('odds_away', 0), match_row.get('EV_away', 0)),
-                ]
-                
-                for name, prob, odds, ev in markets_1x2:
-                    is_pick = ev > 0.05
-                    bg = "#1e3a2e" if is_pick else "#1e293b"
-                    border = "#22c55e" if is_pick else "#334155"
-                    st.markdown(f"""
-                    <div style="background: {bg}; border: 1px solid {border}; border-radius: 8px; padding: 12px; margin: 6px 0; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <span style="color: #f1f5f9; font-weight: 600;">{name}</span>
-                            <span style="color: #94a3b8; margin-left: 12px;">{prob*100:.1f}%</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <span style="color: #fbbf24;">@ {odds:.2f}</span>
-                            <span style="color: {'#22c55e' if ev > 0 else '#ef4444'}; font-weight: 600;">{format_ev(ev)}</span>
-                            {value_badge(ev)}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
                 
                 # Over/Under Section
                 st.markdown("#### ⚽ Goals (Over/Under 2.5)")
@@ -432,37 +518,35 @@ def main():
                 st.markdown("### ✅ Recommended Picks")
                 
                 all_picks = [
-                    ("Man Utd Win" if home == "Man Utd" else "Home Win", match_row.get('EV_home', 0), match_row.get('odds_home', 0)),
-                    ("Under 2.5", match_row.get('EV_under25', 0), match_row.get('odds_under25', 0)),
-                    ("Over 2.5", match_row.get('EV_over25', 0), match_row.get('odds_over25', 0)),
-                    ("BTTS No", match_row.get('EV_btts_no', 0), match_row.get('odds_btts_no', 0)),
-                    ("BTTS Yes", match_row.get('EV_btts_yes', 0), match_row.get('odds_btts_yes', 0)),
+                    (format_op_pick("UNDER 2.5"), match_row.get('EV_under25', 0), match_row.get('odds_under25', 0)),
+                    (format_op_pick("OVER 2.5"), match_row.get('EV_over25', 0), match_row.get('odds_over25', 0)),
+                    (format_op_pick("BTTS NO"), match_row.get('EV_btts_no', 0), match_row.get('odds_btts_no', 0)),
+                    (format_op_pick("BTTS YES"), match_row.get('EV_btts_yes', 0), match_row.get('odds_btts_yes', 0)),
                 ]
                 
                 # Sort by EV and filter positive
-                value_picks = [(n, ev, o) for n, ev, o in all_picks if ev > 0.04]
+                value_picks = [(n, ev, o) for n, ev, o in all_picks if ev > 0.02] 
                 value_picks.sort(key=lambda x: x[1], reverse=True)
                 
                 if value_picks:
                     for i, (name, ev, odds) in enumerate(value_picks[:3]):
                         medal = ["🥇", "🥈", "🥉"][i] if i < 3 else "▪️"
-                        stars = get_ev_stars(ev)
                         st.markdown(f"""
                         <div style="background: #1e3a2e; border: 1px solid #22c55e; border-radius: 8px; padding: 16px; margin: 8px 0;">
                             <span style="font-size: 20px;">{medal}</span>
                             <span style="color: #f1f5f9; font-weight: 700; font-size: 18px; margin-left: 8px;">{name}</span>
                             <span style="color: #fbbf24; margin-left: 12px;">@ {odds:.2f}</span>
                             <span style="color: #22c55e; margin-left: 12px; font-weight: 600;">{format_ev(ev)} EV</span>
-                            <span style="margin-left: 12px;">{stars}</span>
+                            <span style="margin-left: 12px;">{value_badge(ev)}</span>
                         </div>
                         """, unsafe_allow_html=True)
                 else:
                     st.warning("No value bets identified for this match")
     
     # ─────────────────────────────────────────────────────────────────────────
-    # TAB 4: SETTINGS
+    # TAB 5: SETTINGS
     # ─────────────────────────────────────────────────────────────────────────
-    with tab4:
+    with tab5:
         st.markdown("### ⚙️ Settings")
         st.caption("Advanced configuration for power users")
         

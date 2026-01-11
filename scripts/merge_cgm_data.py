@@ -1,21 +1,29 @@
 """
 CGM Data Merge Script
 
-Reads all CSV files from CGM data folder and merges them into the 4 standard files
-that the bot expects:
-  - multiple seasons.csv (history)
-  - goals statistics.csv (per-match stats) 
-  - upcoming - Copy.CSV (fixtures)
+Reads all CSV files from CGM data folder (including subdirectories) and merges
+them into standard files the bot expects:
+  - multiple seasons.csv (legacy history)
+  - multiple leagues and seasons/allratingv.csv (multi-league history)
+  - goals statistics.csv (per-match stats)
+  - upcoming - Copy.CSV (legacy fixtures)
+  - multiple leagues and seasons/upcoming.csv (multi-league fixtures)
   - AGS.CSV (goal timing)
 
 Usage:
   python scripts/merge_cgm_data.py
   
 The script:
-1. Auto-detects file type by examining columns
-2. Concatenates and deduplicates rows
-3. Saves to standard filenames
-4. Backs up existing files first
+1. Recursively scans CGM data/ and all subdirectories
+2. Auto-detects file type by examining columns
+3. Concatenates and deduplicates rows
+4. Saves to standard filenames in CGM data/ root and multi-league subfolder
+5. Backs up existing files first
+
+Notes:
+- Drop new CSV exports into any subfolder (e.g., "multiple leagues and seasons/")
+- No need to rename files - just run the merge script
+- Output files are written to CGM data/ root and multi-league subfolder
 """
 
 import pandas as pd
@@ -28,9 +36,21 @@ DATA_DIR = Path("CGM data")
 
 # Standard output filenames
 OUT_HISTORY = "multiple seasons.csv"
+OUT_HISTORY_MULTI = "multiple leagues and seasons/allratingv.csv"
 OUT_STATS = "goals statistics.csv"
 OUT_UPCOMING = "upcoming - Copy.CSV"
+OUT_UPCOMING_MULTI = "multiple leagues and seasons/upcoming.csv"
 OUT_TIMING = "AGS.CSV"
+
+# Files to skip (output files and backups)
+SKIP_PATTERNS = {
+    OUT_HISTORY,
+    Path(OUT_HISTORY_MULTI).name,
+    OUT_STATS,
+    OUT_UPCOMING,
+    Path(OUT_UPCOMING_MULTI).name,
+    OUT_TIMING,
+}
 
 
 def detect_file_type(df: pd.DataFrame, filename: str) -> str:
@@ -41,13 +61,11 @@ def detect_file_type(df: pd.DataFrame, filename: str) -> str:
     cols = [c.lower() for c in df.columns]
     fname = filename.lower()
     
-    # AGS/Timing: has goalmina or goalmin columns AND is named AGS
-    if 'goalmina' in cols or 'goalmin' in cols or 'ags' in fname:
-        # But AGS in history also has goalmina - check if it has timing-specific structure
-        if 'datamecic' in cols:  # Timing file uses datamecic instead of datameci
-            return 'timing'
+    # AGS/Timing: check filename first (most reliable), then columns
+    if 'ags' in fname:
+        return 'timing'
     
-    # Upcoming: has future matches indicators and specific column patterns
+    # Upcoming: filename-based detection (most reliable)
     if 'upcoming' in fname:
         return 'upcoming'
     
@@ -62,8 +80,11 @@ def detect_file_type(df: pd.DataFrame, filename: str) -> str:
         if 'scor1' in cols or 'result' in cols or 'homeprob' in cols:
             return 'history'
     
-    # Fallback: check filename
-    if 'multiple' in fname or 'season' in fname or 'rating' in fname:
+    # Fallback: check filename patterns for history files
+    # This catches allratingv.csv, epl1.csv, bundesliga.csv, etc.
+    if any(pattern in fname for pattern in ['multiple', 'season', 'rating', 
+                                             'epl', 'bundesliga', 'laliga', 'ligue',
+                                             'serie', 'olanda', 'portg', 'rom', 'turk']):
         return 'history'
     if 'statistic' in fname or 'stats' in fname:
         return 'stats'
@@ -83,7 +104,7 @@ def read_csv_safe(path: Path) -> pd.DataFrame:
 
 def merge_data():
     print("="*70)
-    print("CGM DATA MERGE SCRIPT")
+    print("CGM DATA MERGE SCRIPT (with subdirectory scanning)")
     print("="*70)
     
     if not DATA_DIR.exists():
@@ -99,20 +120,35 @@ def merge_data():
         'unknown': []
     }
     
-    # Scan all CSVs
-    all_csvs = list(DATA_DIR.glob("*.csv")) + list(DATA_DIR.glob("*.CSV"))
-    print(f"\nFound {len(all_csvs)} CSV files in {DATA_DIR}/")
+    # Scan all CSVs recursively (including subdirectories)
+    all_csvs = list(DATA_DIR.rglob("*.csv")) + list(DATA_DIR.rglob("*.CSV"))
+    # Remove duplicates (case-insensitive match on Windows)
+    seen = set()
+    unique_csvs = []
+    for p in all_csvs:
+        key = str(p).lower()
+        if key not in seen:
+            seen.add(key)
+            unique_csvs.append(p)
+    all_csvs = unique_csvs
+    
+    print(f"\nFound {len(all_csvs)} CSV files in {DATA_DIR}/ (including subdirectories)")
     
     for csv_path in all_csvs:
+        # Skip backup folder
+        if 'backups' in csv_path.parts:
+            continue
+            
         # Skip the output files themselves to avoid circular merge
-        if csv_path.name in [OUT_HISTORY, OUT_STATS, OUT_UPCOMING, OUT_TIMING]:
-            print(f"  ⏭️ {csv_path.name}: Skipping (output file)")
+        if csv_path.name in SKIP_PATTERNS:
+            print(f"  ⏭️  {csv_path.relative_to(DATA_DIR)}: Skipping (output file)")
             continue
             
         try:
             df = read_csv_safe(csv_path)
             ftype = detect_file_type(df, csv_path.name)
-            print(f"  📄 {csv_path.name}: Detected as {ftype.upper()} ({len(df)} rows)")
+            rel_path = csv_path.relative_to(DATA_DIR)
+            print(f"  📄 {rel_path}: Detected as {ftype.upper()} ({len(df)} rows)")
             files[ftype].append((csv_path, df))
         except Exception as e:
             print(f"  ❌ {csv_path.name}: Error - {e}")
@@ -123,7 +159,7 @@ def merge_data():
     backup_dir.mkdir(parents=True, exist_ok=True)
     print(f"\n📦 Backing up to {backup_dir}/")
     
-    for out_name in [OUT_HISTORY, OUT_STATS, OUT_UPCOMING, OUT_TIMING]:
+    for out_name in [OUT_HISTORY, OUT_HISTORY_MULTI, OUT_STATS, OUT_UPCOMING, OUT_UPCOMING_MULTI, OUT_TIMING]:
         out_path = DATA_DIR / out_name
         if out_path.exists():
             shutil.copy2(out_path, backup_dir / out_name)
@@ -149,13 +185,16 @@ def merge_data():
         
         # Save
         out_path = DATA_DIR / out_name
+        out_path.parent.mkdir(parents=True, exist_ok=True)
         combined.to_csv(out_path, index=False, encoding='latin1')
         print(f"   ✅ Saved: {out_path}")
     
     # Process each type
     merge_and_save(files['history'], OUT_HISTORY)
+    merge_and_save(files['history'], OUT_HISTORY_MULTI)
     merge_and_save(files['stats'], OUT_STATS)
     merge_and_save(files['upcoming'], OUT_UPCOMING)
+    merge_and_save(files['upcoming'], OUT_UPCOMING_MULTI)
     merge_and_save(files['timing'], OUT_TIMING)
     
     # Report unknown files

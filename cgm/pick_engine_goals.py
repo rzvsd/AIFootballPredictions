@@ -42,29 +42,12 @@ ALLOWED_MARKETS = {
     "OU25_UNDER",
     "BTTS_YES",
     "BTTS_NO",
-    # Milestone 7.2 timing markets (only when odds exist)
-    "1H_OU05_OVER",
-    "1H_OU05_UNDER",
-    "2H_OU05_OVER",
-    "2H_OU05_UNDER",
-    "2H_OU15_OVER",
-    "2H_OU15_UNDER",
-    "GOAL_AFTER_75_YES",
-    "GOAL_AFTER_75_NO",
 }
 MARKET_PRIORITY = [
     "OU25_OVER",
     "OU25_UNDER",
     "BTTS_YES",
     "BTTS_NO",
-    "1H_OU05_UNDER",
-    "1H_OU05_OVER",
-    "2H_OU15_OVER",
-    "2H_OU15_UNDER",
-    "2H_OU05_OVER",
-    "2H_OU05_UNDER",
-    "GOAL_AFTER_75_YES",
-    "GOAL_AFTER_75_NO",
 ]
 MARKET_PRIORITY_RANK = {m: i for i, m in enumerate(MARKET_PRIORITY)}
 
@@ -366,17 +349,6 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
 
     btts_supported = any(c in df0.columns for c in ("odds_btts_yes", "odds_btts_no", "odds_gg", "odds_ng", "gg", "ng"))
 
-    def _any_sane_odds(col: str) -> bool:
-        if col not in df0.columns:
-            return False
-        s = pd.to_numeric(df0[col], errors="coerce")
-        return bool((s > ODDS_MIN).any())
-
-    timing_1h_supported = _any_sane_odds("odds_1h_over_0_5") or _any_sane_odds("odds_1h_under_0_5")
-    timing_2h05_supported = _any_sane_odds("odds_2h_over_0_5") or _any_sane_odds("odds_2h_under_0_5")
-    timing_2h15_supported = _any_sane_odds("odds_2h_over_1_5") or _any_sane_odds("odds_2h_under_1_5")
-    timing_after75_supported = _any_sane_odds("odds_goal_after_75_yes") or _any_sane_odds("odds_goal_after_75_no")
-
     candidates: list[Candidate] = []
     debug_rows: list[dict] = []
 
@@ -403,6 +375,21 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
         neff_min = float(min(_num(r.get("neff_sim_H")), _num(r.get("neff_sim_A"))))
         press_n_min = float(min(_num(r.get("press_stats_n_H")), _num(r.get("press_stats_n_A"))))
         xg_n_min = float(min(_num(r.get("xg_stats_n_H")), _num(r.get("xg_stats_n_A"))))
+
+        calib_ou_thresh = None
+        calib_btts_thresh = None
+        if CALIBRATION_ENABLED:
+            cal = _CALIBRATION.get(league, {})
+            if cal.get("sample_size", 0) >= CALIBRATION_MIN_SAMPLES:
+                if "ou25_optimal_threshold" in cal:
+                    calib_ou_thresh = float(cal["ou25_optimal_threshold"])
+                if "btts_optimal_threshold" in cal:
+                    calib_btts_thresh = float(cal["btts_optimal_threshold"])
+
+        p_over_eff = p_over
+        if not np.isfinite(p_over_eff) and np.isfinite(p_under):
+            p_over_eff = 1.0 - p_under
+        p_btts_yes = float("nan")
 
         sterile_flag = _as_int_flag(r.get("sterile_flag"))
         assassin_flag = _as_int_flag(r.get("assassin_flag"))
@@ -431,27 +418,20 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
 
         def _emit_candidate(*, market: str, odds: float, p_model: float, ev_min_req: float, odds_reason: str) -> None:
             reasons: list[str] = list(base_fail)
-            timing_markets = {
-                "1H_OU05_OVER",
-                "1H_OU05_UNDER",
-                "2H_OU05_OVER",
-                "2H_OU05_UNDER",
-                "2H_OU15_OVER",
-                "2H_OU15_UNDER",
-                "GOAL_AFTER_75_YES",
-                "GOAL_AFTER_75_NO",
-            }
-            if market in timing_markets:
-                if not timing_usable:
-                    reasons.append("G7T_FAIL_NO_TIMING_EVIDENCE")
-                if market in {"1H_OU05_UNDER"} and not slow_start_flag:
-                    reasons.append("G7T_FAIL_NOT_SLOW_START")
-                if market in {"1H_OU05_OVER"} and slow_start_flag:
-                    reasons.append("G7T_FAIL_SLOW_START")
-                if market in {"GOAL_AFTER_75_YES", "2H_OU05_OVER", "2H_OU15_OVER"} and not late_goal_flag:
-                    reasons.append("G7T_FAIL_NOT_LATE_PROFILE")
-                if market in {"GOAL_AFTER_75_NO", "2H_OU05_UNDER", "2H_OU15_UNDER"} and late_goal_flag:
-                    reasons.append("G7T_FAIL_LATE_PROFILE")
+            if market in {"OU25_OVER", "OU25_UNDER"} and calib_ou_thresh is not None:
+                if not np.isfinite(p_over_eff):
+                    reasons.append("G6_FAIL_CALIB_OU25")
+                elif market == "OU25_OVER" and p_over_eff < calib_ou_thresh:
+                    reasons.append("G6_FAIL_CALIB_OU25_OVER")
+                elif market == "OU25_UNDER" and p_over_eff > calib_ou_thresh:
+                    reasons.append("G6_FAIL_CALIB_OU25_UNDER")
+            if market in {"BTTS_YES", "BTTS_NO"} and calib_btts_thresh is not None:
+                if not np.isfinite(p_btts_yes):
+                    reasons.append("G6_FAIL_CALIB_BTTS")
+                elif market == "BTTS_YES" and p_btts_yes < calib_btts_thresh:
+                    reasons.append("G6_FAIL_CALIB_BTTS_YES")
+                elif market == "BTTS_NO" and p_btts_yes > calib_btts_thresh:
+                    reasons.append("G6_FAIL_CALIB_BTTS_NO")
             if not _is_sane_odds(odds):
                 reasons.append(odds_reason)
 
@@ -556,6 +536,7 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
         # BTTS candidates (only when odds exist in the input schema)
         if btts_supported:
             p_yes = _p_btts_yes(mu_home, mu_away)
+            p_btts_yes = p_yes
             p_no = 1.0 - p_yes if np.isfinite(p_yes) else float("nan")
 
             odds_yes = float(
@@ -588,71 +569,6 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                 p_model=p_no,
                 ev_min_req=float(EV_MIN_BTTS),
                 odds_reason="G1_FAIL_MISSING_ODDS_BTTS",
-            )
-
-        # Milestone 7.2 timing markets (only if odds exist in the input)
-        if timing_1h_supported:
-            _emit_candidate(
-                market="1H_OU05_OVER",
-                odds=float(_num(r.get("odds_1h_over_0_5"))),
-                p_model=float(_num(r.get("p_1h_over_0_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_1H",
-            )
-            _emit_candidate(
-                market="1H_OU05_UNDER",
-                odds=float(_num(r.get("odds_1h_under_0_5"))),
-                p_model=float(_num(r.get("p_1h_under_0_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_1H",
-            )
-
-        if timing_2h05_supported:
-            _emit_candidate(
-                market="2H_OU05_OVER",
-                odds=float(_num(r.get("odds_2h_over_0_5"))),
-                p_model=float(_num(r.get("p_2h_over_0_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_2H",
-            )
-            _emit_candidate(
-                market="2H_OU05_UNDER",
-                odds=float(_num(r.get("odds_2h_under_0_5"))),
-                p_model=float(_num(r.get("p_2h_under_0_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_2H",
-            )
-
-        if timing_2h15_supported:
-            _emit_candidate(
-                market="2H_OU15_OVER",
-                odds=float(_num(r.get("odds_2h_over_1_5"))),
-                p_model=float(_num(r.get("p_2h_over_1_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_2H",
-            )
-            _emit_candidate(
-                market="2H_OU15_UNDER",
-                odds=float(_num(r.get("odds_2h_under_1_5"))),
-                p_model=float(_num(r.get("p_2h_under_1_5"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_2H",
-            )
-
-        if timing_after75_supported:
-            _emit_candidate(
-                market="GOAL_AFTER_75_YES",
-                odds=float(_num(r.get("odds_goal_after_75_yes"))),
-                p_model=float(_num(r.get("p_goal_after_75_yes"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_AFTER75",
-            )
-            _emit_candidate(
-                market="GOAL_AFTER_75_NO",
-                odds=float(_num(r.get("odds_goal_after_75_no"))),
-                p_model=float(_num(r.get("p_goal_after_75_no"))),
-                ev_min_req=float(EV_MIN_TIMING),
-                odds_reason="G1_FAIL_MISSING_ODDS_AFTER75",
             )
 
     # Select one best candidate per fixture

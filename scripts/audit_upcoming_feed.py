@@ -2,7 +2,7 @@
 Upcoming feed audit (OTM-style scope proof).
 
 Reads:
-  - raw upcoming feed (default: CGM data/upcoming - Copy.CSV)
+  - raw upcoming feed (default: CGM data/multiple leagues and seasons/upcoming.csv)
   - filtered predictions output (default: reports/cgm_upcoming_predictions.csv)
 
 Prints:
@@ -92,7 +92,7 @@ def _resolve_asof(args: argparse.Namespace, pred_path: Path, log_path: Path) -> 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Upcoming feed audit (scope filtering proof)")
-    ap.add_argument("--raw", default="CGM data/upcoming - Copy.CSV", help="Raw upcoming feed CSV")
+    ap.add_argument("--raw", default="CGM data/multiple leagues and seasons/allratingv.csv", help="Raw upcoming feed CSV")
     ap.add_argument("--predictions", default="reports/cgm_upcoming_predictions.csv", help="Filtered predictions CSV")
     ap.add_argument("--log-jsonl", default="reports/run_log.jsonl", help="Run log JSONL (optional)")
 
