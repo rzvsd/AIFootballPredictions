@@ -1,129 +1,67 @@
-# ⚽ Football Predictions Bot — Quick Start Guide
+# Football Predictions Bot - Quick Start
 
-Welcome! This bot analyzes football matches and tells you which bets have good value.
+This bot predicts only:
+- Over/Under 2.5 goals
+- BTTS (both teams to score)
 
----
+It uses API-Football as the default data source, then runs the internal CGM model pipeline.
 
-## 🎯 What Does This Bot Do?
+## 1) Setup
 
-In simple terms:
-1. **Looks at history** — How did teams perform in past matches?
-2. **Calculates strength** — Uses Elo ratings, shot stats, goals data
-3. **Predicts goals** — "This team will score ~1.5 goals on average"
-4. **Compares to odds** — "The bookmaker thinks 30%, but we think 45%"
-5. **Picks the best bets** — Only outputs bets where you have an edge
+Install dependencies:
 
----
-
-## 📁 What You Need
-
-Put these files in the `CGM data/` folder:
-
-| File | What It Contains |
-|------|-----------------|
-| `multiple seasons.csv` | Historical match results |
-| `multiple leagues and seasons/allratingv.csv` | Future matches list (odds via upcoming.csv if present) |
-| `goals statistics.csv` | Shot/corner/possession stats |
-| `AGS.CSV` | Goal timing data (when goals were scored) |
-
-💡 **Important:** The `multiple leagues and seasons/allratingv.csv` file must contain FUTURE matches. If it only has past matches, you'll get 0 predictions.
-
----
-
-## 🚀 How to Run
-
-### First Time (Full Setup)
 ```bash
-python predict.py --rebuild-history
+pip install -r requirements.txt
 ```
-This builds everything from scratch. Takes ~1 minute.
 
-### Daily Use (Quick Run)
+Set your API key:
+
+```bash
+# PowerShell
+$env:API_FOOTBALL_KEY="your_key_here"
+```
+
+## 2) Run
+
+Full pipeline (recommended):
+
+```bash
+python predict.py --max-date YYYY-MM-DD
+```
+
+Predict-only (reuse existing trained models/history):
+
 ```bash
 python predict.py --predict-only
 ```
-Uses existing models, just runs predictions. Takes ~10 seconds.
 
-### If You Updated Your Data Files
+Legacy CSV mode (if you do not want API sync):
+
 ```bash
-python predict.py
+python predict.py --data-source csv --max-date YYYY-MM-DD
 ```
-The bot detects new data and rebuilds automatically.
 
----
+## 3) Output files
 
-## 📊 What You Get
+Main outputs are in `reports/`:
+- `cgm_upcoming_predictions.csv`
+- `picks.csv`
+- `picks_debug.csv`
+- `picks_explained.csv`
 
-After running, check the `reports/` folder:
+Business-friendly summary (last rounds + upcoming + backtest):
 
-| File | What's Inside |
-|------|--------------|
-| `picks.csv` | **Your betting picks** with odds, probabilities, stakes |
-| `picks_explained_preview.txt` | **Human-readable** explanations of each pick |
-| `picks_debug.csv` | Why certain bets were rejected (too risky, low edge) |
-| `pipeline_summary.json` | Did anything fail during the run? |
+```bash
+python scripts/generate_business_report.py --rounds 5 --upcoming-limit 20
+```
 
----
+Creates:
+- `reports/business_report.txt`
+- `reports/business_report_recent_results.csv`
+- `reports/business_report_upcoming_summary.csv`
 
-## 📖 Reading Your Picks
+## 4) Important notes
 
-Here's what the columns mean:
-
-| Column | Meaning | Example |
-|--------|---------|---------|
-| `market` | What bet type | `OU25_OVER` = Over 2.5 goals |
-| `odds` | Bookmaker odds | `2.10` |
-| `p_model` | Our probability | `0.55` = 55% |
-| `p_implied` | Bookmaker's probability | `0.476` = 47.6% |
-| `ev` | Expected Value (edge) | `0.10` = 10% edge |
-| `stake_tier` | How much to bet | `T1`=0.5u, `T2`=1u, `T3`=1.5u, `T4`=2u |
-
-### Bet Types Explained
-
-| Code | English |
-|------|---------|
-| `OU25_OVER` | More than 2.5 goals total |
-| `OU25_UNDER` | Less than 2.5 goals total |
-| `BTTS_YES` | Both teams score |
-| `BTTS_NO` | At least one team doesn't score |
-
----
-
-## ⚠️ Troubleshooting
-
-### "0 picks"
-- Your `multiple leagues and seasons/allratingv.csv` might be outdated
-- Export fresh data from CGM
-
-### "[UNSEEN] team not in history"
-- This team is new (promoted, etc.)
-- The bot skips it because it doesn't have enough data
-
-### "picks.csv is empty"
-- No bets passed the quality filters
-- This is NORMAL — better to skip than take bad bets
-
----
-
-## 🔧 Settings You Can Change
-
-Edit `config.py` to adjust:
-
-| Setting | What It Does |
-|---------|-------------|
-| `EV_MIN_OU25` | Minimum edge required (default 4%) |
-| `NEFF_MIN_*` | How much history required |
-| `ODDS_MIN_*` | Minimum odds to consider |
-
----
-
-## 📞 Need Help?
-
-Check these files for more details:
-- `project_notes/blueprint.md` — Technical architecture
-- `project_notes/bugs_fixed.md` — Known issues that were fixed
-- `reports/run_log.jsonl` — Detailed run logs
-
----
-
-**Happy Betting!** 🎰⚽
+- Free tier is limited to about 100 requests/day. Keep league scope small (default is league `39`).
+- If quality coverage is too low (odds/stats), the run stops early by design.
+- If there are no upcoming fixtures in range, zero picks is a valid result.

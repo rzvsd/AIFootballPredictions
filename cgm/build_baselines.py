@@ -3,8 +3,7 @@ Milestone 2: Team & League Baselines + Elo Bands
 
 Inputs:
   - data/enhanced/cgm_match_history.csv (from Milestone 1)
-  - CGM data/goal statistics 2.csv (team season stats)
-  - team_registry (for normalization)
+  - local data directory (for team registry normalization)
 
 Outputs:
   - data/enhanced/team_baselines.csv (per team-season summary with normalized attack/defense)
@@ -53,7 +52,7 @@ def _band_from_diff(diff: float, bully_thresh: float = 150.0) -> str:
 HOME_ADV_DEFAULT = 65.0
 
 
-def build_baselines(data_dir: str = "CGM data",
+def build_baselines(data_dir: str = "data/api_football",
                     match_history_path: str = "data/enhanced/cgm_match_history.csv",
                     out_team_baselines: str = "data/enhanced/team_baselines.csv") -> None:
     reg = build_team_registry(data_dir)

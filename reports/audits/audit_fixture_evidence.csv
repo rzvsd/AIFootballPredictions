@@ -1,0 +1,11 @@
+fixture_datetime,home,away,league,home_matches_total,away_matches_total,home_xg_ok_last_window,away_xg_ok_last_window,home_pressure_ok_last_window,away_pressure_ok_last_window,window_n
+2026-02-21 15:00:00,Chelsea,Burnley,Premier League,13,13,10,10,10,10,10
+2026-02-21 15:00:00,Brentford,Brighton,Premier League,13,13,10,10,10,10,10
+2026-02-21 15:00:00,Aston Villa,Leeds,Premier League,13,13,10,10,10,10,10
+2026-02-21 17:30:00,West Ham,Bournemouth,Premier League,13,13,10,10,10,10,10
+2026-02-21 20:00:00,Manchester City,Newcastle,Premier League,13,13,10,10,10,10,10
+2026-02-22 14:00:00,Crystal Palace,Wolves,Premier League,13,13,10,10,10,10,10
+2026-02-22 14:00:00,Nottingham Forest,Liverpool,Premier League,13,13,10,10,10,10,10
+2026-02-22 14:00:00,Sunderland,Fulham,Premier League,13,13,10,10,10,10,10
+2026-02-22 16:30:00,Tottenham,Arsenal,Premier League,13,14,10,10,10,10,10
+2026-02-23 20:00:00,Everton,Manchester United,Premier League,13,13,10,10,10,10,10

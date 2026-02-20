@@ -92,10 +92,18 @@ def audit_source_data(source_path: Path) -> pd.DataFrame:
     df = pd.read_csv(source_path, encoding="latin1", low_memory=False)
     
     # Parse dates
-    df["_date"] = pd.to_datetime(df.get("datameci"), errors="coerce")
+    if "fixture_datetime_utc" in df.columns:
+        df["_date"] = pd.to_datetime(df["fixture_datetime_utc"], errors="coerce", utc=True).dt.tz_localize(None)
+    elif "fixture_datetime" in df.columns:
+        df["_date"] = pd.to_datetime(df["fixture_datetime"], errors="coerce", utc=True).dt.tz_localize(None)
+    else:
+        df["_date"] = pd.to_datetime(df.get("datameci") or df.get("date"), errors="coerce")
     
     # Current date
-    now = pd.Timestamp.now().normalize()
+    now = pd.Timestamp.utcnow()
+    if getattr(now, "tzinfo", None) is not None:
+        now = now.tz_localize(None)
+    now = now.normalize()
     
     # Future fixtures
     future = df[df["_date"] > now].copy()
@@ -120,9 +128,9 @@ def audit_source_data(source_path: Path) -> pd.DataFrame:
 def main():
     parser = argparse.ArgumentParser(description="Audit Multi-League Predictions")
     parser.add_argument("--detailed", action="store_true", help="Show detailed output")
-    parser.add_argument("--history", default=str(_ROOT / "data" / "enhanced" / "cgm_match_history.csv"))
+    parser.add_argument("--history", default=str(_ROOT / "data" / "enhanced" / "cgm_match_history_with_elo_stats_xg.csv"))
     parser.add_argument("--predictions", default=str(_ROOT / "reports" / "cgm_upcoming_predictions.csv"))
-    parser.add_argument("--source", default=str(_ROOT / "CGM data" / "multiple leagues and seasons" / "allratingv.csv"))
+    parser.add_argument("--source", default=str(_ROOT / "data" / "api_football" / "upcoming_fixtures.csv"))
     args = parser.parse_args()
     
     print("=" * 80)

@@ -1,17 +1,8 @@
 """
-Team registry builder for CGM data files.
+Team registry builder for local football data files.
 
-Reads the CSV files in "CGM data" and builds a normalized mapping from
-team codes to canonical names (and a reverse alias map for name lookups).
-
-Usage (library):
-    from cgm.team_registry import build_team_registry, normalize_team
-    registry = build_team_registry("CGM data")
-    name = normalize_team("1020", registry)  # code to name
-    code = registry["name_to_code"].get("Arsenal")
-
-Usage (CLI):
-    python -m cgm.team_registry --data-dir "CGM data" --out team_map.json
+Builds a normalized mapping from team IDs/codes to canonical names and a reverse
+alias map for robust lookups.
 """
 
 from __future__ import annotations
@@ -23,6 +14,8 @@ from pathlib import Path
 from typing import Dict, Iterable, Tuple
 
 import pandas as pd
+import re
+import unicodedata
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -56,6 +49,36 @@ def _norm_name(name) -> str | None:
         return None
 
 
+def _simplify_name(name: str, *, loose: bool = False) -> str:
+    """
+    Normalize team names for fuzzy lookup.
+    - Unicode fold to ASCII (e.g., München -> Munchen)
+    - Lowercase, strip punctuation
+    - Collapse whitespace
+    - Optionally drop common leading tokens (loose mode)
+    """
+    if not name:
+        return ""
+    # Fold accents -> ASCII
+    folded = unicodedata.normalize("NFKD", name)
+    folded = folded.encode("ascii", "ignore").decode("ascii")
+    # Lowercase and replace non-alnum with space
+    lowered = folded.lower()
+    lowered = re.sub(r"[^a-z0-9]+", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    if not loose:
+        return lowered
+
+    tokens = lowered.split()
+    if not tokens:
+        return ""
+    # Drop leading numeric tokens and common prefixes like "fc", "sc", etc.
+    drop_prefixes = {"fc", "sc", "sv", "vfl", "vfb", "tsg", "fcv", "1", "1fc"}
+    while tokens and (tokens[0].isdigit() or tokens[0] in drop_prefixes):
+        tokens = tokens[1:]
+    return " ".join(tokens).strip()
+
+
 def _collect_pairs(df: pd.DataFrame, code_col: str, name_col: str) -> Iterable[Tuple[str, str]]:
     """Yield aligned (code, name) pairs from a specific (code_col, name_col)."""
     if code_col not in df.columns or name_col not in df.columns:
@@ -69,7 +92,7 @@ def _collect_pairs(df: pd.DataFrame, code_col: str, name_col: str) -> Iterable[T
     return out
 
 
-def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str, str]]:
+def build_team_registry(data_dir: str | Path = "data/api_football") -> Dict[str, Dict[str, str]]:
     """
     Build a registry:
       - code_to_name: code -> canonical name
@@ -81,6 +104,8 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
         raise FileNotFoundError(f"{base} not found")
 
     files = [
+        base / "history_fixtures.csv",
+        base / "upcoming_fixtures.csv",
         base / "goal statistics 2.csv",
         base / "goals statistics.csv",
         base / "leageue statistics.csv",
@@ -111,6 +136,10 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
         # Canonical: match exports with explicit team code + team name columns.
         pairs.extend(_collect_pairs(df, "codechipa1", "txtechipa1"))
         pairs.extend(_collect_pairs(df, "codechipa2", "txtechipa2"))
+        pairs.extend(_collect_pairs(df, "home_id", "home_name"))
+        pairs.extend(_collect_pairs(df, "away_id", "away_name"))
+        pairs.extend(_collect_pairs(df, "code_home", "home"))
+        pairs.extend(_collect_pairs(df, "code_away", "away"))
         # Season aggregates / tables (team code + team name)
         pairs.extend(_collect_pairs(df, "codechipa", "echipa"))
         pairs.extend(_collect_pairs(df, "codechipah", "echipah"))
@@ -134,16 +163,36 @@ def build_team_registry(data_dir: str | Path = "CGM data") -> Dict[str, Dict[str
 
     # Build name -> primary code map (use canonical names)
     name_to_code: dict[str, str] = {}
+    name_to_code_norm: dict[str, str] = {}
+    name_to_code_loose: dict[str, str] = {}
     for code, name in code_to_name.items():
         name_norm = name.strip()
         name_to_code[name_norm] = code
+        strict_key = _simplify_name(name_norm, loose=False)
+        loose_key = _simplify_name(name_norm, loose=True)
+        if strict_key and strict_key not in name_to_code_norm:
+            name_to_code_norm[strict_key] = code
+        if loose_key and loose_key not in name_to_code_loose:
+            name_to_code_loose[loose_key] = code
         # also add aliases
         for alias in aliases.get(code, []):
             alias_norm = alias.strip()
             if alias_norm and alias_norm not in name_to_code:
                 name_to_code[alias_norm] = code
+            strict_alias = _simplify_name(alias_norm, loose=False)
+            loose_alias = _simplify_name(alias_norm, loose=True)
+            if strict_alias and strict_alias not in name_to_code_norm:
+                name_to_code_norm[strict_alias] = code
+            if loose_alias and loose_alias not in name_to_code_loose:
+                name_to_code_loose[loose_alias] = code
 
-    return {"code_to_name": code_to_name, "name_to_code": name_to_code, "aliases": {k: sorted(v) for k, v in aliases.items()}}
+    return {
+        "code_to_name": code_to_name,
+        "name_to_code": name_to_code,
+        "name_to_code_norm": name_to_code_norm,
+        "name_to_code_loose": name_to_code_loose,
+        "aliases": {k: sorted(v) for k, v in aliases.items()},
+    }
 
 
 import logging
@@ -175,12 +224,22 @@ def normalize_team(value, registry: Dict[str, Dict[str, str]]) -> str:
     if val in registry.get("name_to_code", {}):
         code = registry["name_to_code"][val]
         return registry["code_to_name"].get(code, val)
+    # Fuzzy lookup (accent-folding + punctuation removal)
+    strict_key = _simplify_name(val, loose=False)
+    if strict_key and strict_key in registry.get("name_to_code_norm", {}):
+        code = registry["name_to_code_norm"][strict_key]
+        return registry["code_to_name"].get(code, val)
+    # Loose lookup (drop common leading tokens like "FC", "1")
+    loose_key = _simplify_name(val, loose=True)
+    if loose_key and loose_key in registry.get("name_to_code_loose", {}):
+        code = registry["name_to_code_loose"][loose_key]
+        return registry["code_to_name"].get(code, val)
     return val
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Build team registry from CGM data CSVs")
-    ap.add_argument("--data-dir", default="CGM data", help="Directory containing CGM CSV files")
+    ap = argparse.ArgumentParser(description="Build team registry from local football CSVs")
+    ap.add_argument("--data-dir", default="data/api_football", help="Directory containing source CSV files")
     ap.add_argument("--out", default=None, help="Optional path to write JSON mapping")
     args = ap.parse_args()
 

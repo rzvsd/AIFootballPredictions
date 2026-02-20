@@ -1,43 +1,24 @@
-# TODO List
+TODO (Current Priorities)
 
-## ✅ Completed
-- [x] Milestone 9: Time Decay Weighting
-- [x] Milestone 10: Head-to-Head History
-- [x] Milestone 11: League-Specific Features
-- [x] Milestone 13: Probability Calibration
-- [x] Milestone 14: Streamlit UI Redesign
-- [x] Milestone 15: Multi-League Support (12 leagues now supported)
-- [x] Milestone 16: Audit Infrastructure (`run_all_audits.py` - 10/10 pass)
+High Priority
+- [ ] Ensure recent-round history coverage (last 8-10 rounds)
+  - Increase history window if needed.
+  - Verify sync pulls and stores recent results correctly.
 
-## 🚧 In Progress
-- [/] **Milestone 17: Telegram Notifications** — Scripts created, needs user setup
+- [ ] Premium API-Football subscription onboarding (Pro plan)
+  - Confirm key activation and rate limits.
+  - Re-run sync to rebuild full history and upcoming windows.
 
-### High Priority
-- [ ] **Milestone 17: Multi-League Backtest** — Complete backtest for all 12 leagues
-  - `run_multi_league_backtest.py` created (needs debugging)
-  - Aggregate results across leagues
-  - Calibration per league
+- [ ] Validate stat-field coverage for xG proxy
+  - Confirm shots, shots on goal, goals, corners are present for target leagues.
 
-- [ ] **Milestone 18: Google Sheets Integration** — Push daily picks to a Google Sheet
-  - View picks on phone without PC
-  - Shareable with friends
-  - ~30 min implementation
+- [ ] Improve round-scoped upcoming selection
+  - Ensure next-round filtering matches league schedules.
 
-### Medium Priority
-- [ ] **Milestone 19: Cloud Scheduler Automation** — Auto-run predictions daily at 8am
-  - No manual triggering needed
-  - Uses Google Cloud Functions
-  - Free tier available
+Medium Priority
+- [ ] Add weekly automation for reports and predictions export.
+- [ ] Add optional Telegram delivery for business report summary.
 
-- [ ] **Milestone 20: Dixon-Coles Adjustment** — Legacy full engine only (1X2); not used in goals-only outputs
-
-### Low Priority / Future
-- [ ] Vertex AI Integration (only if scaling to 100+ leagues)
-- [ ] Mobile App (Firebase backend)
-- [ ] Real-time odds streaming (Pub/Sub)
-
-## 🗒️ Notes
-- Google Cloud services are optional enhancements, not critical for core functionality
-- Current XGBoost model performs well locally
-- Historical data (2018+) is needed for Elo accuracy
-- 12 leagues supported: Premier L, Championship, Serie A, Serie B, Primera, Bundesliga, Ligue 1, Ligue 2, Primeira L, Eredivisie, Super Lig, Liga 1
+Low Priority
+- [ ] UI polish and mobile-first read view for reports.
+- [ ] Optional cloud scheduler deployment.

@@ -1,0 +1,19 @@
+{
+  "errors": {
+    "token": "Error/Missing application key. Go to https://www.api-football.com/documentation-v3 to learn how to get your API application key."
+  },
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-02-18",
+    "league": "39",
+    "season": "2025",
+    "status": "NS",
+    "to": "2026-02-25"
+  },
+  "response": [],
+  "results": 0
+}

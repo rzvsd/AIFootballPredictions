@@ -133,7 +133,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Train μ_home and μ_away models from Frankenstein features")
     ap.add_argument("--data", default="data/enhanced/frankenstein_training.csv", help="Path to feature CSV")
     ap.add_argument("--out-dir", default="models", help="Directory to save models")
-    ap.add_argument("--variant", choices=["full", "no_odds"], default="full", help="Model variant (feature set)")
+    ap.add_argument("--variant", choices=["full", "no_odds"], default="no_odds", help="Model variant (feature set)")
     ap.add_argument("--seed", type=int, default=42, help="Training seed (XGBoost random_state)")
     args = ap.parse_args()
 

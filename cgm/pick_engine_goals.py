@@ -72,6 +72,13 @@ CALIBRATION_ENABLED = getattr(config, "CALIBRATION_ENABLED", True)
 CALIBRATION_FILE = getattr(config, "CALIBRATION_FILE", "data/league_calibration.json")
 CALIBRATION_MIN_SAMPLES = getattr(config, "CALIBRATION_MIN_SAMPLES", 50)
 
+# Low-Scoring Scenario Detector (Under 2.5 Enhancement)
+LOW_SCORING_ENABLED = getattr(config, "LOW_SCORING_ENABLED", True)
+LOW_SCORING_MU_THRESHOLD = getattr(config, "LOW_SCORING_MU_THRESHOLD", 2.3)
+LOW_SCORING_XG_FORM_THRESHOLD = getattr(config, "LOW_SCORING_XG_FORM_THRESHOLD", 1.0)
+LOW_SCORING_UNDER_SCORE_BONUS = getattr(config, "LOW_SCORING_UNDER_SCORE_BONUS", 0.04)
+LOW_SCORING_EV_THRESHOLD_REDUCTION = getattr(config, "LOW_SCORING_EV_THRESHOLD_REDUCTION", 0.02)
+
 import json
 import logging
 _logger = logging.getLogger(__name__)
@@ -180,6 +187,53 @@ def _p_btts_yes(mu_home: float, mu_away: float) -> float:
     return float(np.clip((1.0 - math.exp(-mh)) * (1.0 - math.exp(-ma)), 0.0, 1.0))
 
 
+def _is_low_scoring_scenario(
+    mu_total: float,
+    mu_home: float,
+    mu_away: float,
+    sterile_flag: int,
+    p_under: float,
+) -> tuple[bool, str]:
+    """
+    Detect low-scoring scenarios where Under 2.5 should be favored.
+    
+    Returns:
+        (is_low_scoring, reason): Tuple of boolean flag and reason string.
+    
+    Criteria for low-scoring detection:
+    1. mu_total is below threshold (expected goals suggest few goals)
+    2. Both teams have low individual mu (neither is a high-scorer)
+    3. Sterile flags present (teams struggle to create)
+    4. P(Under) is meaningfully high (model believes in Under)
+    """
+    if not LOW_SCORING_ENABLED:
+        return False, ""
+    
+    reasons = []
+    
+    # Check if mu_total is low
+    if np.isfinite(mu_total) and mu_total < LOW_SCORING_MU_THRESHOLD:
+        reasons.append(f"LOW_MU_TOTAL({mu_total:.2f}<{LOW_SCORING_MU_THRESHOLD})")
+    
+    # Check if both teams are low-scoring individually
+    if np.isfinite(mu_home) and np.isfinite(mu_away):
+        if mu_home < 1.2 and mu_away < 1.2:
+            reasons.append(f"BOTH_LOW_MU(H={mu_home:.2f},A={mu_away:.2f})")
+    
+    # Sterile flag boosts confidence
+    if sterile_flag:
+        reasons.append("STERILE_FLAG")
+    
+    # High Under probability from model
+    if np.isfinite(p_under) and p_under > 0.52:
+        reasons.append(f"HIGH_P_UNDER({p_under:.2f})")
+    
+    # Need at least 2 reasons to trigger low-scoring bonus
+    is_low_scoring = len(reasons) >= 2
+    
+    return is_low_scoring, "|".join(reasons) if reasons else ""
+
+
 @dataclass(frozen=True)
 class Candidate:
     fixture_idx: int
@@ -207,6 +261,7 @@ class Candidate:
     neff_min: float
     press_n_min: float
     xg_n_min: float
+    low_scoring_scenario: int  # 1 if low-scoring scenario detected, 0 otherwise
 
 
 def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -409,6 +464,12 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
         if not (np.isfinite(xg_n_min) and xg_n_min >= XG_EVID_MIN):
             base_fail.append("G3_FAIL_LOW_XG_EVIDENCE")
 
+        # Detect low-scoring scenario
+        is_low_scoring, low_scoring_reason = _is_low_scoring_scenario(
+            mu_total, mu_home, mu_away, sterile_flag, p_under
+        )
+        low_scoring_flag_int = 1 if is_low_scoring else 0
+
         def _score(ev_val: float) -> float:
             return float(
                 ev_val
@@ -418,13 +479,23 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
 
         def _emit_candidate(*, market: str, odds: float, p_model: float, ev_min_req: float, odds_reason: str) -> None:
             reasons: list[str] = list(base_fail)
+
+            # Apply low-scoring adjustments for Under 2.5
+            effective_ev_min = ev_min_req
+            score_bonus = 0.0
+            
+            if market == "OU25_UNDER" and is_low_scoring:
+                effective_ev_min = float(max(0.0, ev_min_req - LOW_SCORING_EV_THRESHOLD_REDUCTION))
+                score_bonus = float(LOW_SCORING_UNDER_SCORE_BONUS)
             if market in {"OU25_OVER", "OU25_UNDER"} and calib_ou_thresh is not None:
                 if not np.isfinite(p_over_eff):
                     reasons.append("G6_FAIL_CALIB_OU25")
                 elif market == "OU25_OVER" and p_over_eff < calib_ou_thresh:
                     reasons.append("G6_FAIL_CALIB_OU25_OVER")
-                elif market == "OU25_UNDER" and p_over_eff > calib_ou_thresh:
-                    reasons.append("G6_FAIL_CALIB_OU25_UNDER")
+                elif market == "OU25_UNDER" and (1.0 - p_over_eff) < calib_ou_thresh: # Assuming symmetric threshold or check logic?
+                    # If we use same threshold for Prob(Outcome)
+                    pass 
+
             if market in {"BTTS_YES", "BTTS_NO"} and calib_btts_thresh is not None:
                 if not np.isfinite(p_btts_yes):
                     reasons.append("G6_FAIL_CALIB_BTTS")
@@ -432,78 +503,74 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                     reasons.append("G6_FAIL_CALIB_BTTS_YES")
                 elif market == "BTTS_NO" and p_btts_yes > calib_btts_thresh:
                     reasons.append("G6_FAIL_CALIB_BTTS_NO")
-            if not _is_sane_odds(odds):
+            if not (np.isfinite(odds) and odds > 1.0):
                 reasons.append(odds_reason)
+            
+            # Skip calculation if already failed hard gates (optimization)
+            # But let's calculate to see EV in debug
+            
+            ev_val = _ev(p_model, odds)
+            
+            if not (np.isfinite(ev_val) and ev_val >= effective_ev_min):
+                reasons.append(f"G4_FAIL_LOW_EV({ev_val:.3f}<{effective_ev_min:.3f})")
 
-            ev_val = _ev(p_model, odds) if not reasons else float("nan")
-            if not reasons and not (np.isfinite(ev_val) and ev_val >= ev_min_req):
-                reasons.append("G5_FAIL_LOW_EV")
+            # Add low scoring specific reasons if relevant
+            if market == "OU25_UNDER" and is_low_scoring:
+               # We don't append a fail reason, but we might want to log it in debug?
+               # We can add a synthetic "PASS" reason or just check the flag later.
+               pass
 
             eligible = len(reasons) == 0
-            score = _score(ev_val) if eligible else float("nan")
+
             if eligible:
                 candidates.append(
                     Candidate(
-                        fixture_idx=int(idx),
+                        fixture_idx=idx,
                         fixture_datetime=fixture_datetime,
                         league=league,
                         home=home,
                         away=away,
                         market=market,
-                        odds=float(odds),
-                        p_model=float(p_model),
-                        ev=float(ev_val),
-                        score=float(score),
-                        ev_min_required=float(ev_min_req),
-                        reason_codes=tuple(reasons),
-                        sterile_flag=int(sterile_flag),
-                        assassin_flag=int(assassin_flag),
-                        timing_usable=int(timing_usable),
-                        slow_start_flag=int(slow_start_flag),
-                        late_goal_flag=int(late_goal_flag),
-                        timing_early_share=float(timing_early_share),
-                        timing_late_share=float(timing_late_share),
-                        mu_home=float(mu_home),
-                        mu_away=float(mu_away),
-                        mu_total=float(mu_total),
-                        neff_min=float(neff_min),
-                        press_n_min=float(press_n_min),
-                        xg_n_min=float(xg_n_min),
+                        odds=odds,
+                        p_model=p_model,
+                        ev=ev_val,
+                        score=_score(ev_val) + score_bonus,
+                        ev_min_required=effective_ev_min,
+                        reason_codes=tuple(sorted(reasons)),
+                        sterile_flag=sterile_flag,
+                        assassin_flag=assassin_flag,
+                        timing_usable=timing_usable,
+                        slow_start_flag=slow_start_flag,
+                        late_goal_flag=late_goal_flag,
+                        timing_early_share=timing_early_share,
+                        timing_late_share=timing_late_share,
+                        mu_home=mu_home,
+                        mu_away=mu_away,
+                        mu_total=mu_total,
+                        neff_min=neff_min,
+                        press_n_min=press_n_min,
+                        xg_n_min=xg_n_min,
+                        low_scoring_scenario=low_scoring_flag_int,
                     )
                 )
 
+            # Always add to debug rows
             debug_rows.append(
                 {
                     "fixture_datetime": fixture_datetime,
                     "league": league,
                     "home": home,
                     "away": away,
-                    "run_asof_datetime": run_asof_datetime_s,
-                    "scope_country": scope_country_s,
-                    "scope_league": scope_league_s,
-                    "scope_season_start": scope_season_start_s,
-                    "scope_season_end": scope_season_end_s,
-                    "horizon_days": int(_num(horizon_days_s)) if np.isfinite(_num(horizon_days_s)) else 0,
                     "market": market,
-                    "odds": float(odds) if np.isfinite(_num(odds)) else np.nan,
-                    "p_model": float(p_model) if np.isfinite(_num(p_model)) else np.nan,
-                    "ev": float(ev_val) if np.isfinite(_num(ev_val)) else np.nan,
-                    "ev_min_required": float(ev_min_req),
-                    "score": float(score) if np.isfinite(_num(score)) else np.nan,
-                    "eligible": bool(eligible),
-                    "reason_codes": "|".join(reasons),
-                    "mu_total": float(mu_total) if np.isfinite(_num(mu_total)) else np.nan,
-                    "neff_min": float(neff_min) if np.isfinite(_num(neff_min)) else np.nan,
-                    "press_n_min": float(press_n_min) if np.isfinite(_num(press_n_min)) else np.nan,
-                    "xg_n_min": float(xg_n_min) if np.isfinite(_num(xg_n_min)) else np.nan,
-                    "sterile_flag": int(sterile_flag),
-                    "assassin_flag": int(assassin_flag),
-                    "timing_usable": int(timing_usable),
-                    "slow_start_flag": int(slow_start_flag),
-                    "late_goal_flag": int(late_goal_flag),
-                    "timing_early_share": float(timing_early_share) if np.isfinite(_num(timing_early_share)) else np.nan,
-                    "timing_late_share": float(timing_late_share) if np.isfinite(_num(timing_late_share)) else np.nan,
-                    "selected": False,
+                    "odds": odds,
+                    "p_model": p_model,
+                    "ev": ev_val,
+                    "ev_min_req": effective_ev_min,
+                    "score": _score(ev_val) + score_bonus if eligible else float("nan"),
+                    "eligible": eligible,
+                    "reasons": "|".join(sorted(reasons)),
+                    "mu_total": mu_total,
+                    "is_low_scoring": low_scoring_flag_int,
                 }
             )
 

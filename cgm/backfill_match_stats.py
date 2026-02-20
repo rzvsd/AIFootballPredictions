@@ -207,22 +207,39 @@ def backfill_match_stats(
     hist_cutoff = hist["_date_only"].max()
 
     # Prepare keys in stats
-    if "datameci" not in stats.columns:
-        raise ValueError("stats missing 'datameci' (expected goals statistics.csv / CGM bet database schema)")
-    stats["_date_only"] = _parse_date_only(stats["datameci"], label="stats.datameci")
+    stats_date_col = None
+    for c in ["datameci", "date", "fixture_date", "kickoff_utc"]:
+        if c in stats.columns:
+            stats_date_col = c
+            break
+    if stats_date_col is None:
+        raise ValueError("stats missing date column (expected one of: datameci/date/fixture_date/kickoff_utc)")
+    stats["_date_only"] = _parse_date_only(stats[stats_date_col], label=f"stats.{stats_date_col}")
     if "codechipa1" in stats.columns:
         stats["code_home"] = _norm_code(stats["codechipa1"])
+    elif "home_id" in stats.columns:
+        stats["code_home"] = _norm_code(stats["home_id"])
+    elif "code_home" in stats.columns:
+        stats["code_home"] = _norm_code(stats["code_home"])
     else:
         stats["code_home"] = np.nan
     if "codechipa2" in stats.columns:
         stats["code_away"] = _norm_code(stats["codechipa2"])
+    elif "away_id" in stats.columns:
+        stats["code_away"] = _norm_code(stats["away_id"])
+    elif "code_away" in stats.columns:
+        stats["code_away"] = _norm_code(stats["code_away"])
     else:
         stats["code_away"] = np.nan
 
     # Normalize names for fallback join
     reg = build_team_registry(str(data_dir))
-    stats["home"] = stats.get("txtechipa1", "").astype(str).apply(lambda x: normalize_team(x, reg)).str.strip()
-    stats["away"] = stats.get("txtechipa2", "").astype(str).apply(lambda x: normalize_team(x, reg)).str.strip()
+    stats["home"] = stats.get("txtechipa1", stats.get("home", stats.get("home_name", ""))).astype(str).apply(
+        lambda x: normalize_team(x, reg)
+    ).str.strip()
+    stats["away"] = stats.get("txtechipa2", stats.get("away", stats.get("away_name", ""))).astype(str).apply(
+        lambda x: normalize_team(x, reg)
+    ).str.strip()
 
     # Parse combined "H-A" stats to split numeric columns
     stats = ensure_pressure_inputs(stats)
@@ -267,6 +284,14 @@ def backfill_match_stats(
         on=["_date_only", "code_home", "code_away"],
         suffixes=("", "_stats"),
     )
+    # If history already carries empty stat columns, merge will place right-side values
+    # under *_stats suffixes. Promote those values into canonical columns.
+    for c in STATS_COLS + extra_cols:
+        src_col = f"{c}_stats"
+        if src_col in merged.columns:
+            left = pd.to_numeric(merged[c], errors="coerce") if c in merged.columns else pd.Series(np.nan, index=merged.index)
+            right = pd.to_numeric(merged[src_col], errors="coerce")
+            merged[c] = left.combine_first(right)
     merged["_stats_src"] = np.where(merged[STATS_COLS[0]].notna(), "code", "none")
 
     # Merge (priority 2): date + names for rows still missing
@@ -279,7 +304,11 @@ def backfill_match_stats(
             suffixes=("", "_stats2"),
         )
         for c in STATS_COLS:
-            merged.loc[need, c] = m2[c].to_numpy()
+            src_col = f"{c}_stats2" if f"{c}_stats2" in m2.columns else c
+            merged.loc[need, c] = pd.to_numeric(m2[src_col], errors="coerce").to_numpy()
+        for c in extra_cols:
+            src_col = f"{c}_stats2" if f"{c}_stats2" in m2.columns else c
+            merged.loc[need, c] = pd.to_numeric(m2[src_col], errors="coerce").to_numpy()
         merged.loc[need & merged[STATS_COLS[0]].notna(), "_stats_src"] = "name"
 
     # Guardrail: if stats provide FT scores, require they match the history scores (prevents bad joins).
@@ -310,6 +339,8 @@ def backfill_match_stats(
 
     # Drop intermediate join-only columns
     merged = merged.drop(columns=["ft_home_stats", "ft_away_stats"], errors="ignore")
+    merged = merged.drop(columns=[f"{c}_stats" for c in STATS_COLS], errors="ignore")
+    merged = merged.drop(columns=[f"{c}_stats2" for c in STATS_COLS], errors="ignore")
     merged = merged.drop(columns=["_date_only"], errors="ignore")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -337,11 +368,11 @@ def backfill_match_stats(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Backfill CGM per-match stats into canonical history")
+    ap = argparse.ArgumentParser(description="Backfill per-match stats into canonical history")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo.csv", help="Input history CSV")
-    ap.add_argument("--stats", default="CGM data/goals statistics.csv", help="Goals statistics CSV (per-match stats)")
+    ap.add_argument("--stats", default="data/api_football/history_fixtures.csv", help="Per-match statistics CSV")
     ap.add_argument("--out", default="data/enhanced/cgm_match_history_with_elo_stats.csv", help="Output history+stats CSV")
-    ap.add_argument("--data-dir", default="CGM data", help="CGM data directory for team registry normalization")
+    ap.add_argument("--data-dir", default="data/api_football", help="Data directory for team registry normalization")
     args = ap.parse_args()
 
     backfill_match_stats(

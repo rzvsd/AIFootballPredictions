@@ -1,19 +1,12 @@
 """
-Build a unified CGM match history table (one row per played match).
+Build a unified match-history table (one row per played match).
 
-Inputs (from "CGM data"):
-  - multiple seasons.csv / multiple leagues and seasons/allratingv.csv (outcomes, Elo, CGM probs/odds)
-  - goals statistics.csv or multiple leagues and seasons/upcoming.csv (shots, shots on target, corners, possession)
-  - team_registry (normalize codes/names)
+Primary source can be either:
+  - API-normalized files (`history_fixtures.csv`, `upcoming_fixtures.csv`)
+  - legacy local CSV exports.
 
 Output:
   data/enhanced/cgm_match_history.csv
-    Columns: season, date, league, country, home, away, code_home, code_away,
-             ft_home, ft_away, ht_home, ht_away, result, validated,
-             elohome, eloaway, elodiff,
-             homeprob, drawprob, awayprob, cotaa, cotae, cotad,
-             overprob, underprob, cotao, cotau,
-             sut, sutt, cor, ballph, ballpa, form indices (if present)
 """
 
 from __future__ import annotations
@@ -54,19 +47,62 @@ def _normalize_df(df: pd.DataFrame, registry: Dict[str, Dict[str, str]]) -> pd.D
             return df[name]
         return pd.Series([np.nan] * len(df), index=df.index)
 
-    for col in ("codechipa1", "codechipa2"):
+    for col in ("codechipa1", "codechipa2", "home_id", "away_id", "code_home", "code_away"):
         if col in df.columns:
             s = df[col].astype(str).str.strip()
             # Common in CGM exports: numeric-like codes serialized as "1002.0"
             s = s.str.replace(r"\.0$", "", regex=True)
             s = s.replace({"nan": np.nan, "None": np.nan, "": np.nan})
             df[col] = s
+
     home_raw = _col_series("txtechipa1").where(lambda s: s.notna(), "")
+    if (home_raw == "").all():
+        home_raw = _col_series("home").where(lambda s: s.notna(), "")
+    if (home_raw == "").all():
+        home_raw = _col_series("home_name").where(lambda s: s.notna(), "")
+
     away_raw = _col_series("txtechipa2").where(lambda s: s.notna(), "")
+    if (away_raw == "").all():
+        away_raw = _col_series("away").where(lambda s: s.notna(), "")
+    if (away_raw == "").all():
+        away_raw = _col_series("away_name").where(lambda s: s.notna(), "")
+
     df["home"] = home_raw.astype(str).apply(lambda x: normalize_team(x, registry))
     df["away"] = away_raw.astype(str).apply(lambda x: normalize_team(x, registry))
-    df["code_home"] = _col_series("codechipa1").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
-    df["code_away"] = _col_series("codechipa2").astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
+
+    code_home = _col_series("codechipa1")
+    if code_home.isna().all():
+        code_home = _col_series("code_home")
+    if code_home.isna().all():
+        code_home = _col_series("home_id")
+    code_away = _col_series("codechipa2")
+    if code_away.isna().all():
+        code_away = _col_series("code_away")
+    if code_away.isna().all():
+        code_away = _col_series("away_id")
+
+    df["code_home"] = code_home.astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
+    df["code_away"] = code_away.astype(str).str.strip().replace({"nan": np.nan, "None": np.nan, "": np.nan})
+    if "codechipa1" not in df.columns:
+        df["codechipa1"] = df["code_home"]
+    if "codechipa2" not in df.columns:
+        df["codechipa2"] = df["code_away"]
+
+    # Prefer code-based canonical names when codes are present (avoids encoding drift in raw names).
+    code_to_name = registry.get("code_to_name", {})
+    if code_to_name:
+        def _code_name(code_val: object) -> str | None:
+            if code_val is None or (isinstance(code_val, float) and np.isnan(code_val)):
+                return None
+            code_s = str(code_val).strip()
+            if not code_s or code_s.lower() == "nan":
+                return None
+            return code_to_name.get(code_s)
+
+        home_from_code = df["code_home"].apply(_code_name)
+        away_from_code = df["code_away"].apply(_code_name)
+        df["home"] = home_from_code.combine_first(df["home"])
+        df["away"] = away_from_code.combine_first(df["away"])
     return df
 
 
@@ -137,7 +173,7 @@ def _parse_date_only(s: pd.Series) -> pd.Series:
 
 
 def build_match_history(
-    data_dir: str = "CGM data",
+    data_dir: str = "data/api_football",
     out_path: str = "data/enhanced/cgm_match_history.csv",
     *,
     max_date: str | None = None,
@@ -159,13 +195,18 @@ def build_match_history(
         cutoff = cutoff.normalize() if not pd.isna(cutoff) else pd.Timestamp.utcnow().tz_localize(None).normalize()
     base = Path(data_dir)
     multi_league_dir = base / "multiple leagues and seasons"
-    
-    # DETERMINE PATHS
-    # If the new multi-league folder exists, use it. Otherwise fallback to root.
-    if multi_league_dir.exists():
+
+    # API-normalized source (preferred)
+    api_history = base / "history_fixtures.csv"
+    api_upcoming = base / "upcoming_fixtures.csv"
+    if api_history.exists():
+        ms_path = api_history
+        stats_files = [api_history]
+        if api_upcoming.exists():
+            stats_files.append(api_upcoming)
+    # Legacy sources
+    elif multi_league_dir.exists():
         ms_path = multi_league_dir / "allratingv.csv"
-        # For goals statistics, we need to aggregate all small CSVs in the folder
-        # explicitly excluding the big combined files
         all_files = list(multi_league_dir.glob("*.csv"))
         stats_files = [
             f for f in all_files 
@@ -227,9 +268,17 @@ def build_match_history(
     # Merge on date + codes if possible, else date+names
     # Deterministic parsing to align with stats backfill.
     date_col = "datameci" if "datameci" in ms.columns else "date"
+    if date_col not in ms.columns and "fixture_date" in ms.columns:
+        date_col = "fixture_date"
+    if date_col not in ms.columns and "kickoff_utc" in ms.columns:
+        date_col = "kickoff_utc"
     ms["_date_only"] = _parse_date_only(ms[date_col])
 
     gs_date_col = "datameci" if "datameci" in gs.columns else "date"
+    if gs_date_col not in gs.columns and "fixture_date" in gs.columns:
+        gs_date_col = "fixture_date"
+    if gs_date_col not in gs.columns and "kickoff_utc" in gs.columns:
+        gs_date_col = "kickoff_utc"
     if not gs.empty:
         gs["_date_only"] = _parse_date_only(gs[gs_date_col])
     else:
@@ -277,8 +326,9 @@ def build_match_history(
         merged["sezonul"] = merged["sezonul"].apply(_season_norm)
 
     # Deduplicate on date/home/away
-    if {"datameci", "home", "away"}.issubset(merged.columns):
-        merged = merged.drop_duplicates(subset=["datameci", "home", "away"])
+    dedupe_date_col = "datameci" if "datameci" in merged.columns else "date"
+    if {dedupe_date_col, "home", "away"}.issubset(merged.columns):
+        merged = merged.drop_duplicates(subset=[dedupe_date_col, "home", "away"])
 
     # Drop future matches (strict cutoff: max_date if provided, else today UTC)
     try:
@@ -296,16 +346,28 @@ def build_match_history(
     # Select/rename key columns
     out_cols = {
         "sezonul": "season",
+        "season": "season",
         "datameci": "date",
+        "date": "date",
+        "fixture_date": "date",
         "orameci": "time",
+        "time": "time",
+        "kickoff_time": "time",
+        "kickoff_utc": "datetime",
         "country": "country",
         "league": "league",
         "home": "home",
+        "home_name": "home",
         "away": "away",
+        "away_name": "away",
         "code_home": "code_home",
+        "home_id": "code_home",
         "code_away": "code_away",
+        "away_id": "code_away",
         "scor1": "ft_home",
+        "home_goals": "ft_home",
         "scor2": "ft_away",
+        "away_goals": "ft_away",
         "scorp1": "ht_home",
         "scorp2": "ht_away",
         "result": "result",
@@ -327,12 +389,26 @@ def build_match_history(
         "overoddsc": "fair_over",
         "underoddsc": "fair_under",
         "cotao": "odds_over",
+        "odds_over25": "odds_over",
         "cotau": "odds_under",
+        "odds_under25": "odds_under",
+        "gg": "odds_btts_yes",
+        "odds_btts_yes": "odds_btts_yes",
+        "ng": "odds_btts_no",
+        "odds_btts_no": "odds_btts_no",
         "sut": "shots",
         "sutt": "shots_on_target",
         "cor": "corners",
         "ballph": "possession_home",
         "ballpa": "possession_away",
+        "shots_H": "shots_H",
+        "shots_A": "shots_A",
+        "sot_H": "sot_H",
+        "sot_A": "sot_A",
+        "corners_H": "corners_H",
+        "corners_A": "corners_A",
+        "pos_H": "pos_H",
+        "pos_A": "pos_A",
         "formah": "form_home",
         "formaa": "form_away",
     }
@@ -344,10 +420,21 @@ def build_match_history(
         pass
     # Build outputs
     for src, dst in out_cols.items():
-        if src in merged.columns:
-            df_out[dst] = merged[src]
+        src_series = merged[src] if src in merged.columns else pd.Series([np.nan] * len(merged), index=merged.index)
+        if dst not in df_out.columns:
+            df_out[dst] = src_series
         else:
-            df_out[dst] = np.nan
+            # Keep first available source for each canonical output column.
+            df_out[dst] = df_out[dst].combine_first(src_series)
+
+    # If date/time are absent but datetime exists, derive them.
+    if "date" in df_out.columns and "datetime" in df_out.columns:
+        dt = pd.to_datetime(df_out["datetime"], errors="coerce")
+        missing_date = df_out["date"].isna() | (df_out["date"].astype(str).str.strip() == "")
+        df_out.loc[missing_date, "date"] = dt.dt.date.astype(str)
+        if "time" in df_out.columns:
+            missing_time = df_out["time"].isna() | (df_out["time"].astype(str).str.strip() == "")
+            df_out.loc[missing_time, "time"] = dt.dt.strftime("%H:%M")
     # Fill missing season from date if possible
     if "season" in df_out.columns:
         def _season_from_date(val):
@@ -390,8 +477,8 @@ def build_match_history(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Build unified CGM match history CSV")
-    ap.add_argument("--data-dir", default="CGM data", help="Directory containing CGM CSVs")
+    ap = argparse.ArgumentParser(description="Build unified match history CSV")
+    ap.add_argument("--data-dir", default="data/api_football", help="Directory containing source CSV files")
     ap.add_argument("--out", default="data/enhanced/cgm_match_history.csv", help="Output CSV path")
     ap.add_argument("--max-date", default=None, help="Optional cutoff date (YYYY-MM-DD) to exclude future rows")
     args = ap.parse_args()

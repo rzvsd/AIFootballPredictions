@@ -1,0 +1,11 @@
+fixture_datetime,date,league,home,away,pred_ou25,pred_ou25_confidence_pct,pred_btts,pred_btts_confidence_pct
+2026-02-21T15:00:00,2026-02-21,Premier League,Aston Villa,Leeds,OU25_UNDER,66.73,BTTS_NO,64.29
+2026-02-21T15:00:00,2026-02-21,Premier League,Brentford,Brighton,OU25_UNDER,55.61,BTTS_NO,53.31
+2026-02-21T15:00:00,2026-02-21,Premier League,Chelsea,Burnley,OU25_UNDER,82.87,BTTS_NO,87.31
+2026-02-21T17:30:00,2026-02-21,Premier League,West Ham,Bournemouth,OU25_UNDER,75.29,BTTS_NO,66.92
+2026-02-21T20:00:00,2026-02-21,Premier League,Manchester City,Newcastle,OU25_UNDER,77.77,BTTS_NO,75.57
+2026-02-22T14:00:00,2026-02-22,Premier League,Crystal Palace,Wolves,OU25_UNDER,71.4,BTTS_NO,85.71
+2026-02-22T14:00:00,2026-02-22,Premier League,Nottingham Forest,Liverpool,OU25_UNDER,55.39,BTTS_NO,51.44
+2026-02-22T14:00:00,2026-02-22,Premier League,Sunderland,Fulham,OU25_UNDER,72.41,BTTS_NO,70.25
+2026-02-22T16:30:00,2026-02-22,Premier League,Tottenham,Arsenal,OU25_UNDER,77.82,BTTS_NO,70.13
+2026-02-23T20:00:00,2026-02-23,Premier League,Everton,Manchester United,OU25_UNDER,71.63,BTTS_NO,66.89

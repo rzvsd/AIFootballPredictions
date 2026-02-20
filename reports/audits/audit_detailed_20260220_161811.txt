@@ -1,0 +1,90 @@
+DETAILED AUDIT LOG
+Generated: 2026-02-20 16:18:11 UTC
+
+How calculations work (plain language):
+- Elo:
+  - Start rating: 1500 (from calc_cgm_elo defaults)
+  - Update rule: expected score uses a logistic curve with home advantage.
+  - Home advantage: 65 Elo points.
+  - K-factor: 20, scaled by goal-difference multiplier.
+  - Margin multiplier: 1.0 for 0-1 goals, 1.5 for 2, 1.75 for 3, then +0.125 per extra goal.
+- Pressure (team dominance):
+  - Inputs: shots, shots on target, corners, possession.
+  - Weights: shots 0.45, shots on target 0.30, corners 0.15, possession 0.10.
+  - Pressure is only usable when all required inputs exist for a match.
+- xG proxy (internal, not true xG):
+  - Inputs: shots_for, shots_on_target_for, shots_against, shots_on_target_against, is_home.
+  - Model: Poisson regression trained walk-forward by ISO week.
+  - If not enough training rows, a prior mean (1.25 goals) is used.
+
+API sync quality report
+- Quality gate passed: True
+- Stats coverage: 1.0
+- Odds coverage: 1.0
+- Errors: 0
+
+History data
+- Rows: 261
+- Date range: 2025-08-15 19:00:00 -> 2026-02-18 20:00:00
+- Top leagues by rows:
+  - Premier League: 261
+- Elo coverage: home missing=0.0%, away missing=0.0%
+  - Elo home min/med/max: 1345.5 / 1500.8 / 1632.0
+  - Elo away min/med/max: 1339.3 / 1502.0 / 1634.6
+- Pressure usable rate: 100.0%
+- xG proxy usable rate: 100.0%
+- Teams with fewer than 10 total history matches (sample):
+  - None
+
+Upcoming fixtures data
+- Rows: 11
+- Date range: 2026-02-21 15:00:00+00:00 -> 2026-02-27 20:00:00+00:00
+- Top leagues by rows:
+  - Premier League: 11
+
+Predictions data
+- Rows: 10
+- Date range: 2026-02-21 15:00:00 -> 2026-02-23 20:00:00
+- Evidence window: last 10 matches (context-specific)
+- Sample per fixture (first N):
+  - Chelsea vs Burnley:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Brentford vs Brighton:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Aston Villa vs Leeds:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - West Ham vs Bournemouth:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Manchester City vs Newcastle:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Crystal Palace vs Wolves:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Nottingham Forest vs Liverpool:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Sunderland vs Fulham:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Tottenham vs Arsenal:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Everton vs Manchester United:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+
+- Fixtures with low xG evidence (min < 3.0 in last 10): 0
+- Fixtures with low Pressure evidence (min < 3.0 in last 10): 0
+
+Summary
+- Status: OK
+
+Extra outputs
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_team_counts.csv
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_fixture_evidence.csv
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_league_summary.csv

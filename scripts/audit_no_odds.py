@@ -90,7 +90,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Audit that the no-odds model is invariant to odds columns in the upcoming feed")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv", help="History CSV used for inference")
     ap.add_argument("--models-dir", default="models", help="Directory with no-odds models")
-    ap.add_argument("--upcoming", default="CGM data/multiple leagues and seasons/allratingv.csv", help="Raw upcoming feed CSV (any CGM export)")
+    ap.add_argument("--upcoming", default="data/api_football/upcoming_fixtures.csv", help="Raw upcoming feed CSV")
     ap.add_argument("--as-of-date", default="2025-12-19", help="As-of date (YYYY-MM-DD) used by scope filter")
     args = ap.parse_args()
 

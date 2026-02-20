@@ -1,0 +1,33 @@
+{
+  "generated_at_utc": "2026-02-20 16:18:59 UTC",
+  "paths": {
+    "history": "C:\\BOTS\\AIFootballPredictions\\data\\enhanced\\cgm_match_history_with_elo_stats_xg.csv",
+    "upcoming": "C:\\BOTS\\AIFootballPredictions\\data\\api_football\\upcoming_fixtures.csv",
+    "predictions": "C:\\BOTS\\AIFootballPredictions\\reports\\cgm_upcoming_predictions.csv",
+    "quality": "C:\\BOTS\\AIFootballPredictions\\data\\api_football\\fixture_quality_report.json"
+  },
+  "issues": [],
+  "history_rows": 261,
+  "history_metrics": {
+    "rows": 261,
+    "date_min": "2025-08-15 19:00:00",
+    "date_max": "2026-02-18 20:00:00",
+    "pressure_usable_rate": 1.0,
+    "xg_usable_rate": 1.0
+  },
+  "upcoming_rows": 11,
+  "upcoming_metrics": {
+    "rows": 11,
+    "date_min": "2026-02-21 15:00:00+00:00",
+    "date_max": "2026-02-27 20:00:00+00:00"
+  },
+  "prediction_rows": 10,
+  "prediction_metrics": {
+    "rows": 10,
+    "date_min": "2026-02-21 15:00:00",
+    "date_max": "2026-02-23 20:00:00"
+  },
+  "team_counts_csv": "C:\\BOTS\\AIFootballPredictions\\reports\\audits\\audit_team_counts.csv",
+  "fixture_evidence_csv": "C:\\BOTS\\AIFootballPredictions\\reports\\audits\\audit_fixture_evidence.csv",
+  "league_summary_csv": "C:\\BOTS\\AIFootballPredictions\\reports\\audits\\audit_league_summary.csv"
+}

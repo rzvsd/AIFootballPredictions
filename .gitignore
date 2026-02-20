@@ -15,6 +15,9 @@ images/*
 
 # Ignore all the .csv files in the data folder
 data/*/*.csv
+data/api_football/cache/
+data/api_football/fixture_quality_report.json
+data/api_football/multiple leagues and seasons/
 
 # Ignore all the .json in the notebooks folder
 notebooks/*.json

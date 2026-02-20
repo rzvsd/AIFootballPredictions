@@ -1,8 +1,8 @@
 ﻿"""
-Milestone 5: Live Inference & Value Scan using CGM data.
+Milestone 5: Live Inference & Value Scan.
 
-Uses only CGM CSVs to build opponent-aware Frankenstein features, predict mu_home/mu_away,
-convert to Poisson probabilities, and compute EV vs book odds.
+Uses local normalized fixture/stats/odds data to build opponent-aware features,
+predict mu_home/mu_away, and compute EV.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def log_json(event: dict, log_path: Path = LOG_PATH_DEFAULT) -> None:
         f.write(json.dumps(out) + "\n")
 
 
-def _load_history(path: Path) -> pd.DataFrame:
+def _load_history(path: Path, registry: dict | None = None) -> pd.DataFrame:
     df = pd.read_csv(path)
     if "datetime" not in df.columns:
         dt = pd.to_datetime(df["date"] + " " + df.get("time", "").astype(str), errors="coerce")
@@ -71,6 +71,30 @@ def _load_history(path: Path) -> pd.DataFrame:
     else:
         df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
     df = df.sort_values(["datetime", "home", "away"], kind="mergesort")
+    # Prefer code-based canonical names when available to avoid encoding drift.
+    if registry and isinstance(registry, dict) and registry.get("code_to_name"):
+        code_to_name = registry.get("code_to_name", {})
+        code_home = df.get("code_home")
+        if code_home is None and "codechipa1" in df.columns:
+            code_home = df["codechipa1"]
+        code_away = df.get("code_away")
+        if code_away is None and "codechipa2" in df.columns:
+            code_away = df["codechipa2"]
+
+        def _map_code(series):
+            if series is None:
+                return None
+            s = series.astype(str).str.strip()
+            s = s.str.replace(r"\.0$", "", regex=True)
+            s = s.replace({"nan": "", "None": "", "": ""})
+            return s.map(code_to_name).replace({"": np.nan})
+
+        home_from_code = _map_code(code_home)
+        away_from_code = _map_code(code_away)
+        if home_from_code is not None:
+            df["home"] = home_from_code.combine_first(df["home"])
+        if away_from_code is not None:
+            df["away"] = away_from_code.combine_first(df["away"])
     # Milestone 2: parse/split combined CGM stats before numeric coercion
     df = ensure_pressure_inputs(df)
     for col in df.columns:
@@ -264,10 +288,15 @@ def _log_run(meta: dict, out_path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Predict upcoming fixtures using Frankenstein models")
-    ap.add_argument("--data-dir", default="CGM data", help="CGM data directory containing allratingv.csv/upcoming.csv")
+    ap.add_argument("--data-dir", default="data/api_football", help="Data directory containing normalized fixture files")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv", help="Match history with features")
     ap.add_argument("--models-dir", default="models", help="Directory with frankenstein_mu_home/away.pkl")
-    ap.add_argument("--model-variant", choices=["full", "no_odds"], default="full", help="Model variant (feature set)")
+    ap.add_argument(
+        "--model-variant",
+        choices=["full", "no_odds"],
+        default=str(getattr(config, "PIPELINE_DEFAULT_MODEL_VARIANT", "no_odds")),
+        help="Model variant (feature set)",
+    )
     ap.add_argument("--out", default="reports/cgm_upcoming_predictions.csv", help="Output predictions CSV")
     ap.add_argument("--windows", nargs="+", type=int, default=[5, 10], help="Rolling windows")
     ap.add_argument("--min-matches", type=int, default=8, help="Minimum matches required per team to use prediction")
@@ -279,6 +308,24 @@ def main() -> None:
     ap.add_argument("--scope-season-start", default=getattr(config, "LIVE_SCOPE_SEASON_START", ""), help="Optional season window start (YYYY-MM-DD).")
     ap.add_argument("--scope-season-end", default=getattr(config, "LIVE_SCOPE_SEASON_END", ""), help="Optional season window end (YYYY-MM-DD).")
     ap.add_argument("--horizon-days", type=int, default=int(getattr(config, "LIVE_SCOPE_HORIZON_DAYS", 0) or 0), help="Optional horizon (days). 0 disables.")
+    ap.add_argument(
+        "--next-round-only",
+        dest="next_round_only",
+        action="store_true",
+        help="Keep only the immediate next round window (earliest fixture date + span).",
+    )
+    ap.add_argument(
+        "--all-upcoming",
+        dest="next_round_only",
+        action="store_false",
+        help="Disable next-round-only filtering and keep all fixtures in scope.",
+    )
+    ap.add_argument(
+        "--next-round-span-days",
+        type=int,
+        default=int(getattr(config, "LIVE_SCOPE_NEXT_ROUND_SPAN_DAYS", 3) or 3),
+        help="Number of days after earliest fixture date to keep when --next-round-only is active.",
+    )
 
     ap.add_argument("--log-level", default="INFO", help="Logging level (INFO/DEBUG/WARNING)")
     ap.add_argument("--log-json", default=str(LOG_PATH_DEFAULT), help="Path to JSONL run log")
@@ -286,6 +333,7 @@ def main() -> None:
     ap.add_argument("--log-max-fixtures", type=int, default=25, help="Max fixtures to trace-log per run")
     ap.add_argument("--trace-json", default=str(TRACE_PATH_DEFAULT), help="Optional fixture-level trace JSONL")
     ap.add_argument("--trace-topk", type=int, default=0, help="(reserved) top-k contributors per kernel (not used yet)")
+    ap.set_defaults(next_round_only=bool(getattr(config, "LIVE_SCOPE_NEXT_ROUND_ONLY", True)))
     args = ap.parse_args()
 
     logging.basicConfig(
@@ -296,7 +344,7 @@ def main() -> None:
 
     reg = build_team_registry(args.data_dir)
 
-    hist = _load_history(Path(args.history))
+    hist = _load_history(Path(args.history), registry=reg)
     hist_hash = file_hash(Path(args.history)) if Path(args.history).exists() else None
     logger.info("[ELO][DATA] history=%s rows=%d hash=%s date_range=[%s,%s]", args.history, len(hist), hist_hash,
                 hist["datetime"].min(), hist["datetime"].max())
@@ -326,6 +374,10 @@ def main() -> None:
     horizon_days = int(getattr(args, "horizon_days", 0) or 0)
     if horizon_days <= 0:
         horizon_days = 0
+    next_round_only = bool(getattr(args, "next_round_only", False))
+    next_round_span_days = int(getattr(args, "next_round_span_days", 3) or 3)
+    if next_round_span_days < 0:
+        next_round_span_days = 0
 
     # Derive as-of from CLI or (deterministically) from the history max date.
     as_of_date = None
@@ -550,12 +602,17 @@ def main() -> None:
             logger.debug(f"xG away stats error for {row['away']}: {e}")
 
     # PATH DETERMINATION for upcoming fixtures
-    # Use allratingv.csv for future fixtures; optionally enrich with gg/ng from upcoming.csv.
+    # Prefer API-normalized files, then legacy CSV exports.
     base_dir = Path(args.data_dir)
     multi_league_dir = base_dir / "multiple leagues and seasons"
 
     odds_source = None
-    if multi_league_dir.exists():
+    api_upcoming = base_dir / "upcoming_fixtures.csv"
+    if api_upcoming.exists():
+        primary_source = api_upcoming
+        odds_source = api_upcoming
+        logger.info(f"[SOURCE] Using API upcoming source: {primary_source}")
+    elif multi_league_dir.exists():
         allrating_csv = multi_league_dir / "allratingv.csv"
         upcoming_csv = multi_league_dir / "upcoming.csv"
         if allrating_csv.exists():
@@ -599,6 +656,46 @@ def main() -> None:
         logger.warning(f"[SOURCE] Primary source not found: {primary_source}")
         up = pd.DataFrame()
 
+    def _normalize_upcoming_columns(df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+        out = df.copy()
+        alias_map = {
+            "home_name": "txtechipa1",
+            "away_name": "txtechipa2",
+            "home": "txtechipa1",
+            "away": "txtechipa2",
+            "home_id": "codechipa1",
+            "away_id": "codechipa2",
+            "date": "datameci",
+            "odds_over25": "cotao",
+            "odds_under25": "cotau",
+            "odds_btts_yes": "gg",
+            "odds_btts_no": "ng",
+            "odds_home": "cotaa",
+            "odds_draw": "cotae",
+            "odds_away": "cotad",
+        }
+        for src, dst in alias_map.items():
+            if dst not in out.columns and src in out.columns:
+                out[dst] = out[src]
+        if "orameci" not in out.columns:
+            time_col = None
+            if "kickoff_time" in out.columns:
+                time_col = out["kickoff_time"].astype(str)
+            elif "time" in out.columns:
+                time_col = out["time"].astype(str)
+            elif "kickoff_utc" in out.columns:
+                time_col = pd.to_datetime(out["kickoff_utc"], errors="coerce").dt.strftime("%H:%M")
+            if time_col is not None:
+                hhmm = time_col.str.extract(r"(?P<h>\d{1,2}):(?P<m>\d{2})")
+                out["orameci"] = pd.to_numeric(hhmm["h"], errors="coerce").fillna(0).astype(int) * 100 + pd.to_numeric(
+                    hhmm["m"], errors="coerce"
+                ).fillna(0).astype(int)
+        return out
+
+    up = _normalize_upcoming_columns(up)
+
     # Build fixture_datetime for scope filtering
     scope_counts: dict[str, object] = {"upcoming_rows_in": int(len(up))}
     scope_counts["upcoming_rows_parsed"] = int(up["_fixture_dt"].notna().sum())
@@ -609,6 +706,7 @@ def main() -> None:
     if odds_source is not None and odds_source.exists():
         try:
             up_odds = pd.read_csv(odds_source, encoding="latin1", low_memory=False)
+            up_odds = _normalize_upcoming_columns(up_odds)
             up_odds["_fixture_dt"] = up_odds.apply(
                 lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")),
                 axis=1,
@@ -692,10 +790,17 @@ def main() -> None:
         up.drop(columns=["_dupe_score"], inplace=True, errors="ignore")
     else:
         scope_counts["upcoming_rows_after_dedupe"] = int(len(up))
+
+    if next_round_only and not up.empty:
+        first_fixture_dt = pd.to_datetime(up["_fixture_dt"], errors="coerce").min()
+        if not pd.isna(first_fixture_dt):
+            round_end = first_fixture_dt + pd.Timedelta(days=int(next_round_span_days))
+            up = up[up["_fixture_dt"] <= round_end].copy()
+    scope_counts["upcoming_rows_after_next_round"] = int(len(up))
     scope_counts["upcoming_rows_after_filters"] = int(len(up))
 
     logger.info(
-        "[SCOPE] asof=%s run_asof_datetime=%s rows_in=%s parsed=%s after_past=%s after_window=%s after_league=%s after_horizon=%s after_dedupe=%s",
+        "[SCOPE] asof=%s run_asof_datetime=%s rows_in=%s parsed=%s after_past=%s after_window=%s after_league=%s after_horizon=%s after_dedupe=%s after_next_round=%s",
         str(as_of_date),
         str(run_asof_datetime),
         scope_counts.get("upcoming_rows_in"),
@@ -705,6 +810,7 @@ def main() -> None:
         scope_counts.get("upcoming_rows_after_league"),
         scope_counts.get("upcoming_rows_after_horizon"),
         scope_counts.get("upcoming_rows_after_dedupe"),
+        scope_counts.get("upcoming_rows_after_next_round"),
     )
     log_json(
         {
@@ -716,6 +822,8 @@ def main() -> None:
             "scope_season_start": str(scope_season_start) if scope_season_start is not None else None,
             "scope_season_end": str(scope_season_end) if scope_season_end is not None else None,
             "horizon_days": int(horizon_days),
+            "next_round_only": bool(next_round_only),
+            "next_round_span_days": int(next_round_span_days),
             **scope_counts,
         },
         log_path=Path(args.log_json),
@@ -787,16 +895,9 @@ def main() -> None:
     model_h = joblib.load(model_h_path)
     model_a = joblib.load(model_a_path)
 
-    # Milestone 13: Load Calibration Models
-    calib_models = {}
-    for name in ["home", "away", "over", "btts"]:
-        cp = Path(args.models_dir) / "calibration" / f"calib_{name}.pkl"
-        if cp.exists():
-            try:
-                calib_models[name] = joblib.load(cp)
-                logger.info(f"[CALIB] Loaded {name} calibrator from {cp}")
-            except Exception as e:
-                logger.warning(f"[CALIB] Failed to load {name} calibrator: {e}")
+    # Probability calibration intentionally disabled.
+    # Predictions use raw model + Poisson probabilities only.
+    logger.info("[CALIB] disabled; using raw probabilities")
 
 
     # Feature contract audit
@@ -846,10 +947,25 @@ def main() -> None:
     trace_count = 0
     trace_path = Path(args.trace_json)
     for _, r in up.iterrows():
-        home_raw = r["txtechipa1"]
-        away_raw = r["txtechipa2"]
+        home_raw = r.get("txtechipa1", r.get("home_name", r.get("home", "")))
+        away_raw = r.get("txtechipa2", r.get("away_name", r.get("away", "")))
         home = normalize_team(home_raw, reg)
         away = normalize_team(away_raw, reg)
+
+        if home not in latest_home.index or away not in latest_away.index:
+            # Fallback: try resolving by team codes when names fail.
+            if home not in latest_home.index:
+                code_home = r.get("codechipa1", r.get("code_home", r.get("home_id")))
+                if code_home is not None and str(code_home).strip():
+                    home_alt = normalize_team(str(code_home), reg)
+                    if home_alt in latest_home.index:
+                        home = home_alt
+            if away not in latest_away.index:
+                code_away = r.get("codechipa2", r.get("code_away", r.get("away_id")))
+                if code_away is not None and str(code_away).strip():
+                    away_alt = normalize_team(str(code_away), reg)
+                    if away_alt in latest_away.index:
+                        away = away_alt
 
         if home not in latest_home.index or away not in latest_away.index:
             # Log which team is unseen for debugging
@@ -972,22 +1088,27 @@ def main() -> None:
         assassin_h = int((xg_stats_n_h > 0.0) and (press_z_h <= -1.0) and (xg_z_h >= 1.0))
         assassin_a = int((xg_stats_n_a > 0.0) and (press_z_a <= -1.0) and (xg_z_a >= 1.0))
 
-        odds_home = r.get("cotaa")
-        odds_draw = r.get("cotae")
-        odds_away = r.get("cotad")
-        odds_over = r.get("cotao")
-        odds_under = r.get("cotau")
+        odds_home = r.get("cotaa", r.get("odds_home"))
+        odds_draw = r.get("cotae", r.get("odds_draw"))
+        odds_away = r.get("cotad", r.get("odds_away"))
+        odds_over = r.get("cotao", r.get("odds_over25"))
+        odds_under = r.get("cotau", r.get("odds_under25"))
+        odds_btts_yes = r.get("gg", r.get("odds_btts_yes"))
+        odds_btts_no = r.get("ng", r.get("odds_btts_no"))
         imp_1x2 = _implied_probs_1x2(odds_home, odds_draw, odds_away)
         imp_ou = _implied_probs_two_way(odds_over, odds_under)
         if model_variant == "no_odds":
             odds_home = odds_draw = odds_away = np.nan
             odds_over = odds_under = np.nan
+            odds_btts_yes = odds_btts_no = np.nan
             imp_1x2 = {"p_home": np.nan, "p_draw": np.nan, "p_away": np.nan}
             imp_ou = {"p_over": np.nan, "p_under": np.nan}
 
         # Elo similarity features (kernel-based, venue-aware) with cutoff at fixture datetime
         fixture_dt = pd.to_datetime(r.get("_fixture_dt"), errors="coerce")
-        as_of = fixture_dt if not pd.isna(fixture_dt) else pd.to_datetime(r.get("datameci"), errors="coerce")
+        as_of = fixture_dt if not pd.isna(fixture_dt) else pd.to_datetime(
+            r.get("datameci", r.get("date", r.get("fixture_date"))), errors="coerce"
+        )
         sigma = float(sigma_map.get(str(league), default_sigma))
         h_hist = elo_histories.get(home, {}).get("home", pd.DataFrame())
         a_hist = elo_histories.get(away, {}).get("away", pd.DataFrame())
@@ -1015,6 +1136,8 @@ def main() -> None:
             "odds_away": odds_away,
             "odds_over": odds_over,
             "odds_under": odds_under,
+            "odds_btts_yes": odds_btts_yes,
+            "odds_btts_no": odds_btts_no,
             # Training data stores these as percentages (0..100). Keep inference on the same scale.
             "p_home": (100.0 * imp_1x2["p_home"]) if imp_1x2["p_home"] is not None and not np.isnan(imp_1x2["p_home"]) else np.nan,
             "p_draw": (100.0 * imp_1x2["p_draw"]) if imp_1x2["p_draw"] is not None and not np.isnan(imp_1x2["p_draw"]) else np.nan,
@@ -1168,7 +1291,7 @@ def main() -> None:
             log_json(
                 {
                     "event": "ELO_PRED_TRACE",
-                    "fixture": {"date": r.get("datameci"), "league": league, "home": home, "away": away},
+                    "fixture": {"date": r.get("datameci", r.get("date")), "league": league, "home": home, "away": away},
                     "elo": {
                         "home": elo_home,
                         "away": elo_away,
@@ -1197,36 +1320,6 @@ def main() -> None:
                 log_path=trace_path,
             )
 
-        # Milestone 13: Apply Probability Calibration
-        # We modify the probabilities IN-PLACE before EV calculation
-        if calib_models:
-             try:
-                 # 1. Home/Away (normalize afterward to sum to 1.0 - p_draw)
-                 # Actually, strict calibration means we trust the calibrator.
-                 # But we must respect the draw probabilty? 
-                 # Isotonic maps p -> p_calib.
-                 if "home" in calib_models:
-                     probs["p_home"] = float(calib_models["home"].predict([probs["p_home"]])[0])
-                 if "away" in calib_models:
-                     probs["p_away"] = float(calib_models["away"].predict([probs["p_away"]])[0])
-                 # Re-normalize 1X2 so they sum to 1?
-                 # Or just recalibrate draw? We don't have draw calibrator.
-                 # Let's adjust Draw to be 1 - H - A (if < 0, normalize)
-                 total_prob = probs["p_home"] + probs["p_away"] + probs["p_draw"]
-                 if total_prob != 1.0 and total_prob > 0:
-                     scale = 1.0 / total_prob
-                     probs["p_home"] *= scale
-                     probs["p_away"] *= scale
-                     probs["p_draw"] *= scale
-
-                 # 2. Over 2.5
-                 if "over" in calib_models:
-                     probs["p_over25"] = float(calib_models["over"].predict([probs["p_over25"]])[0])
-                     probs["p_under25"] = 1.0 - probs["p_over25"]
-
-             except Exception as e:
-                 logger.debug(f"[CALIB] Error applying calibration: {e}")
-
         def ev(prob, odds):
             try:
                 return prob * float(odds) - 1.0
@@ -1246,17 +1339,8 @@ def main() -> None:
             logger.debug(f"BTTS calc error for mu_h={mu_h}, mu_a={mu_a}: {e}")
             p_btts_yes = np.nan
         
-        # Calibration for BTTS
-        if "btts" in calib_models and np.isfinite(p_btts_yes):
-            try:
-                p_btts_yes = float(calib_models["btts"].predict([p_btts_yes])[0])
-            except Exception:
-                pass
-                
         p_btts_no = (1.0 - p_btts_yes) if np.isfinite(p_btts_yes) else np.nan
 
-        odds_btts_yes = r.get("gg")
-        odds_btts_no = r.get("ng")
         ev_btts_yes = ev(p_btts_yes, odds_btts_yes)
         ev_btts_no = ev(p_btts_no, odds_btts_no)
 
@@ -1287,8 +1371,10 @@ def main() -> None:
 
         preds.append(
             {
-                "fixture_datetime": fixture_dt.isoformat() if not pd.isna(fixture_dt) else str(r.get("datameci")),
-                "date": r.get("datameci"),
+                "fixture_datetime": fixture_dt.isoformat() if not pd.isna(fixture_dt) else str(
+                    r.get("datameci", r.get("date"))
+                ),
+                "date": r.get("datameci", r.get("date")),
                 "league": league,
                 "country": country,
                 "season": season,
@@ -1302,6 +1388,8 @@ def main() -> None:
                 "scope_season_start": scope_season_start.date().isoformat() if scope_season_start is not None else "",
                 "scope_season_end": scope_season_end.date().isoformat() if scope_season_end is not None else "",
                 "horizon_days": int(horizon_days),
+                "next_round_only": int(next_round_only),
+                "next_round_span_days": int(next_round_span_days),
                 "upcoming_rows_in": int(scope_counts.get("upcoming_rows_in", 0) or 0),
                 "upcoming_rows_parsed": int(scope_counts.get("upcoming_rows_parsed", 0) or 0),
                 "upcoming_rows_after_past": int(scope_counts.get("upcoming_rows_after_past", 0) or 0),
@@ -1309,6 +1397,7 @@ def main() -> None:
                 "upcoming_rows_after_league": int(scope_counts.get("upcoming_rows_after_league", 0) or 0),
                 "upcoming_rows_after_horizon": int(scope_counts.get("upcoming_rows_after_horizon", 0) or 0),
                 "upcoming_rows_after_dedupe": int(scope_counts.get("upcoming_rows_after_dedupe", 0) or 0),
+                "upcoming_rows_after_next_round": int(scope_counts.get("upcoming_rows_after_next_round", 0) or 0),
                 "upcoming_rows_after_filters": int(scope_counts.get("upcoming_rows_after_filters", 0) or 0),
                 "mu_home": mu_h,
                 "mu_away": mu_a,
@@ -1317,6 +1406,7 @@ def main() -> None:
                 "p_under25": probs["p_under25"],
                 "p_over_2_5": probs["p_over25"],
                 "p_under_2_5": probs["p_under25"],
+                "pred_ou25": "OU25_OVER" if float(probs["p_over25"]) >= 0.5 else "OU25_UNDER",
                 "odds_over25": odds_over,
                 "odds_under25": odds_under,
                 "odds_over_2_5": odds_over,
@@ -1325,6 +1415,7 @@ def main() -> None:
                 "EV_under25": ev_under,
                 "p_btts_yes": p_btts_yes,
                 "p_btts_no": p_btts_no,
+                "pred_btts": "BTTS_YES" if np.isfinite(p_btts_yes) and float(p_btts_yes) >= 0.5 else "BTTS_NO",
                 "odds_btts_yes": odds_btts_yes,
                 "odds_btts_no": odds_btts_no,
                 "EV_btts_yes": ev_btts_yes,
@@ -1368,6 +1459,8 @@ def main() -> None:
                 "scope_season_start",
                 "scope_season_end",
                 "horizon_days",
+                "next_round_only",
+                "next_round_span_days",
                 "upcoming_rows_in",
                 "upcoming_rows_parsed",
                 "upcoming_rows_after_past",
@@ -1375,6 +1468,7 @@ def main() -> None:
                 "upcoming_rows_after_league",
                 "upcoming_rows_after_horizon",
                 "upcoming_rows_after_dedupe",
+                "upcoming_rows_after_next_round",
                 "upcoming_rows_after_filters",
                 "mu_home",
                 "mu_away",
@@ -1383,6 +1477,7 @@ def main() -> None:
                 "p_under25",
                 "p_over_2_5",
                 "p_under_2_5",
+                "pred_ou25",
                 "odds_over25",
                 "odds_under25",
                 "odds_over_2_5",
@@ -1391,6 +1486,7 @@ def main() -> None:
                 "EV_under25",
                 "p_btts_yes",
                 "p_btts_no",
+                "pred_btts",
                 "odds_btts_yes",
                 "odds_btts_no",
                 "EV_btts_yes",

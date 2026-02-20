@@ -5,6 +5,18 @@ The legacy (non-CGM) config has been archived to:
   archive/legacy_non_cgm_engine/config_legacy.py
 """
 
+# ---------------------------------------------------------------------------
+# API-Football Defaults
+# ---------------------------------------------------------------------------
+API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
+API_FOOTBALL_DEFAULT_DATA_DIR = "data/api_football"
+API_FOOTBALL_RATE_PER_MIN_FREE = 10
+API_FOOTBALL_MAX_REQUESTS_FREE = 100
+API_FOOTBALL_DEFAULT_HISTORY_DAYS = 365
+API_FOOTBALL_DEFAULT_HORIZON_DAYS = 7
+API_FOOTBALL_DEFAULT_LEAGUE_IDS = [39]  # EPL on free tier; extend gradually as cache grows
+API_FOOTBALL_FETCH_ODDS_DEFAULT = True
+
 # Gaussian kernel width (sigma) per league for Elo-similarity features.
 # Used by: cgm/build_frankenstein.py and cgm/predict_upcoming.py
 ELO_SIM_SIGMA_PER_LEAGUE = {
@@ -45,7 +57,15 @@ LIVE_SCOPE_SEASON_START = "2025-08-01"
 LIVE_SCOPE_SEASON_END = "2026-07-01"
 
 # Optional horizon (days) for how far ahead to consider fixtures. Use None/0 to disable.
-LIVE_SCOPE_HORIZON_DAYS = 14
+LIVE_SCOPE_HORIZON_DAYS = 7
+
+# Keep only the immediate next round window (first upcoming fixture date + span days).
+LIVE_SCOPE_NEXT_ROUND_ONLY = True
+LIVE_SCOPE_NEXT_ROUND_SPAN_DAYS = 3
+
+# Internal defaults: odds-aware flow with EV-based picks enabled.
+PIPELINE_DEFAULT_MODEL_VARIANT = "full"
+PIPELINE_EMIT_PICKS_DEFAULT = True
 
 # ---------------------------------------------------------------------------
 # Pick Engine Gates (single source of truth)
@@ -138,6 +158,17 @@ LEAGUE_PROFILE_WINDOW = 100       # Rolling window for league stats (matches)
 # ---------------------------------------------------------------------------
 # Automatically adjust decision thresholds based on backtest results per league.
 # Run: python -m scripts.calibrate_league --input reports/backtest_*.csv
-CALIBRATION_ENABLED = True
+CALIBRATION_ENABLED = False
 CALIBRATION_FILE = "data/league_calibration.json"
 CALIBRATION_MIN_SAMPLES = 50      # Don't trust calibration with fewer samples
+
+# ---------------------------------------------------------------------------
+# Low-Scoring Scenario Detector (Under 2.5 Enhancement)
+# ---------------------------------------------------------------------------
+# Identifies fixtures where both teams have sterile attacking profiles,
+# and gives Under bets a scoring bonus to compete with Over in pick selection.
+LOW_SCORING_ENABLED = True            # Toggle low-scoring detector on/off
+LOW_SCORING_MU_THRESHOLD = 2.3        # mu_total below this triggers detection
+LOW_SCORING_XG_FORM_THRESHOLD = 1.0   # xG form below this indicates sterile attack
+LOW_SCORING_UNDER_SCORE_BONUS = 0.04  # Score bonus for Under in low-scoring scenarios
+LOW_SCORING_EV_THRESHOLD_REDUCTION = 0.02  # Reduce EV threshold for Under by this amount

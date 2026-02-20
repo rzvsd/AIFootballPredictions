@@ -1,5 +1,5 @@
 """
-Recompute Elo time series from CGM match history (ignores any Elo stored in the CSV).
+Recompute Elo time series from match history (ignores any Elo stored in the CSV).
 
 Inputs:
 - data/enhanced/cgm_match_history.csv (or --history)
@@ -108,10 +108,15 @@ def infer_team(row: pd.Series, home: bool) -> str | None:
 
 def load_history(path: Path, max_date: str | None = None) -> pd.DataFrame:
     df = pd.read_csv(path)
-    if "datetime" not in df.columns:
-        dt = pd.to_datetime(df["date"] + " " + df.get("time", "").astype(str), errors="coerce")
-        dt2 = pd.to_datetime(df["date"], errors="coerce")
-        df["datetime"] = dt.fillna(dt2)
+    # Always normalize datetime; some upstream files contain a present-but-empty
+    # `datetime` column (float NaN), which would break timestamp comparisons.
+    dt_existing = pd.to_datetime(df["datetime"], errors="coerce") if "datetime" in df.columns else pd.Series(pd.NaT, index=df.index)
+    dt_from_parts = pd.Series(pd.NaT, index=df.index)
+    if "date" in df.columns:
+        dt_combo = pd.to_datetime(df["date"].astype(str) + " " + df.get("time", "").astype(str), errors="coerce")
+        dt_date_only = pd.to_datetime(df["date"], errors="coerce")
+        dt_from_parts = dt_combo.fillna(dt_date_only)
+    df["datetime"] = dt_existing.fillna(dt_from_parts)
     df = df.sort_values("datetime")
     if max_date:
         cutoff = pd.to_datetime(max_date)
@@ -197,14 +202,14 @@ def band_from_diff(diff: float, thresh: float) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Recompute Elo time series from CGM match history")
+    ap = argparse.ArgumentParser(description="Recompute Elo time series from match history")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history.csv", help="Input history CSV")
     ap.add_argument("--out", default="data/enhanced/cgm_match_history_with_elo.csv", help="Output CSV path (cleaned)")
     ap.add_argument("--start-elo", type=float, default=START_ELO_DEFAULT, help="Starting Elo for new teams")
     ap.add_argument("--k-factor", type=float, default=K_FACTOR_DEFAULT, help="K factor")
     ap.add_argument("--home-adv", type=float, default=HOME_ADV_DEFAULT, help="Home advantage points")
     ap.add_argument("--band-thresh", type=float, default=BAND_THRESH_DEFAULT, help="Band threshold for BULLY/PEER/DOG")
-    ap.add_argument("--data-dir", default="CGM data", help="CGM data directory for team registry (code->name)")
+    ap.add_argument("--data-dir", default="data/api_football", help="Data directory for team registry (id/name mapping)")
     ap.add_argument(
         "--max-date",
         default=None,

@@ -2,7 +2,7 @@
 Upcoming feed audit (OTM-style scope proof).
 
 Reads:
-  - raw upcoming feed (default: CGM data/multiple leagues and seasons/upcoming.csv)
+  - raw upcoming feed (default: data/api_football/upcoming_fixtures.csv)
   - filtered predictions output (default: reports/cgm_upcoming_predictions.csv)
 
 Prints:
@@ -28,14 +28,35 @@ def _print_header(title: str) -> None:
     print("=" * 80)
 
 
-def _parse_upcoming_datetime(datameci: object, orameci: object) -> pd.Timestamp:
-    date_raw = "" if datameci is None else str(datameci)
+def _to_naive_ts(value: object) -> pd.Timestamp:
+    ts = pd.to_datetime(value, errors="coerce", utc=True)
+    if pd.isna(ts):
+        return pd.NaT
+    try:
+        return ts.tz_localize(None)
+    except Exception:
+        return pd.to_datetime(ts, errors="coerce")
+
+
+def _parse_upcoming_datetime(row: pd.Series) -> pd.Timestamp:
+    if "fixture_datetime_utc" in row:
+        dt = _to_naive_ts(row.get("fixture_datetime_utc"))
+        if not pd.isna(dt):
+            return dt
+    if "fixture_datetime" in row:
+        dt = _to_naive_ts(row.get("fixture_datetime"))
+        if not pd.isna(dt):
+            return dt
+
+    date_raw = row.get("datameci") if "datameci" in row else row.get("date")
+    date_raw = "" if date_raw is None else str(date_raw)
     dt = pd.to_datetime(date_raw, errors="coerce", dayfirst=False)
     if pd.isna(dt):
         dt = pd.to_datetime(date_raw, errors="coerce", dayfirst=True)
     if pd.isna(dt):
         return pd.NaT
 
+    orameci = row.get("orameci") if "orameci" in row else row.get("time")
     hour = 0
     minute = 0
     try:
@@ -46,7 +67,7 @@ def _parse_upcoming_datetime(datameci: object, orameci: object) -> pd.Timestamp:
         hour = 0
         minute = 0
 
-    return pd.to_datetime(dt.normalize() + pd.Timedelta(hours=hour, minutes=minute))
+    return pd.to_datetime(dt.normalize() + pd.Timedelta(hours=hour, minutes=minute), errors="coerce")
 
 
 def _resolve_asof(args: argparse.Namespace, pred_path: Path, log_path: Path) -> tuple[pd.Timestamp, str]:
@@ -55,7 +76,7 @@ def _resolve_asof(args: argparse.Namespace, pred_path: Path, log_path: Path) -> 
         if not pd.isna(ts):
             d = ts.date()
             run_asof = pd.Timestamp(d).normalize() + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
-            return run_asof, "cli"
+            return _to_naive_ts(run_asof), "cli"
 
     if pred_path.exists():
         try:
@@ -63,7 +84,7 @@ def _resolve_asof(args: argparse.Namespace, pred_path: Path, log_path: Path) -> 
             if not pred.empty and "run_asof_datetime" in pred.columns:
                 uniq = pd.to_datetime(pred["run_asof_datetime"], errors="coerce").dropna().unique()
                 if len(uniq) == 1:
-                    return pd.to_datetime(uniq[0]), "predictions"
+                    return _to_naive_ts(uniq[0]), "predictions"
         except Exception:
             pass
 
@@ -80,19 +101,19 @@ def _resolve_asof(args: argparse.Namespace, pred_path: Path, log_path: Path) -> 
             if last and last.get("run_asof_datetime"):
                 ts = pd.to_datetime(last["run_asof_datetime"], errors="coerce")
                 if not pd.isna(ts):
-                    return ts, "run_log"
+                    return _to_naive_ts(ts), "run_log"
         except Exception:
             pass
 
     # Fallback: today UTC (only when nothing else is available).
     d = pd.Timestamp.utcnow().date()
     run_asof = pd.Timestamp(d).normalize() + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
-    return run_asof, "utc_today_fallback"
+    return _to_naive_ts(run_asof), "utc_today_fallback"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Upcoming feed audit (scope filtering proof)")
-    ap.add_argument("--raw", default="CGM data/multiple leagues and seasons/allratingv.csv", help="Raw upcoming feed CSV")
+    ap.add_argument("--raw", default="data/api_football/upcoming_fixtures.csv", help="Raw upcoming feed CSV")
     ap.add_argument("--predictions", default="reports/cgm_upcoming_predictions.csv", help="Filtered predictions CSV")
     ap.add_argument("--log-jsonl", default="reports/run_log.jsonl", help="Run log JSONL (optional)")
 
@@ -125,7 +146,7 @@ def main() -> None:
 
     _print_header("Raw upcoming feed")
     raw = pd.read_csv(raw_path, sep=None, engine="python")
-    raw["_fixture_dt"] = raw.apply(lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")), axis=1)
+    raw["_fixture_dt"] = raw.apply(_parse_upcoming_datetime, axis=1)
     print("rows_in:", len(raw), "parsed:", int(raw["_fixture_dt"].notna().sum()))
     if raw["_fixture_dt"].notna().any():
         print("date_range:", str(raw["_fixture_dt"].min()), "->", str(raw["_fixture_dt"].max()))
