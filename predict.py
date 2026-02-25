@@ -386,6 +386,25 @@ def _evaluate_fixture_quality_gate(report_path: Path, *, require_odds: bool = Tr
     return True, ok_messages
 
 
+def _run_mandatory_pre_bet_gate(*, as_of_date: str, model_variant: str) -> None:
+    """
+    Mandatory gate before pick generation.
+    Runs critical audits only and blocks picks if any critical audit fails.
+    """
+    print("[pre-bet-gate] running mandatory critical audits before pick generation...")
+    gate_cmd = [
+        sys.executable,
+        "scripts/run_all_audits.py",
+        "--critical-only",
+        "--as-of-date",
+        str(as_of_date),
+        "--model-variant",
+        str(model_variant),
+    ]
+    _run(gate_cmd)
+    print("[pre-bet-gate] PASSED")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="API-first CGM pipeline runner")
     ap.add_argument(
@@ -603,6 +622,7 @@ def main() -> None:
             ]
         )
         if args.emit_picks:
+            _run_mandatory_pre_bet_gate(as_of_date=max_date, model_variant=model_variant)
             pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
             _run(
                 [
@@ -819,6 +839,7 @@ def main() -> None:
 
     # 9) Optional picks/narrator (disabled by default for internal-model-only workflow)
     if args.emit_picks:
+        _run_mandatory_pre_bet_gate(as_of_date=max_date, model_variant=model_variant)
         pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
         _run(
             [

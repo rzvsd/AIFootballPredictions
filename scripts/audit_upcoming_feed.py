@@ -124,6 +124,10 @@ def main() -> None:
     ap.add_argument("--scope-season-start", default=getattr(config, "LIVE_SCOPE_SEASON_START", ""), help="Optional season window start (YYYY-MM-DD).")
     ap.add_argument("--scope-season-end", default=getattr(config, "LIVE_SCOPE_SEASON_END", ""), help="Optional season window end (YYYY-MM-DD).")
     ap.add_argument("--horizon-days", type=int, default=int(getattr(config, "LIVE_SCOPE_HORIZON_DAYS", 0) or 0), help="Optional horizon (days). 0 disables.")
+    ap.add_argument("--next-round-only", dest="next_round_only", action="store_true", help="Keep only fixtures in the next round window.")
+    ap.add_argument("--all-future", dest="next_round_only", action="store_false", help="Disable next-round-only filter.")
+    ap.add_argument("--next-round-span-days", type=int, default=int(getattr(config, "LIVE_SCOPE_NEXT_ROUND_SPAN_DAYS", 3) or 3), help="Round window size in days when --next-round-only is active.")
+    ap.set_defaults(next_round_only=bool(getattr(config, "LIVE_SCOPE_NEXT_ROUND_ONLY", True)))
     args = ap.parse_args()
 
     raw_path = Path(args.raw)
@@ -145,6 +149,10 @@ def main() -> None:
     horizon_days = int(args.horizon_days or 0)
     if horizon_days <= 0:
         horizon_days = 0
+    next_round_only = bool(getattr(args, "next_round_only", False))
+    next_round_span_days = int(getattr(args, "next_round_span_days", 3) or 3)
+    if next_round_span_days < 0:
+        next_round_span_days = 0
 
     _print_header("Raw upcoming feed")
     raw = pd.read_csv(raw_path, sep=None, engine="python")
@@ -167,6 +175,8 @@ def main() -> None:
     print("scope_season_start:", str(scope_season_start) if scope_season_start is not None else None)
     print("scope_season_end:", str(scope_season_end) if scope_season_end is not None else None)
     print("horizon_days:", horizon_days)
+    print("next_round_only:", next_round_only)
+    print("next_round_span_days:", next_round_span_days)
 
     scoped = raw[raw["_fixture_dt"].notna()].copy()
     print("after_parse:", len(scoped))
@@ -187,6 +197,30 @@ def main() -> None:
     if horizon_days > 0:
         scoped = scoped[scoped["_fixture_dt"] <= (run_asof_dt + pd.Timedelta(days=horizon_days))].copy()
     print("after_horizon:", len(scoped))
+
+    # Dedupe fixtures (mirror predict_upcoming.py behavior).
+    dedupe_cols = ["_fixture_dt"]
+    if "league" in scoped.columns:
+        dedupe_cols.append("league")
+    if {"codechipa1", "codechipa2"}.issubset(scoped.columns):
+        dedupe_cols.extend(["codechipa1", "codechipa2"])
+    elif {"txtechipa1", "txtechipa2"}.issubset(scoped.columns):
+        dedupe_cols.extend(["txtechipa1", "txtechipa2"])
+    if len(dedupe_cols) > 1:
+        score_cols = [c for c in ["cotaa", "cotae", "cotad", "cotao", "cotau", "gg", "ng"] if c in scoped.columns]
+        if score_cols:
+            scoped["_dupe_score"] = scoped[score_cols].notna().sum(axis=1)
+            scoped = scoped.sort_values(dedupe_cols + ["_dupe_score"], ascending=[True] * len(dedupe_cols) + [False], kind="mergesort")
+        scoped = scoped.drop_duplicates(subset=dedupe_cols, keep="first")
+        scoped.drop(columns=["_dupe_score"], inplace=True, errors="ignore")
+    print("after_dedupe:", len(scoped))
+
+    if next_round_only and not scoped.empty:
+        first_fixture_dt = pd.to_datetime(scoped["_fixture_dt"], errors="coerce").min()
+        if not pd.isna(first_fixture_dt):
+            round_end = first_fixture_dt + pd.Timedelta(days=int(next_round_span_days))
+            scoped = scoped[scoped["_fixture_dt"] <= round_end].copy()
+    print("after_next_round:", len(scoped))
 
     _print_header("Filtered predictions output")
     if not pred_path.exists():

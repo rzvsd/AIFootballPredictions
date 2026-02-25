@@ -55,6 +55,11 @@ Default run (API-Football -> history -> baselines -> Elo -> stats -> features ->
 python predict.py --max-date YYYY-MM-DD
 ```
 
+Pre-bet gate note:
+- When picks are enabled (`--emit-picks`, default `True`), `predict.py` automatically runs a mandatory critical-audit gate before pick generation:
+  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
+- If any critical audit fails, pick generation is blocked for that run (`reports/picks.csv` is not updated).
+
 Default picks are goals-only: O/U 2.5 + BTTS.
 Legacy 1X2 pick engine and audits are archived under `archive/legacy_full_engine/`.
 
@@ -75,6 +80,9 @@ Predict-only (uses existing `data/enhanced/*` artifacts + `models/*`; still runs
 ```
 python predict.py --predict-only
 ```
+
+Predict-only note:
+- If picks are enabled, the same mandatory critical-audit gate runs before pick generation.
 
 Live scope note: the pipeline filters upcoming fixtures strictly after `--max-date` (no retro predictions). If no fixtures are in horizon, output can be 0 predictions/picks.
 Narrator runs automatically after picks and writes `reports/picks_explained.csv` and `reports/picks_explained_preview.txt`.

@@ -29,7 +29,19 @@ Core Pipeline (high-level)
 5. Backfill match stats
 6. Build xG proxy
 7. Predict upcoming fixtures (calibrated Poisson formula; no XGBoost dependency)
-8. Compute EV-based picks (OU2.5 / BTTS)
+8. Mandatory pre-bet gate (critical audits only)
+9. Compute EV-based picks (OU2.5 / BTTS)
+
+Pre-bet gate enforcement
+- Implemented in: `predict.py` before any pick engine call.
+- Gate command:
+  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
+- Gate outcome:
+  - Fail: stop run before `reports/picks.csv` write.
+  - Pass: continue to pick engine + narrator.
+- Strategy impact:
+  - No change to feature engineering, model scoring, thresholds, or EV ranking.
+  - Only blocks unsafe pick publication when integrity checks fail.
 
 Brazil-specific rebalance (isolated LATAM only)
 - Active only for league label `Serie A Brazil` (Argentina untouched).

@@ -1,5 +1,98 @@
 Audits and Validation (Current)
 
+Update (2026-02-25): audit hardening + mandatory pre-bet gate
+- We added 3 new audit scripts focused on strict correctness:
+  - `scripts/audit_training_leakage_guard.py`
+  - `scripts/audit_prediction_data_health.py`
+  - `scripts/audit_skip_reconciliation.py`
+- We fixed reliability issues in existing audits:
+  - `scripts/audit_backtest.py` (encoding-safe output + empty-file handling)
+  - `scripts/audit_calculations.py` (ASCII-safe row-chain output)
+  - `scripts/audit_multi_league.py` (encoding fallback + canonicalized league names)
+  - `scripts/audit_upcoming_feed.py` (filter parity with `cgm.predict_upcoming`: dedupe + next-round logic)
+- We upgraded `scripts/run_all_audits.py`:
+  - supports `--critical-only`
+  - supports `--as-of-date YYYY-MM-DD`
+  - supports `--model-variant {full,no_odds}`
+
+Mandatory pre-bet gate (live picks)
+- `predict.py` now runs a mandatory critical audit gate before any pick file is created.
+- Trigger condition:
+  - `--emit-picks` enabled (default in current config).
+- Gate command executed by `predict.py`:
+  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
+- Gate behavior:
+  - If any critical audit fails: pick generation is blocked (`reports/picks.csv` is not produced/updated).
+  - If all critical audits pass: pick engine + narrator run normally.
+- This gate does NOT change model features, thresholds, or probability logic.
+  - It only blocks unsafe output when integrity checks fail.
+
+Audit matrix (what each audit checks and when it applies)
+- `python scripts/audit_training_leakage_guard.py --variant full`
+  - Type: critical
+  - Applies when: before using picks from `full` variant runs.
+  - Checks:
+    - suspicious feature names
+    - target-clone / near-target-leak signals in training matrix
+    - numeric/NaN safety after training loader normalization
+
+- `python scripts/audit_detailed.py`
+  - Type: critical
+  - Applies when: any run that produced current history + predictions.
+  - Checks:
+    - high-level integrity snapshot (history/upcoming/predictions/quality report)
+    - coverage exports in `reports/audits/`
+
+- `python -m scripts.audit_upcoming_feed --as-of-date YYYY-MM-DD`
+  - Type: critical
+  - Applies when: validating scope for the run date.
+  - Checks:
+    - parse/drop-past/window/league/horizon filters
+    - dedupe + next-round filtering parity with live prediction code
+
+- `python scripts/audit_prediction_data_health.py`
+  - Type: critical
+  - Applies when: predictions are used to create picks.
+  - Checks:
+    - pressure/xG evidence coverage
+    - odds coverage for `full` model variant
+    - probability and mu consistency sanity
+
+- `python scripts/audit_skip_reconciliation.py`
+  - Type: critical
+  - Applies when: fixture skipping is possible in prediction stage.
+  - Checks:
+    - `produced + skipped == expected_after_filters`
+    - unknown skip reason detection
+    - skip-ratio threshold guard
+
+- `python scripts/audit_calculations.py`
+  - Type: critical
+  - Applies when: verifying end-to-end numeric integrity.
+  - Checks:
+    - Elo replay
+    - pressure/xG sanity
+    - Poisson probability math
+    - row-count chain continuity
+
+- `python scripts/audit_multi_league.py`
+  - Type: non-critical (coverage visibility)
+  - Applies when: multi-league ops monitoring.
+  - Checks:
+    - league-by-league source vs predictions coverage
+
+- `python -m scripts.audit_no_odds`
+  - Type: non-critical (variant consistency)
+  - Applies when: validating `no_odds` variant invariance.
+  - Checks:
+    - mu/probabilities unchanged under odds perturbation
+
+- `python -m scripts.audit_backtest`
+  - Type: non-critical (historical sanity)
+  - Applies when: reviewing backtest outputs.
+  - Checks:
+    - obvious leakage signatures and run timestamp continuity
+
 Core checks
 - Detailed audit log:
   - `python scripts/audit_detailed.py`

@@ -1,11 +1,21 @@
 fixture_datetime,home,away,league,home_matches_total,away_matches_total,home_xg_ok_last_window,away_xg_ok_last_window,home_pressure_ok_last_window,away_pressure_ok_last_window,window_n
-2026-02-21 15:00:00,Chelsea,Burnley,Premier League,13,13,10,10,10,10,10
-2026-02-21 15:00:00,Brentford,Brighton,Premier League,13,13,10,10,10,10,10
-2026-02-21 15:00:00,Aston Villa,Leeds,Premier League,13,13,10,10,10,10,10
-2026-02-21 17:30:00,West Ham,Bournemouth,Premier League,13,13,10,10,10,10,10
-2026-02-21 20:00:00,Manchester City,Newcastle,Premier League,13,13,10,10,10,10,10
-2026-02-22 14:00:00,Crystal Palace,Wolves,Premier League,13,13,10,10,10,10,10
-2026-02-22 14:00:00,Nottingham Forest,Liverpool,Premier League,13,13,10,10,10,10,10
-2026-02-22 14:00:00,Sunderland,Fulham,Premier League,13,13,10,10,10,10,10
-2026-02-22 16:30:00,Tottenham,Arsenal,Premier League,13,14,10,10,10,10,10
-2026-02-23 20:00:00,Everton,Manchester United,Premier League,13,13,10,10,10,10,10
+2026-02-27 15:00:00,AFC Hermannstadt,FC Botosani,Liga I,14,14,10,10,10,10,10
+2026-02-27 17:00:00,Başakşehir,Konyaspor,Süper Lig,11,11,10,10,10,10,10
+2026-02-27 17:00:00,Trabzonspor,Fatih Karagümrük,Süper Lig,11,11,10,10,10,10,10
+2026-02-27 17:30:00,Fortuna Düsseldorf,VfL Bochum,2. Bundesliga,12,11,10,10,10,10,10
+2026-02-27 17:30:00,Dynamo Dresden,SV Darmstadt 98,2. Bundesliga,11,11,10,10,10,10,10
+2026-02-27 18:00:00,Universitatea Cluj,Oţelul,Liga I,14,14,10,10,10,10,10
+2026-02-27 18:00:00,Monza,Virtus Entella,Serie B,13,13,10,10,10,10,10
+2026-02-27 18:45:00,FC Porto,Arouca,Primeira Liga,11,11,10,10,10,10,10
+2026-02-27 19:00:00,Telstar,NAC Breda,Eredivisie,12,11,10,10,10,10,10
+2026-02-27 19:00:00,Grenoble,Boulogne,Ligue 2,12,12,10,10,10,10,10
+2026-02-27 19:00:00,Bastia,Annecy,Ligue 2,11,12,10,10,10,10,10
+2026-02-27 19:00:00,Laval,Nancy,Ligue 2,11,12,10,10,10,10,10
+2026-02-27 19:00:00,Montpellier,Reims,Ligue 2,12,12,10,10,10,10,10
+2026-02-27 19:00:00,Clermont Foot,Dunkerque,Ligue 2,11,11,10,10,10,10,10
+2026-02-27 19:30:00,FC Augsburg,1. FC Köln,Bundesliga,12,11,10,10,10,10,10
+2026-02-27 19:45:00,Strasbourg,Lens,Ligue 1,11,11,10,10,10,10,10
+2026-02-27 19:45:00,Parma,Cagliari,Serie A,13,13,10,10,10,10,10
+2026-02-27 20:00:00,Bristol City,Watford,Championship,17,16,10,10,10,10,10
+2026-02-27 20:00:00,Levante,Alaves,La Liga,12,12,10,10,10,10,10
+2026-02-27 20:00:00,Wolves,Aston Villa,Premier League,14,13,10,10,10,10,10

@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -27,11 +28,33 @@ logging.basicConfig(
 logger = logging.getLogger("audit_multi_league")
 
 _ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from cgm.league_registry import canonicalize_df_league_country
+
+
+def _read_csv_with_fallback(path: Path, low_memory: bool = False) -> pd.DataFrame:
+    """
+    Read CSV using robust encoding fallback.
+    Prefer UTF-8 variants first to avoid mojibake league names.
+    """
+    last_err = None
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin1"):
+        try:
+            return pd.read_csv(path, encoding=enc, low_memory=low_memory)
+        except UnicodeDecodeError as e:
+            last_err = e
+            continue
+    if last_err is not None:
+        raise last_err
+    return pd.read_csv(path, low_memory=low_memory)
 
 
 def audit_history(history_path: Path) -> pd.DataFrame:
     """Analyze history file coverage."""
-    df = pd.read_csv(history_path, low_memory=False)
+    df = _read_csv_with_fallback(history_path, low_memory=False)
+    df = canonicalize_df_league_country(df, league_col="league", country_col="country")
     
     # Parse dates
     if "datameci" in df.columns:
@@ -64,7 +87,8 @@ def audit_predictions(predictions_path: Path) -> pd.DataFrame:
         logger.warning(f"Predictions file not found: {predictions_path}")
         return pd.DataFrame()
     
-    df = pd.read_csv(predictions_path)
+    df = _read_csv_with_fallback(predictions_path)
+    df = canonicalize_df_league_country(df, league_col="league", country_col="country")
     
     if "league" not in df.columns:
         logger.warning("Predictions missing 'league' column")
@@ -89,7 +113,7 @@ def audit_source_data(source_path: Path) -> pd.DataFrame:
         logger.warning(f"Source file not found: {source_path}")
         return pd.DataFrame()
     
-    df = pd.read_csv(source_path, encoding="latin1", low_memory=False)
+    df = _read_csv_with_fallback(source_path, low_memory=False)
     
     # Parse dates
     if "fixture_datetime_utc" in df.columns:
@@ -110,10 +134,12 @@ def audit_source_data(source_path: Path) -> pd.DataFrame:
     
     if "league" not in future.columns and "txtliga" in future.columns:
         future["league"] = future["txtliga"]
-    
+
     if "league" not in future.columns:
         logger.warning("Source missing league column")
         return pd.DataFrame()
+
+    future = canonicalize_df_league_country(future, league_col="league", country_col="country")
     
     summary = future.groupby("league").agg(
         future_fixtures=("_date", "count"),

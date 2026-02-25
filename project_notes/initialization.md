@@ -20,6 +20,18 @@ Recommended Run (API-first)
 2. Run full pipeline:
    - `python predict.py --max-date YYYY-MM-DD`
    - This run creates `data/api_football/*.csv`, `data/api_football/fixture_quality_report.json`, and EV picks in `reports/picks.csv`.
+   - If picks are enabled, a mandatory pre-bet gate runs before pick generation.
+
+Mandatory pre-bet gate
+- Trigger:
+  - Any `predict.py` run where picks are enabled (`--emit-picks` flow).
+- Gate command (executed automatically by `predict.py`):
+  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
+- Behavior:
+  - Critical audit fail -> pick generation blocked (no fresh `reports/picks.csv`).
+  - Critical audit pass -> pick engine and narrator run normally.
+- Scope:
+  - Gate is enforcement only; it does not alter model strategy or thresholds.
 
 Large-Window Rebuild (important for correct league averages)
 - Command (PowerShell):
@@ -35,6 +47,7 @@ Large-Window Rebuild (important for correct league averages)
 
 Fast Daily Run
 - `python predict.py --predict-only`
+- In predict-only mode, if picks are enabled, the same mandatory pre-bet gate runs before pick generation.
 
 Telegram send (one message per league)
 - Command:

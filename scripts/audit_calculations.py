@@ -4,12 +4,12 @@ Comprehensive Calculation Verification Audit.
 
 Replays core calculations from scratch and compares against stored values.
 Six audit modules:
-  1. Elo Replay         — recompute Elo and compare to stored ratings
-  2. Pressure Spot-Check — recalculate pressure for sample teams
-  3. xG Proxy Sanity    — range and NaN checks on xG proxy values
-  4. Data Continuity    — NaN/duplicate detection in training matrix
-  5. Mu Prediction Check — verify Poisson math in upcoming predictions
-  6. Row Count Chain    — no silent row drops across pipeline stages
+  1. Elo Replay         - recompute Elo and compare to stored ratings
+  2. Pressure Spot-Check - recalculate pressure for sample teams
+  3. xG Proxy Sanity    - range and NaN checks on xG proxy values
+  4. Data Continuity    - NaN/duplicate detection in training matrix
+  5. Mu Prediction Check - verify Poisson math in upcoming predictions
+  6. Row Count Chain    - no silent row drops across pipeline stages
 """
 
 from __future__ import annotations
@@ -151,12 +151,12 @@ def audit_pressure_spotcheck() -> dict[str, Any]:
 
     required = ["shots_H", "shots_A", "sot_H", "sot_A", "corners_H", "corners_A", "pos_H", "pos_A"]
     if not all(c in df.columns for c in required):
-        return _warn(name, "Required shot/corner/possession columns missing — cannot spot-check")
+        return _warn(name, "Required shot/corner/possession columns missing - cannot spot-check")
 
     # Filter to rows with full stats
     valid = df.dropna(subset=required).copy()
     if len(valid) < 5:
-        return _warn(name, f"Only {len(valid)} rows with complete stats — too few to check")
+        return _warn(name, f"Only {len(valid)} rows with complete stats - too few to check")
 
     # Check last 5 rows: compute raw dominance for home team
     sample = valid.tail(5)
@@ -346,7 +346,7 @@ def audit_mu_predictions() -> dict[str, Any]:
         if (vals > 8).any():
             issues.append(f"{col}: contains values > 8 (implausible)")
 
-    # mu_total ≈ mu_home + mu_away
+    # mu_total ~ mu_home + mu_away
     if all(c in df.columns for c in ["mu_home", "mu_away", "mu_total"]):
         mu_h = pd.to_numeric(df["mu_home"], errors="coerce")
         mu_a = pd.to_numeric(df["mu_away"], errors="coerce")
@@ -356,7 +356,7 @@ def audit_mu_predictions() -> dict[str, Any]:
         if max_diff > 0.001:
             issues.append(f"mu_total != mu_home + mu_away (max diff={max_diff:.6f})")
 
-    # Poisson verification: p_over25 should ≈ 1 - P(X≤2) where X ~ Poisson(mu_total)
+    # Poisson verification: p_over25 should ~ 1 - P(X<=2) where X ~ Poisson(mu_total)
     if "p_over25" in df.columns and "mu_total" in df.columns:
         from scipy.stats import poisson
         mu_t = pd.to_numeric(df["mu_total"], errors="coerce")
@@ -444,14 +444,14 @@ def audit_row_counts() -> dict[str, Any]:
             # Allow frankenstein to have a different count (it's a merge product)
             if "frankenstein" not in label:
                 if current < prev_count * 0.95:  # >5% drop
-                    issues.append(f"{prev_label}({prev_count}) → {label}({current}): {prev_count - current} rows lost")
+                    issues.append(f"{prev_label}({prev_count}) -> {label}({current}): {prev_count - current} rows lost")
             # But frankenstein should not have MORE rows than the base history
             if "frankenstein" in label and current > prev_count * 1.05:
-                issues.append(f"{label} has more rows ({current}) than base ({prev_count}) — possible duplication")
+                issues.append(f"{label} has more rows ({current}) than base ({prev_count}) - possible duplication")
         prev_label = label
         prev_count = current
 
-    chain_str = " → ".join(f"{label}={counts.get(label, '?')}" for label, _ in stages)
+    chain_str = " -> ".join(f"{label}={counts.get(label, '?')}" for label, _ in stages)
 
     if issues:
         return _fail(name, f"{chain_str}; {'; '.join(issues)}")
@@ -518,3 +518,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+

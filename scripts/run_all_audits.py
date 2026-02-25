@@ -1,65 +1,131 @@
 #!/usr/bin/env python3
 """
-Run All Audits for Multi-League Verification.
+Run all audits for multi-league verification.
 
 Usage:
     python scripts/run_all_audits.py
+    python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD
 """
 
+from __future__ import annotations
+
+import argparse
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
 
 _ROOT = Path(__file__).resolve().parents[1]
 
-# Audit scripts to run (in order)
-AUDITS = [
-    {
-        "name": "Detailed Audit Log",
-        "cmd": [sys.executable, "scripts/audit_detailed.py"],
-        "critical": True,
-    },
-    {
-        "name": "Upcoming Feed Scope",
-        "cmd": [sys.executable, "-m", "scripts.audit_upcoming_feed", "--as-of-date", datetime.now().strftime("%Y-%m-%d")],
-        "critical": True,
-    },
-    {
-        "name": "Multi-League Coverage",
-        "cmd": [sys.executable, "scripts/audit_multi_league.py"],
-        "critical": False,
-    },
-    {
-        "name": "No-Odds Invariance",
-        "cmd": [sys.executable, "-m", "scripts.audit_no_odds"],
-        "critical": False,
-    },
-    {
-        "name": "Backtest Leakage",
-        "cmd": [sys.executable, "-m", "scripts.audit_backtest"],
-        "critical": False,
-    },
-    {
-        "name": "Calculation Verification",
-        "cmd": [sys.executable, "scripts/audit_calculations.py"],
-        "critical": True,
-    },
-]
+
+def _build_audits(*, as_of_date: str, model_variant: str) -> List[Dict[str, Any]]:
+    """Build audit command list."""
+    return [
+        {
+            "name": "Training Leakage Guard",
+            "cmd": [
+                sys.executable,
+                "scripts/audit_training_leakage_guard.py",
+                "--variant",
+                str(model_variant),
+            ],
+            "critical": True,
+        },
+        {
+            "name": "Detailed Audit Log",
+            "cmd": [sys.executable, "scripts/audit_detailed.py"],
+            "critical": True,
+        },
+        {
+            "name": "Upcoming Feed Scope",
+            "cmd": [
+                sys.executable,
+                "-m",
+                "scripts.audit_upcoming_feed",
+                "--as-of-date",
+                str(as_of_date),
+            ],
+            "critical": True,
+        },
+        {
+            "name": "Multi-League Coverage",
+            "cmd": [sys.executable, "scripts/audit_multi_league.py"],
+            "critical": False,
+        },
+        {
+            "name": "No-Odds Invariance",
+            "cmd": [sys.executable, "-m", "scripts.audit_no_odds"],
+            "critical": False,
+        },
+        {
+            "name": "Prediction Data Health",
+            "cmd": [sys.executable, "scripts/audit_prediction_data_health.py"],
+            "critical": True,
+        },
+        {
+            "name": "Skip Reconciliation",
+            "cmd": [sys.executable, "scripts/audit_skip_reconciliation.py"],
+            "critical": True,
+        },
+        {
+            "name": "Backtest Leakage",
+            "cmd": [sys.executable, "-m", "scripts.audit_backtest"],
+            "critical": False,
+        },
+        {
+            "name": "Calculation Verification",
+            "cmd": [sys.executable, "scripts/audit_calculations.py"],
+            "critical": True,
+        },
+    ]
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Run audit suite")
+    ap.add_argument(
+        "--critical-only",
+        action="store_true",
+        help="Run only critical audits (used by mandatory pre-bet gate).",
+    )
+    ap.add_argument(
+        "--as-of-date",
+        default=datetime.now().strftime("%Y-%m-%d"),
+        help="As-of date (YYYY-MM-DD) forwarded to scope audit.",
+    )
+    ap.add_argument(
+        "--model-variant",
+        choices=["full", "no_odds"],
+        default="full",
+        help="Model variant used by training leakage guard.",
+    )
+    ap.add_argument(
+        "--timeout-sec",
+        type=int,
+        default=120,
+        help="Per-audit timeout in seconds.",
+    )
+    args = ap.parse_args()
+
+    audits = _build_audits(as_of_date=str(args.as_of_date), model_variant=str(args.model_variant))
+    if args.critical_only:
+        audits = [a for a in audits if bool(a.get("critical", False))]
+
+    mode = "CRITICAL-ONLY" if args.critical_only else "FULL"
     print("=" * 80)
     print("RUNNING ALL AUDITS")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Mode: {mode}")
+    print(f"As-Of Date: {args.as_of_date}")
+    print(f"Model Variant: {args.model_variant}")
     print("=" * 80)
 
     results = []
 
-    for audit in AUDITS:
+    for audit in audits:
         name = audit["name"]
         cmd = audit["cmd"]
-        critical = audit["critical"]
+        critical = bool(audit.get("critical", False))
 
         print(f"\n{'-' * 80}")
         print(f"{name}")
@@ -71,7 +137,7 @@ def main() -> int:
                 cwd=str(_ROOT),
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=max(1, int(args.timeout_sec)),
             )
 
             if result.stdout:
