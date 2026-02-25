@@ -240,6 +240,46 @@ def _implied_probs_two_way(odds_over: float | None, odds_under: float | None) ->
             "p_under": vals[1] / total if not np.isnan(vals[1]) else np.nan}
 
 
+def _league_threshold(
+    league_name: str,
+    *,
+    default_value: float,
+    overrides: dict | None,
+) -> float:
+    """Resolve per-league threshold with bounded numeric fallback."""
+    try:
+        if isinstance(overrides, dict):
+            raw = overrides.get(str(league_name))
+            if raw is not None:
+                v = float(raw)
+                if np.isfinite(v):
+                    return float(np.clip(v, 0.0, 1.0))
+    except Exception:
+        pass
+    return float(np.clip(float(default_value), 0.0, 1.0))
+
+
+def _league_scalar(
+    league_name: str,
+    *,
+    default_value: float,
+    overrides: dict | None,
+    min_value: float,
+    max_value: float,
+) -> float:
+    """Resolve per-league scalar with bounded numeric fallback."""
+    try:
+        if isinstance(overrides, dict):
+            raw = overrides.get(str(league_name))
+            if raw is not None:
+                v = float(raw)
+                if np.isfinite(v):
+                    return float(np.clip(v, min_value, max_value))
+    except Exception:
+        pass
+    return float(np.clip(float(default_value), min_value, max_value))
+
+
 def _poisson_probs(mu_h: float, mu_a: float) -> dict:
     max_goals = 10
     ph = [poisson.pmf(i, mu_h) for i in range(max_goals + 1)]
@@ -378,6 +418,14 @@ def main() -> None:
     next_round_span_days = int(getattr(args, "next_round_span_days", 3) or 3)
     if next_round_span_days < 0:
         next_round_span_days = 0
+
+    # League-specific post-probability classification thresholds.
+    ou25_over_threshold_default = float(getattr(config, "OU25_OVER_THRESHOLD_DEFAULT", 0.50))
+    btts_yes_threshold_default = float(getattr(config, "BTTS_YES_THRESHOLD_DEFAULT", 0.50))
+    ou25_over_threshold_by_league = getattr(config, "OU25_OVER_THRESHOLD_BY_LEAGUE", {})
+    btts_yes_threshold_by_league = getattr(config, "BTTS_YES_THRESHOLD_BY_LEAGUE", {})
+    mu_goal_multiplier_default = float(getattr(config, "MU_GOAL_MULTIPLIER_DEFAULT", 1.0))
+    mu_goal_multiplier_by_league = getattr(config, "MU_GOAL_MULTIPLIER_BY_LEAGUE", {})
 
     # Derive as-of from CLI or (deterministically) from the history max date.
     as_of_date = None
@@ -632,10 +680,24 @@ def main() -> None:
         primary_source = base_dir / "multiple seasons.csv"
         logger.info(f"[SOURCE] Using fallback source: {primary_source}")
     
+    def _read_csv_smart(path: Path) -> pd.DataFrame:
+        """
+        Read CSV with robust encoding fallback to avoid mojibake team names.
+        Priority: UTF-8 -> UTF-8-SIG -> latin1.
+        """
+        last_err: Exception | None = None
+        for enc in ("utf-8", "utf-8-sig", "latin1"):
+            try:
+                return pd.read_csv(path, encoding=enc, low_memory=False)
+            except Exception as e:
+                last_err = e
+                continue
+        raise last_err if last_err is not None else RuntimeError(f"Failed reading {path}")
+
     # Load upcoming data directly from the primary source (contains future fixtures)
     if primary_source.exists():
         try:
-            up = pd.read_csv(primary_source, encoding="latin1", low_memory=False)
+            up = _read_csv_smart(primary_source)
             logger.info(f"[SOURCE] Loaded {len(up)} total rows from {primary_source.name}")
             
             # Parse dates to identify future fixtures
@@ -705,7 +767,7 @@ def main() -> None:
     # Optional enrichment: pull gg/ng (BTTS odds) from upcoming.csv for the same fixtures.
     if odds_source is not None and odds_source.exists():
         try:
-            up_odds = pd.read_csv(odds_source, encoding="latin1", low_memory=False)
+            up_odds = _read_csv_smart(odds_source)
             up_odds = _normalize_upcoming_columns(up_odds)
             up_odds["_fixture_dt"] = up_odds.apply(
                 lambda r: _parse_upcoming_datetime(r.get("datameci"), r.get("orameci")),
@@ -1278,8 +1340,18 @@ def main() -> None:
             skipped.append((home, away, "missing_core_features"))
             continue
 
-        mu_h = float(model_h.predict(X_row)[0])
-        mu_a = float(model_a.predict(X_row)[0])
+        mu_h_raw = float(model_h.predict(X_row)[0])
+        mu_a_raw = float(model_a.predict(X_row)[0])
+        mu_mult = _league_scalar(
+            str(league),
+            default_value=mu_goal_multiplier_default,
+            overrides=mu_goal_multiplier_by_league if isinstance(mu_goal_multiplier_by_league, dict) else {},
+            min_value=0.10,
+            max_value=5.00,
+        )
+        # Apply league-level drift correction before Poisson conversion.
+        mu_h = max(0.01, float(mu_h_raw * mu_mult))
+        mu_a = max(0.01, float(mu_a_raw * mu_mult))
         probs = _poisson_probs(mu_h, mu_a)
         neff_h_list.append(n_h)
         neff_a_list.append(n_a)
@@ -1314,7 +1386,13 @@ def main() -> None:
                         "neff_sim_H": n_h,
                         "neff_sim_A": n_a,
                     },
-                    "mu": {"home": mu_h, "away": mu_a},
+                    "mu": {
+                        "home_raw": mu_h_raw,
+                        "away_raw": mu_a_raw,
+                        "multiplier": mu_mult,
+                        "home": mu_h,
+                        "away": mu_a,
+                    },
                     "probs": probs,
                 },
                 log_path=trace_path,
@@ -1401,12 +1479,24 @@ def main() -> None:
                 "upcoming_rows_after_filters": int(scope_counts.get("upcoming_rows_after_filters", 0) or 0),
                 "mu_home": mu_h,
                 "mu_away": mu_a,
+                "mu_home_raw": mu_h_raw,
+                "mu_away_raw": mu_a_raw,
+                "mu_goal_multiplier": mu_mult,
                 "mu_total": mu_h + mu_a,
                 "p_over25": probs["p_over25"],
                 "p_under25": probs["p_under25"],
                 "p_over_2_5": probs["p_over25"],
                 "p_under_2_5": probs["p_under25"],
-                "pred_ou25": "OU25_OVER" if float(probs["p_over25"]) >= 0.5 else "OU25_UNDER",
+                "pred_ou25": (
+                    "OU25_OVER"
+                    if float(probs["p_over25"])
+                    >= _league_threshold(
+                        str(league),
+                        default_value=ou25_over_threshold_default,
+                        overrides=ou25_over_threshold_by_league if isinstance(ou25_over_threshold_by_league, dict) else {},
+                    )
+                    else "OU25_UNDER"
+                ),
                 "odds_over25": odds_over,
                 "odds_under25": odds_under,
                 "odds_over_2_5": odds_over,
@@ -1415,7 +1505,17 @@ def main() -> None:
                 "EV_under25": ev_under,
                 "p_btts_yes": p_btts_yes,
                 "p_btts_no": p_btts_no,
-                "pred_btts": "BTTS_YES" if np.isfinite(p_btts_yes) and float(p_btts_yes) >= 0.5 else "BTTS_NO",
+                "pred_btts": (
+                    "BTTS_YES"
+                    if np.isfinite(p_btts_yes)
+                    and float(p_btts_yes)
+                    >= _league_threshold(
+                        str(league),
+                        default_value=btts_yes_threshold_default,
+                        overrides=btts_yes_threshold_by_league if isinstance(btts_yes_threshold_by_league, dict) else {},
+                    )
+                    else "BTTS_NO"
+                ),
                 "odds_btts_yes": odds_btts_yes,
                 "odds_btts_no": odds_btts_no,
                 "EV_btts_yes": ev_btts_yes,
@@ -1472,6 +1572,9 @@ def main() -> None:
                 "upcoming_rows_after_filters",
                 "mu_home",
                 "mu_away",
+                "mu_home_raw",
+                "mu_away_raw",
+                "mu_goal_multiplier",
                 "mu_total",
                 "p_over25",
                 "p_under25",

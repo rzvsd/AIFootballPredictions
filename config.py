@@ -163,6 +163,54 @@ CALIBRATION_FILE = "data/league_calibration.json"
 CALIBRATION_MIN_SAMPLES = 50      # Don't trust calibration with fewer samples
 
 # ---------------------------------------------------------------------------
+# League-Specific Decision Thresholds (light-touch post-probability tuning)
+# ---------------------------------------------------------------------------
+# Default classification thresholds
+OU25_OVER_THRESHOLD_DEFAULT = 0.50
+BTTS_YES_THRESHOLD_DEFAULT = 0.50
+
+# Per-league overrides (canonical league names from data/API)
+# Purpose: fix persistent directional bias without changing model training.
+OU25_OVER_THRESHOLD_BY_LEAGUE = {
+    "Bundesliga": 0.30,  # tuned on 2025-11-01..2026-02-22 backtest window (133 matches)
+    "Serie A": 0.54,     # light under-bias correction from 2025-11-01..2026-02-23 window (170 matches)
+    "Ligue 1": 0.52,     # batch-1 tuning window 2025-11-01..2026-02-22 (117 matches)
+    "La Liga": 0.46,     # batch-1 tuning window 2025-11-01..2026-02-23 (148 matches)
+    "Liga I": 0.26,      # temporary recent-form pilot (2 rounds): adapt to Feb scoring shift
+    "Championship": 0.32,  # batch-2 tuning window 2025-11-01..2026-02-22 (250 matches)
+    "Eredivisie": 0.23,    # batch-2 tuning window 2025-11-01..2026-02-22 (125 matches)
+    "Ligue 2": 0.32,       # batch-3 tuning window 2025-11-01..2026-02-23 (103 matches)
+    "Primeira Liga": 0.36, # batch-3 tuning window 2025-11-01..2026-02-23 (125 matches)
+    "2. Bundesliga": 0.33, # batch-4 balanced tuning window 2025-11-01..2026-02-22 (115 matches)
+    "Süper Lig": 0.41,     # batch-4 balanced tuning window 2025-11-01..2026-02-23 (116 matches)
+}
+BTTS_YES_THRESHOLD_BY_LEAGUE = {
+    "Bundesliga": 0.28,  # tuned on 2025-11-01..2026-02-22 backtest window (133 matches)
+    "Premier League": 0.31,  # reduces BTTS-NO bias from 2025-11-01..2026-02-23 window (181 matches)
+    "Ligue 1": 0.51,     # batch-1 tuning window 2025-11-01..2026-02-22 (117 matches)
+    "Liga I": 0.33,      # temporary recent-form pilot (2 rounds): adapt to Feb scoring shift
+    "Championship": 0.30,  # batch-2 tuning window 2025-11-01..2026-02-22 (250 matches)
+    "Eredivisie": 0.25,    # batch-2 tuning window 2025-11-01..2026-02-22 (125 matches)
+    "Serie B": 0.42,       # batch-3 tuning window 2025-11-01..2026-02-22 (161 matches)
+    "Ligue 2": 0.38,       # batch-3 tuning window 2025-11-01..2026-02-23 (103 matches)
+    "2. Bundesliga": 0.29, # batch-4 balanced tuning window 2025-11-01..2026-02-22 (115 matches)
+}
+
+# ---------------------------------------------------------------------------
+# League-Specific Mu Rebalance (pre-Poisson)
+# ---------------------------------------------------------------------------
+# Use only where backtests show systematic goal underestimation.
+# Multiplies both mu_home and mu_away before probabilities/EV.
+MU_GOAL_MULTIPLIER_DEFAULT = 1.00
+MU_GOAL_MULTIPLIER_BY_LEAGUE = {
+    # Brazil-only rebalance from isolated LATAM backtest window:
+    # reports_latam/backtest_brazil_tuning_window.csv (2025-11-01..2026-02-19, 102 matches)
+    # Baseline mu_total mean ~1.49 vs actual goals mean ~2.90.
+    # 1.70 selected as conservative correction (keeps some under edge, restores over paths).
+    "Serie A Brazil": 1.70,
+}
+
+# ---------------------------------------------------------------------------
 # Low-Scoring Scenario Detector (Under 2.5 Enhancement)
 # ---------------------------------------------------------------------------
 # Identifies fixtures where both teams have sterile attacking profiles,

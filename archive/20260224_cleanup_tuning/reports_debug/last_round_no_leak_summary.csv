@@ -1,0 +1,13 @@
+label,league,rows,ou_hits,btts_hits,window_start,window_end,status
+England 1,Premier League,10,7,5,2026-02-21,2026-02-23,ok
+England 2,Championship,12,7,6,2026-02-20,2026-02-22,ok
+Spain 1,La Liga,4,3,1,2026-02-21,2026-02-23,ok
+Italy 1,Serie A,9,5,5,2026-02-21,2026-02-23,ok
+Italy 2,Serie B,10,3,5,2026-02-20,2026-02-22,ok
+France 1,Ligue 1,0,0,0,,,no_data
+France 2,Ligue 2,0,0,0,,,no_data
+Germany 1,Bundesliga,4,2,3,2026-02-20,2026-02-22,ok
+Holland 1,Eredivisie,0,0,0,,,no_data
+Portugal 1,Primeira Liga,8,3,5,2026-02-21,2026-02-23,ok
+Romania 1,Liga I,0,0,0,,,no_data
+Turkey 1,Süper Lig,0,0,0,,,no_data

@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-02-23T20:38:26.156298",
+  "summary": {
+    "passed": 5,
+    "warned": 0,
+    "failed": 1
+  },
+  "results": [
+    {
+      "name": "Elo Replay",
+      "status": "FAIL",
+      "detail": "18/18 teams differ: Team 157: replayed=1690.31 stored=1669.49 diff=20.82; Team 168: replayed=1561.83 stored=1552.63 diff=9.20; Team 169: replayed=1496.82 stored=1483.74 diff=13.08"
+    },
+    {
+      "name": "Pressure Spot-Check",
+      "status": "PASS",
+      "detail": "Dominance ratios valid for 5 sample rows, press_form_H range OK"
+    },
+    {
+      "name": "xG Proxy Sanity",
+      "status": "PASS",
+      "detail": "xg_proxy_H: mean=1.84 | xg_proxy_A: mean=1.47"
+    },
+    {
+      "name": "Data Continuity",
+      "status": "PASS",
+      "detail": "197 rows, 51 feature cols checked"
+    },
+    {
+      "name": "Mu Prediction Check",
+      "status": "PASS",
+      "detail": "8 predictions verified. mu_total range: [1.03, 3.06]"
+    },
+    {
+      "name": "Row Count Chain",
+      "status": "PASS",
+      "detail": "cgm_match_history.csv=197 → with_elo=197 → with_elo_stats=197 → with_elo_stats_xg=197 → frankenstein_training_full=197"
+    }
+  ]
+}

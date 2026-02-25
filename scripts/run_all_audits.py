@@ -40,6 +40,11 @@ AUDITS = [
         "cmd": [sys.executable, "-m", "scripts.audit_backtest"],
         "critical": False,
     },
+    {
+        "name": "Calculation Verification",
+        "cmd": [sys.executable, "scripts/audit_calculations.py"],
+        "critical": True,
+    },
 ]
 
 

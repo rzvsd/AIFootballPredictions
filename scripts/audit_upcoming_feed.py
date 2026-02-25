@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 import config
+from cgm.league_registry import canonicalize_df_league_country, canonicalize_scope
 
 
 def _print_header(title: str) -> None:
@@ -136,6 +137,7 @@ def main() -> None:
 
     scope_country = str(args.scope_country or "").strip() or None
     scope_league = str(args.scope_league or "").strip() or None
+    scope_country, scope_league = canonicalize_scope(scope_country, scope_league)
     ss = pd.to_datetime(str(args.scope_season_start or ""), errors="coerce")
     se = pd.to_datetime(str(args.scope_season_end or ""), errors="coerce")
     scope_season_start = ss.normalize() if not pd.isna(ss) else None
@@ -146,6 +148,7 @@ def main() -> None:
 
     _print_header("Raw upcoming feed")
     raw = pd.read_csv(raw_path, sep=None, engine="python")
+    raw = canonicalize_df_league_country(raw, league_col="league", country_col="country")
     raw["_fixture_dt"] = raw.apply(_parse_upcoming_datetime, axis=1)
     print("rows_in:", len(raw), "parsed:", int(raw["_fixture_dt"].notna().sum()))
     if raw["_fixture_dt"].notna().any():

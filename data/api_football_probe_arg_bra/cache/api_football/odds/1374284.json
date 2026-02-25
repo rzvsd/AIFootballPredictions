@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "get": "odds",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1374284"
+  },
+  "response": [],
+  "results": 0
+}

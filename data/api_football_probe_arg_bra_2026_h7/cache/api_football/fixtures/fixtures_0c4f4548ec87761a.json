@@ -1,0 +1,508 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-02-25",
+    "league": "71",
+    "season": "2026",
+    "status": "NS",
+    "to": "2026-03-04"
+  },
+  "response": [
+    {
+      "fixture": {
+        "date": "2026-02-25T22:00:00+00:00",
+        "id": 1492142,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "W. do Nascimento",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772056800,
+        "timezone": "UTC",
+        "venue": {
+          "city": null,
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 134,
+          "logo": "https://media.api-sports.io/football/teams/134.png",
+          "name": "Atletico Paranaense",
+          "winner": null
+        },
+        "home": {
+          "id": 794,
+          "logo": "https://media.api-sports.io/football/teams/794.png",
+          "name": "RB Bragantino",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-25T22:30:00+00:00",
+        "id": 1492143,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "W. Sampaio",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772058600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Curitiba",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 126,
+          "logo": "https://media.api-sports.io/football/teams/126.png",
+          "name": "Sao Paulo",
+          "winner": null
+        },
+        "home": {
+          "id": 147,
+          "logo": "https://media.api-sports.io/football/teams/147.png",
+          "name": "Coritiba",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-25T23:00:00+00:00",
+        "id": 1492144,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "D. Lacerda",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772060400,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Belo Horizonte",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 131,
+          "logo": "https://media.api-sports.io/football/teams/131.png",
+          "name": "Corinthians",
+          "winner": null
+        },
+        "home": {
+          "id": 135,
+          "logo": "https://media.api-sports.io/football/teams/135.png",
+          "name": "Cruzeiro",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-26T00:30:00+00:00",
+        "id": 1492146,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "R. Claus",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772065800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Porto Alegre",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 1062,
+          "logo": "https://media.api-sports.io/football/teams/1062.png",
+          "name": "Atletico-MG",
+          "winner": null
+        },
+        "home": {
+          "id": 130,
+          "logo": "https://media.api-sports.io/football/teams/130.png",
+          "name": "Gremio",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-26T00:30:00+00:00",
+        "id": 1492147,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "F. Fernandes de Lima",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772065800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Barueri",
+          "id": null,
+          "name": "Arena Barueri"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 124,
+          "logo": "https://media.api-sports.io/football/teams/124.png",
+          "name": "Fluminense",
+          "winner": null
+        },
+        "home": {
+          "id": 121,
+          "logo": "https://media.api-sports.io/football/teams/121.png",
+          "name": "Palmeiras",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-25T22:00:00+00:00",
+        "id": 1492148,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "B. Arleu",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772056800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Belem",
+          "id": null,
+          "name": "Estadio Evandro Almeida"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 119,
+          "logo": "https://media.api-sports.io/football/teams/119.png",
+          "name": "Internacional",
+          "winner": null
+        },
+        "home": {
+          "id": 1198,
+          "logo": "https://media.api-sports.io/football/teams/1198.png",
+          "name": "remo",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-02-26T22:00:00+00:00",
+        "id": 1492149,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "R. Klein",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772143200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Santos",
+          "id": null,
+          "name": "Estadio Urbano Caldeira"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 4",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 133,
+          "logo": "https://media.api-sports.io/football/teams/133.png",
+          "name": "Vasco DA Gama",
+          "winner": null
+        },
+        "home": {
+          "id": 128,
+          "logo": "https://media.api-sports.io/football/teams/128.png",
+          "name": "Santos",
+          "winner": null
+        }
+      }
+    }
+  ],
+  "results": 7
+}

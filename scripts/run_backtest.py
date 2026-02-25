@@ -16,6 +16,7 @@ import subprocess
 import sys
 from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pandas as pd
 
@@ -68,6 +69,21 @@ def _create_temp_upcoming(df_day: pd.DataFrame, out_dir: Path) -> Path:
     
     upcoming_df["txtechipa1"] = df_day["home"]
     upcoming_df["txtechipa2"] = df_day["away"]
+    # Preserve team IDs/codes when available to stabilize name normalization/joins.
+    if "code_home" in df_day.columns:
+        upcoming_df["codechipa1"] = df_day["code_home"]
+    elif "home_id" in df_day.columns:
+        upcoming_df["codechipa1"] = df_day["home_id"]
+    if "code_away" in df_day.columns:
+        upcoming_df["codechipa2"] = df_day["code_away"]
+    elif "away_id" in df_day.columns:
+        upcoming_df["codechipa2"] = df_day["away_id"]
+
+    for c in ("codechipa1", "codechipa2"):
+        if c in upcoming_df.columns:
+            s = upcoming_df[c].astype(str).str.strip()
+            s = s.str.replace(r"\.0$", "", regex=True)
+            upcoming_df[c] = s
     upcoming_df["cotaa"] = df_day["odds_home"]
     upcoming_df["cotae"] = df_day["odds_draw"]
     upcoming_df["cotad"] = df_day["odds_away"]
@@ -88,7 +104,14 @@ def _create_temp_upcoming(df_day: pd.DataFrame, out_dir: Path) -> Path:
     return out_dir
 
 
-def run_backtest(league: str, season: str, start_date: str, history_path_str: str, output_file: str):
+def run_backtest(
+    league: str,
+    season: str,
+    start_date: str,
+    history_path_str: str,
+    output_file: str,
+    models_dir: str = "models",
+):
     history_path = Path(history_path_str)
     if not history_path.exists():
         logger.error(f"History file not found: {history_path}")
@@ -114,8 +137,9 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
 
     all_preds = []
     
-    temp_data_dir = Path("temp_backtest_data")
-    temp_out_dir = Path("temp_backtest_results")
+    run_suffix = uuid4().hex[:8]
+    temp_data_dir = Path(f"temp_backtest_data_{run_suffix}")
+    temp_out_dir = Path(f"temp_backtest_results_{run_suffix}")
     temp_out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -155,6 +179,7 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
                 sys.executable, "-m", "cgm.predict_upcoming",
                 "--data-dir", str(temp_data_dir),
                 "--history", str(history_path),  # Use full history, not filtered
+                "--models-dir", str(models_dir),
                 "--out", str(pred_out_file),
                 "--as-of-date", as_of_arg,
                 "--log-level", "WARNING"  # Reduce spam
@@ -224,9 +249,9 @@ def run_backtest(league: str, season: str, start_date: str, history_path_str: st
     merged.to_csv(output_file, index=False)
     logger.info(f"Backtest complete. Saved to {output_file}")
     
-    # Print mini summary
-    if "result" in merged.columns:
-        valid = merged.dropna(subset=["result"])
+    # Print mini summary (count known final scores)
+    if {"ft_home", "ft_away"}.issubset(merged.columns):
+        valid = merged.dropna(subset=["ft_home", "ft_away"])
         logger.info(f"Matches with known results: {len(valid)}")
 
 
@@ -236,11 +261,12 @@ def main():
     parser.add_argument("--season", required=True)
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv")
+    parser.add_argument("--models-dir", default="models")
     parser.add_argument("--out", default="reports/latest_backtest.csv")
     
     args = parser.parse_args()
     
-    run_backtest(args.league, args.season, args.start_date, args.history, args.out)
+    run_backtest(args.league, args.season, args.start_date, args.history, args.out, args.models_dir)
 
 if __name__ == "__main__":
     main()

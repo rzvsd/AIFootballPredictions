@@ -1,0 +1,141 @@
+[2. Bundesliga] (9 games)
+2026-02-27 | Dynamo Dresden vs SV Darmstadt 98 | OU: OVER (43%) EV -28.6% | BTTS: YES (45%) EV -32.3%
+2026-02-27 | Fortuna Dusseldorf vs VfL Bochum | OU: OVER (49%) EV -14.8% | BTTS: YES (53%) EV -16.7%
+2026-02-28 | 1. FC Kaiserslautern vs SC Paderborn 07 | OU: UNDER (70%) EV +13.9% | BTTS: YES (37%) EV -44.7%
+2026-02-28 | Arminia Bielefeld vs Hannover 96 | OU: OVER (50%) EV -17.7% | BTTS: YES (53%) EV -20.6%
+2026-02-28 | Holstein Kiel vs SV Elversberg | OU: OVER (45%) EV -20.6% | BTTS: YES (47%) EV -24.5%
+2026-02-28 | SpVgg Greuther Furth vs FC Schalke 04 | OU: OVER (39%) EV -31.6% | BTTS: YES (43%) EV -27.5%
+2026-03-01 | 1. FC Magdeburg vs Karlsruher SC | OU: OVER (38%) EV -45.7% | BTTS: YES (43%) EV -39.2%
+2026-03-01 | Eintracht Braunschweig vs Preuen Munster | OU: UNDER (68%) EV +31.4% | BTTS: YES (40%) EV -34.0%
+2026-03-01 | Hertha BSC vs 1. FC Nurnberg | OU: OVER (46%) EV -26.7% | BTTS: YES (44%) EV -34.7%
+
+[Bundesliga] (9 games)
+2026-02-27 | FC Augsburg vs 1. FC Koln | OU: OVER (48%) EV -18.1% | BTTS: YES (52%) EV -16.0%
+2026-02-28 | 1899 Hoffenheim vs FC St. Pauli | OU: OVER (48%) EV -14.4% | BTTS: YES (45%) EV -17.4%
+2026-02-28 | Bayer Leverkusen vs FSV Mainz 05 | OU: OVER (31%) EV -49.0% | BTTS: YES (28%) EV -53.1%
+2026-02-28 | Borussia Dortmund vs Bayern Munchen | OU: OVER (55%) EV -27.0% | BTTS: YES (45%) EV -39.0%
+2026-02-28 | Borussia Monchengladbach vs Union Berlin | OU: OVER (42%) EV -15.4% | BTTS: YES (48%) EV -14.7%
+2026-02-28 | Werder Bremen vs 1. FC Heidenheim | OU: OVER (50%) EV -15.5% | BTTS: YES (48%) EV -21.3%
+2026-03-01 | Eintracht Frankfurt vs SC Freiburg | OU: OVER (46%) EV -16.5% | BTTS: YES (51%) EV -16.7%
+2026-03-01 | Hamburger SV vs RB Leipzig | OU: OVER (37%) EV -41.2% | BTTS: YES (44%) EV -34.0%
+2026-03-01 | VfB Stuttgart vs VfL Wolfsburg | OU: OVER (48%) EV -30.4% | BTTS: YES (37%) EV -44.1%
+
+[Championship] (11 games)
+2026-02-27 | Bristol City vs Watford | OU: OVER (39%) EV -29.9% | BTTS: YES (45%) EV -26.6%
+2026-02-28 | Charlton vs Wrexham | OU: OVER (37%) EV N/A | BTTS: YES (41%) EV N/A
+2026-02-28 | Coventry vs Stoke City | OU: OVER (33%) EV -47.1% | BTTS: YES (34%) EV -41.4%
+2026-02-28 | Derby vs Blackburn | OU: UNDER (73%) EV +53.1% | BTTS: YES (34%) EV -37.0%
+2026-02-28 | Ipswich vs Swansea | OU: OVER (45%) EV N/A | BTTS: YES (49%) EV N/A
+2026-02-28 | Leicester vs Norwich | OU: UNDER (71%) EV +21.0% | BTTS: YES (33%) EV -48.1%
+2026-02-28 | Oxford United vs West Brom | OU: OVER (41%) EV -13.4% | BTTS: YES (47%) EV -14.8%
+2026-02-28 | Portsmouth vs Hull City | OU: UNDER (68%) EV +36.4% | BTTS: YES (38%) EV -32.2%
+2026-02-28 | Preston vs Millwall | OU: OVER (36%) EV -24.1% | BTTS: YES (41%) EV -24.8%
+2026-02-28 | QPR vs Sheffield Utd | OU: OVER (34%) EV -42.9% | BTTS: YES (35%) EV -44.7%
+2026-02-28 | Sheffield Wednesday vs Southampton | OU: UNDER (80%) EV N/A | BTTS: NO (81%) EV N/A
+
+[Eredivisie] (9 games)
+2026-02-27 | Telstar vs NAC Breda | OU: OVER (36%) EV -35.6% | BTTS: YES (43%) EV -31.6%
+2026-02-28 | Heerenveen vs Sparta Rotterdam | OU: OVER (43%) EV -32.1% | BTTS: YES (49%) EV -27.5%
+2026-02-28 | Heracles vs PSV Eindhoven | OU: OVER (45%) EV -40.6% | BTTS: YES (31%) EV -51.8%
+2026-02-28 | NEC Nijmegen vs Fortuna Sittard | OU: OVER (37%) EV -46.9% | BTTS: YES (40%) EV -37.1%
+2026-03-01 | Excelsior vs GO Ahead Eagles | OU: OVER (48%) EV -18.3% | BTTS: YES (53%) EV -18.1%
+2026-03-01 | FC Volendam vs Groningen | OU: OVER (44%) EV -24.7% | BTTS: YES (50%) EV -20.4%
+2026-03-01 | PEC Zwolle vs Ajax | OU: OVER (47%) EV -29.0% | BTTS: YES (45%) EV -33.2%
+2026-03-01 | Twente vs Feyenoord | OU: OVER (55%) EV -11.1% | BTTS: YES (55%) EV -17.3%
+2026-03-01 | Utrecht vs AZ Alkmaar | OU: OVER (51%) EV -13.7% | BTTS: YES (55%) EV -15.4%
+
+[La Liga] (9 games)
+2026-02-27 | Levante vs Alaves | OU: UNDER (73%) EV +71.7% | BTTS: NO (65%) EV +16.8%
+2026-02-28 | Barcelona vs Villarreal | OU: OVER (71%) EV -8.9% | BTTS: NO (67%) EV +61.3%
+2026-02-28 | Mallorca vs Real Sociedad | OU: UNDER (64%) EV +31.0% | BTTS: NO (60%) EV +16.6%
+2026-02-28 | Oviedo vs Atletico Madrid | OU: UNDER (60%) EV +16.8% | BTTS: NO (64%) EV +18.2%
+2026-02-28 | Rayo Vallecano vs Athletic Club | OU: UNDER (62%) EV +43.2% | BTTS: NO (56%) EV +0.9%
+2026-03-01 | Elche vs Espanyol | OU: UNDER (57%) EV +13.2% | BTTS: NO (52%) EV +3.1%
+2026-03-01 | Girona vs Celta Vigo | OU: OVER (51%) EV -0.5% | BTTS: YES (55%) EV -4.7%
+2026-03-01 | Real Betis vs Sevilla | OU: UNDER (70%) EV +36.0% | BTTS: NO (67%) EV +28.1%
+2026-03-01 | Valencia vs Osasuna | OU: UNDER (59%) EV +26.8% | BTTS: NO (53%) EV +1.0%
+
+[Liga I] (7 games)
+2026-02-27 | AFC Hermannstadt vs FC Botosani | OU: OVER (28%) EV -40.5% | BTTS: NO (76%) EV +37.0%
+2026-02-27 | Universitatea Cluj vs Otelul | OU: OVER (32%) EV -35.3% | BTTS: YES (39%) EV -31.0%
+2026-02-28 | Farul Constanta vs CFR 1907 Cluj | OU: OVER (36%) EV -32.3% | BTTS: YES (43%) EV -28.6%
+2026-02-28 | Universitatea Craiova vs Metaloglobus | OU: OVER (47%) EV -32.5% | BTTS: NO (68%) EV +5.4%
+2026-03-01 | Dinamo Bucuresti vs Arges Pitesti | OU: OVER (38%) EV -12.5% | BTTS: YES (37%) EV -21.3%
+2026-03-01 | Petrolul Ploiesti vs Csikszereda | OU: OVER (49%) EV +26.0% | BTTS: YES (48%) EV +8.2%
+2026-03-01 | Uta Arad vs FCSB | OU: OVER (31%) EV -39.1% | BTTS: YES (34%) EV -36.0%
+
+[Ligue 1] (9 games)
+2026-02-27 | Strasbourg vs Lens | OU: UNDER (68%) EV +12.5% | BTTS: NO (61%) EV +46.3%
+2026-02-28 | Le Havre vs Paris Saint Germain | OU: UNDER (62%) EV -9.9% | BTTS: NO (63%) EV +23.5%
+2026-02-28 | Monaco vs Angers | OU: UNDER (52%) EV -13.6% | BTTS: YES (53%) EV -6.3%
+2026-02-28 | Rennes vs Toulouse | OU: UNDER (62%) EV +15.2% | BTTS: NO (67%) EV +40.3%
+2026-03-01 | Lille vs Nantes | OU: UNDER (57%) EV -0.7% | BTTS: NO (61%) EV +11.2%
+2026-03-01 | Lorient vs Auxerre | OU: UNDER (62%) EV +39.6% | BTTS: NO (58%) EV +2.7%
+2026-03-01 | Marseille vs Lyon | OU: UNDER (66%) EV +13.9% | BTTS: NO (59%) EV +29.2%
+2026-03-01 | Metz vs Stade Brestois 29 | OU: UNDER (53%) EV +2.5% | BTTS: YES (52%) EV -10.7%
+2026-03-01 | Paris FC vs Nice | OU: UNDER (52%) EV -3.6% | BTTS: YES (51%) EV -14.4%
+
+[Ligue 2] (8 games)
+2026-02-27 | Bastia vs Annecy | OU: OVER (50%) EV +27.7% | BTTS: YES (53%) EV +9.3%
+2026-02-27 | Clermont Foot vs Dunkerque | OU: OVER (44%) EV -16.1% | BTTS: YES (46%) EV -24.7%
+2026-02-27 | Grenoble vs Boulogne | OU: OVER (35%) EV -20.8% | BTTS: YES (42%) EV -21.6%
+2026-02-27 | Laval vs Nancy | OU: OVER (39%) EV -5.5% | BTTS: YES (45%) EV -12.7%
+2026-02-27 | Montpellier vs Reims | OU: OVER (42%) EV -16.1% | BTTS: YES (44%) EV -23.8%
+2026-02-28 | Guingamp vs Rodez | OU: OVER (37%) EV -34.3% | BTTS: YES (42%) EV -30.0%
+2026-02-28 | PAU vs Saint Etienne | OU: OVER (35%) EV -43.7% | BTTS: YES (42%) EV -37.5%
+2026-02-28 | RED Star FC 93 vs Le Mans | OU: OVER (37%) EV -18.8% | BTTS: YES (44%) EV -19.9%
+
+[Premier League] (10 games)
+2026-02-27 | Wolves vs Aston Villa | OU: UNDER (64%) EV +11.3% | BTTS: NO (70%) EV +40.0%
+2026-02-28 | Bournemouth vs Sunderland | OU: UNDER (64%) EV +11.8% | BTTS: YES (40%) EV -33.6%
+2026-02-28 | Burnley vs Brentford | OU: UNDER (74%) EV +32.8% | BTTS: YES (32%) EV -44.8%
+2026-02-28 | Leeds vs Manchester City | OU: UNDER (64%) EV +2.9% | BTTS: YES (42%) EV -29.9%
+2026-02-28 | Liverpool vs West Ham | OU: OVER (56%) EV -19.8% | BTTS: YES (46%) EV -26.1%
+2026-02-28 | Newcastle vs Everton | OU: UNDER (72%) EV +26.3% | BTTS: YES (35%) EV -41.0%
+2026-03-01 | Arsenal vs Chelsea | OU: UNDER (61%) EV +3.6% | BTTS: YES (44%) EV -24.5%
+2026-03-01 | Brighton vs Nottingham Forest | OU: UNDER (61%) EV +11.2% | BTTS: YES (45%) EV -25.3%
+2026-03-01 | Fulham vs Tottenham | OU: UNDER (60%) EV +5.9% | BTTS: YES (44%) EV -28.9%
+2026-03-01 | Manchester United vs Crystal Palace | OU: UNDER (62%) EV -0.1% | BTTS: YES (37%) EV -36.4%
+
+[Primeira Liga] (8 games)
+2026-02-27 | FC Porto vs Arouca | OU: OVER (39%) EV -38.7% | BTTS: NO (60%) EV -7.7%
+2026-02-27 | Sporting CP vs Estoril | OU: UNDER (65%) EV -11.5% | BTTS: NO (73%) EV +41.7%
+2026-02-28 | AVS vs Estrela | OU: OVER (36%) EV -20.3% | BTTS: NO (62%) EV +14.5%
+2026-02-28 | Guimaraes vs Alverca | OU: OVER (51%) EV +6.5% | BTTS: YES (53%) EV +2.9%
+2026-02-28 | Nacional vs SC Braga | OU: OVER (43%) EV -23.3% | BTTS: NO (60%) EV +16.3%
+2026-03-01 | Casa Pia vs Moreirense | OU: OVER (37%) EV -10.9% | BTTS: NO (56%) EV -1.2%
+2026-03-01 | Rio Ave vs Famalicao | OU: OVER (44%) EV -17.8% | BTTS: NO (54%) EV +5.1%
+2026-03-01 | Tondela vs Santa Clara | OU: UNDER (70%) EV +74.8% | BTTS: NO (62%) EV +6.1%
+
+[Serie A] (8 games)
+2026-02-27 | Parma vs Cagliari | OU: UNDER (60%) EV +46.2% | BTTS: NO (55%) EV -3.6%
+2026-02-28 | Como vs Lecce | OU: UNDER (54%) EV +8.0% | BTTS: NO (58%) EV -6.6%
+2026-02-28 | Hellas Verona vs Napoli | OU: UNDER (61%) EV +38.3% | BTTS: NO (61%) EV -3.6%
+2026-02-28 | Inter vs Genoa | OU: OVER (59%) EV -3.0% | BTTS: NO (59%) EV +1.8%
+2026-03-01 | AS Roma vs Juventus | OU: UNDER (70%) EV +58.1% | BTTS: NO (63%) EV +14.9%
+2026-03-01 | Cremonese vs AC Milan | OU: UNDER (68%) EV +26.1% | BTTS: NO (64%) EV +12.6%
+2026-03-01 | Sassuolo vs Atalanta | OU: UNDER (73%) EV +35.1% | BTTS: NO (66%) EV +36.1%
+2026-03-01 | Torino vs Lazio | OU: UNDER (81%) EV +93.8% | BTTS: NO (77%) EV +37.7%
+
+[Serie B] (10 games)
+2026-02-27 | Monza vs Virtus Entella | OU: UNDER (67%) EV +41.3% | BTTS: NO (67%) EV +11.4%
+2026-02-27 | Sampdoria vs Bari | OU: UNDER (54%) EV +18.9% | BTTS: YES (48%) EV -6.2%
+2026-02-28 | Avellino vs Juve Stabia | OU: UNDER (58%) EV +36.5% | BTTS: YES (45%) EV -13.9%
+2026-02-28 | Empoli vs Cesena | OU: UNDER (77%) EV +69.7% | BTTS: NO (71%) EV +29.1%
+2026-02-28 | Modena vs Padova | OU: UNDER (73%) EV +46.3% | BTTS: NO (67%) EV +16.2%
+2026-02-28 | Spezia vs Reggiana | OU: OVER (52%) EV +15.2% | BTTS: YES (56%) EV +7.2%
+2026-02-28 | Sudtirol vs Venezia | OU: UNDER (60%) EV +19.1% | BTTS: NO (62%) EV +20.4%
+2026-03-01 | Catanzaro vs Frosinone | OU: UNDER (56%) EV +1.4% | BTTS: YES (46%) EV -27.1%
+2026-03-01 | Mantova vs Carrarese | OU: UNDER (70%) EV +40.0% | BTTS: NO (62%) EV +21.3%
+2026-03-01 | Pescara vs Palermo | OU: UNDER (72%) EV +30.2% | BTTS: NO (65%) EV +30.6%
+
+[Super Lig] (9 games)
+2026-02-27 | Basaksehir vs Konyaspor | OU: OVER (43%) EV -26.7% | BTTS: NO (52%) EV +10.2%
+2026-02-27 | Trabzonspor vs Fatih Karagumruk | OU: UNDER (63%) EV +1.3% | BTTS: NO (67%) EV +22.8%
+2026-02-28 | Galatasaray vs Alanyaspor | OU: OVER (54%) EV -22.7% | BTTS: NO (53%) EV +0.4%
+2026-02-28 | Goztepe vs Eyupspor | OU: UNDER (61%) EV +12.8% | BTTS: NO (59%) EV +6.7%
+2026-02-28 | Kasmpasa vs Rizespor | OU: OVER (43%) EV -17.5% | BTTS: NO (52%) EV +8.3%
+2026-02-28 | Kocaelispor vs Besiktas | OU: OVER (44%) EV -13.4% | BTTS: NO (52%) EV +0.7%
+2026-03-01 | Antalyaspor vs Fenerbahce | OU: UNDER (65%) EV +9.9% | BTTS: NO (69%) EV +18.5%
+2026-03-01 | Genclerbirligi S.K. vs Kayserispor | OU: UNDER (63%) EV +22.2% | BTTS: NO (56%) EV +11.9%
+2026-03-01 | Samsunspor vs Gaziantep FK | OU: OVER (50%) EV -5.2% | BTTS: YES (52%) EV -6.4%

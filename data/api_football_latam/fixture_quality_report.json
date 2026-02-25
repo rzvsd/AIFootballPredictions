@@ -1,0 +1,28 @@
+{
+  "quality_gate_passed": true,
+  "quality_gate_reasons": [],
+  "min_odds_coverage": 0.0,
+  "min_stats_coverage": 0.0,
+  "coverage": {
+    "history_stats_coverage": 0.9978,
+    "upcoming_odds_coverage": 0.0
+  },
+  "sync_summary": {
+    "finished_rows": 912,
+    "upcoming_rows": 30,
+    "source_seasons": [
+      2025,
+      2026
+    ]
+  },
+  "dataset_scope": {
+    "countries": [
+      "Argentina",
+      "Brazil"
+    ],
+    "leagues": [
+      "Liga Profesional Argentina",
+      "Serie A Brazil"
+    ]
+  }
+}

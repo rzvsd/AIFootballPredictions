@@ -323,15 +323,31 @@ def _is_full_time_market(name: str) -> bool:
 
 
 def _is_over_under_market(name: str) -> bool:
-    return "over/under" in name or "goals over/under" in name
+    if "over/under" not in name and "goals over/under" not in name:
+        return False
+    # Exclude non-goals O/U style markets.
+    exclude_markers = (
+        "corner",
+        "card",
+        "booking",
+        "result",
+        "both teams",
+        "clean sheet",
+        "odd/even",
+        "team",
+    )
+    return not any(marker in name for marker in exclude_markers)
 
 
 def _is_btts_market(name: str) -> bool:
-    return (
-        "both teams to score" in name
-        or "both teams score" in name
-        or "gg/ng" in name
-    )
+    # Keep only direct BTTS markets (exclude combo/derived variants).
+    if name in {"both teams to score", "both teams score", "gg/ng"}:
+        return True
+    if ("both teams to score" in name or "both teams score" in name) and not any(
+        marker in name for marker in ("result", "total goals", "/", "1st", "2nd", "half")
+    ):
+        return True
+    return False
 
 
 def _odds_from_payload(payload: list[dict[str, Any]]) -> dict[str, float | None]:
@@ -349,42 +365,56 @@ def _odds_from_payload(payload: list[dict[str, Any]]) -> dict[str, float | None]
 
                 values = bet.get("values") or []
                 if _is_over_under_market(market_name):
+                    over_in_bet = None
+                    under_in_bet = None
                     for value in values:
                         odd = _to_float(value.get("odd"))
                         if odd is None:
                             continue
-                        parts = [
-                            market_name,
-                            str(value.get("value", "")),
-                            str(value.get("label", "")),
-                            str(value.get("handicap", "")),
-                            str(value.get("line", "")),
-                        ]
-                        joined = " ".join(p.lower() for p in parts if p)
-                        if "2.5" not in joined:
+                        value_text = _normalize_stat_name(
+                            " ".join(
+                                [
+                                    str(value.get("value", "")),
+                                    str(value.get("label", "")),
+                                    str(value.get("handicap", "")),
+                                    str(value.get("line", "")),
+                                ]
+                            )
+                        )
+                        if "2.5" not in value_text:
                             continue
-                        tokens = set(re.findall(r"[a-z0-9\.]+", joined))
-                        if "over" in tokens and over_25 is None:
-                            over_25 = odd
-                        if "under" in tokens and under_25 is None:
-                            under_25 = odd
+                        tokens = set(re.findall(r"[a-z0-9\.]+", value_text))
+                        is_over = "over" in tokens
+                        is_under = "under" in tokens
+                        if is_over and not is_under and over_in_bet is None:
+                            over_in_bet = odd
+                        if is_under and not is_over and under_in_bet is None:
+                            under_in_bet = odd
+                    # Prefer a paired O/U line from the same market bet.
+                    if over_25 is None and over_in_bet is not None:
+                        over_25 = over_in_bet
+                    if under_25 is None and under_in_bet is not None:
+                        under_25 = under_in_bet
 
                 if _is_btts_market(market_name):
+                    yes_in_bet = None
+                    no_in_bet = None
                     for value in values:
                         odd = _to_float(value.get("odd"))
                         if odd is None:
                             continue
-                        parts = [
-                            market_name,
-                            str(value.get("value", "")),
-                            str(value.get("label", "")),
-                        ]
-                        joined = " ".join(p.lower() for p in parts if p)
-                        tokens = set(re.findall(r"[a-z0-9\.]+", joined))
-                        if ("yes" in tokens or "gg" in tokens) and btts_yes is None:
-                            btts_yes = odd
-                        if ("no" in tokens or "ng" in tokens) and btts_no is None:
-                            btts_no = odd
+                        value_text = _normalize_stat_name(
+                            " ".join([str(value.get("value", "")), str(value.get("label", ""))])
+                        )
+                        tokens = set(re.findall(r"[a-z0-9\.]+", value_text))
+                        if ("yes" in tokens or "gg" in tokens) and yes_in_bet is None:
+                            yes_in_bet = odd
+                        if ("no" in tokens or "ng" in tokens) and no_in_bet is None:
+                            no_in_bet = odd
+                    if btts_yes is None and yes_in_bet is not None:
+                        btts_yes = yes_in_bet
+                    if btts_no is None and no_in_bet is not None:
+                        btts_no = no_in_bet
 
             if all(v is not None for v in (over_25, under_25, btts_yes, btts_no)):
                 break

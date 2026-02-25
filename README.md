@@ -176,17 +176,42 @@ Output examples:
 - `reports/business_report_recent_results.csv`
 - `reports/business_report_upcoming_summary.csv`
 
-## Telegram Automation (Weekly)
+## LATAM (Argentina + Brazil, Isolated Workflow)
 
-Weekly picks snapshot (Monday report, picks only, grouped by date/league):
+To avoid impacting the main Europe strategy, LATAM is run in isolated folders
+(`data/enhanced_latam`, `models_latam`, `reports_latam`, etc.).
+
+Full step-by-step runbook:
+- `project_notes/latam_argentina_brazil_runbook.md`
+
+Dataset merge helper:
+- `python scripts/build_latam_dataset.py`
+
+One-command LATAM pipeline (PowerShell):
+- `powershell -ExecutionPolicy Bypass -File scripts/run_latam_pipeline.ps1 -MaxDate YYYY-MM-DD`
+
+## Telegram Delivery (Predictions by League)
+
+Send next-round predictions from `reports/cgm_upcoming_predictions.csv` to Telegram.
+Default behavior is one message per league (same format we used in chat):
 
 ```
-python scripts/telegram_weekly.py
+python scripts/send_telegram_predictions.py
 ```
 
-Notes:
-- Weekly snapshots are stored under `reports/weekly_snapshots/YYYY-MM-DD/`.
-- Filters: only picks with odds >= `TELEGRAM_MIN_ODDS` are reported (odds are not shown in the message).
+Useful options:
+
+```
+# Preview only (no send)
+python scripts/send_telegram_predictions.py --dry-run
+
+# Send only selected leagues
+python scripts/send_telegram_predictions.py --league "Premier League" --league "Bundesliga"
+```
+
+Setup:
+- Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (loaded by `telegram_config.py`).
+- Message length is capped by `TELEGRAM_MESSAGE_MAX_CHARS` and auto-split if needed.
 
 ## Backtest (Milestone 12)
 
@@ -203,7 +228,8 @@ Options:
 - `--league`: League name as stored in history (e.g., "Premier L")
 - `--season`: Season format (e.g., "2025-2026")
 - `--start-date`: Start date for backtest range (YYYY-MM-DD)
-- `--history`: Path to history CSV (default: `data/enhanced/cgm_match_history.csv`)
+- `--history`: Path to history CSV (default: `data/enhanced/cgm_match_history_with_elo_stats_xg.csv`)
+- `--models-dir`: Path to model folder (default: `models`). Use isolated folders like `models_latam` when needed.
 - `--out`: Output file path
 
 ## Streamlit UI

@@ -1,0 +1,42 @@
+BUSINESS REPORT (PROBABILITY-ONLY)
+Generated: 2026-02-23 20:54 UTC
+
+Data source files:
+- History: C:\BOTS\AIFootballPredictions\data\enhanced\cgm_match_history_with_elo_stats_xg.csv
+- Predictions: C:\BOTS\AIFootballPredictions\reports\cgm_upcoming_predictions.csv
+- Backtest: reports\latest_backtest.csv
+
+SECTION 1 - Last 5 played rounds
+Latest played date in source history: 2026-02-15
+Rows listed: 17
+      date     league                     home                     away score bot_prediction_available bot_ou_pred bot_btts_pred bot_ou_result bot_btts_result
+2026-02-15 Bundesliga              FC Augsburg         1. FC Heidenheim   1-0                      yes   OU25_OVER      BTTS_YES          lost            lost
+2026-02-15 Bundesliga               RB Leipzig            VfL Wolfsburg   2-2                      yes   OU25_OVER      BTTS_YES           won             won
+2026-02-14 Bundesliga          1899 Hoffenheim              SC Freiburg   3-0                      yes   OU25_OVER      BTTS_YES           won            lost
+2026-02-14 Bundesliga         Bayer Leverkusen             FC St. Pauli   4-0                      yes   OU25_OVER      BTTS_YES           won            lost
+2026-02-14 Bundesliga      Eintracht Frankfurt Borussia Mönchengladbach   3-0                       no                                                        
+2026-02-14 Bundesliga             Hamburger SV             Union Berlin   3-2                      yes   OU25_OVER      BTTS_YES           won             won
+2026-02-14 Bundesliga            VfB Stuttgart               1. FC Köln   3-1                       no                                                        
+2026-02-14 Bundesliga            Werder Bremen           Bayern München   0-3                       no                                                        
+2026-02-13 Bundesliga        Borussia Dortmund             FSV Mainz 05   4-0                      yes   OU25_OVER      BTTS_YES           won            lost
+2026-02-08 Bundesliga               1. FC Köln               RB Leipzig   1-2                       no                                                        
+2026-02-08 Bundesliga           Bayern München          1899 Hoffenheim   5-1                       no                                                        
+2026-02-07 Bundesliga         1. FC Heidenheim             Hamburger SV   0-2                      yes   OU25_OVER      BTTS_YES          lost            lost
+2026-02-07 Bundesliga Borussia Mönchengladbach         Bayer Leverkusen   1-1                       no                                                        
+2026-02-07 Bundesliga             FC St. Pauli            VfB Stuttgart   2-1                      yes   OU25_OVER      BTTS_YES           won             won
+2026-02-07 Bundesliga             FSV Mainz 05              FC Augsburg   2-0                      yes  OU25_UNDER      BTTS_YES           won            lost
+2026-02-07 Bundesliga              SC Freiburg            Werder Bremen   1-0                      yes   OU25_OVER      BTTS_YES          lost            lost
+2026-02-07 Bundesliga            VfL Wolfsburg        Borussia Dortmund   1-2                      yes   OU25_OVER      BTTS_YES           won             won
+
+SECTION 2 - Next round predictions (no odds, model-only)
+No upcoming fixtures found in prediction output.
+
+SECTION 3 - Backtest accuracy summary (0.5 probability threshold)
+Rows evaluated: 84
+OU2.5 accuracy: 63.10%
+BTTS accuracy: 61.90%
+Both-correct accuracy: 47.62%
+
+Conclusion:
+- History looks stale (latest played date is 8 days old). This is why recent weekends may not appear.
+- No next-round fixtures were available in the prediction file.

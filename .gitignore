@@ -189,3 +189,33 @@ cython_debug/
 #.idea/
 
 .venv*/
+
+# Project runtime/debug artifacts (keep repo clean)
+temp_round22/
+temp_backtest_data_*/
+temp_backtest_results_*/
+
+# Root ad-hoc debug outputs
+accuracy_report*.txt
+audit_run_output*.txt
+backtest_log.txt
+pred_run_log.txt
+last_round_results.txt
+leverkusen_results*.txt
+extract_leverkusen_data.py
+
+# Report temp/debug outputs
+reports/_tmp_*
+reports/tmp_*
+reports/last_round_backtest*/
+reports/last_round_no_leak_*
+reports/latest_backtest.csv
+reports/round22_asof_preds.csv
+reports/backtest_bundesliga_sterile_*.csv
+reports/backtest_*_norm.csv
+reports/last_round_backtest_compare_*
+reports/last_round_backtest_detail.csv
+reports/last_round_backtest_summary*.csv
+
+# API client runtime cache state
+data/cache/api_football/_request_budget_state.json

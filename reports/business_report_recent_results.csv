@@ -1,0 +1,18 @@
+date,league,season,home,away,score,bot_prediction_available,bot_ou_pred,bot_btts_pred,bot_ou_result,bot_btts_result
+2026-02-15,Bundesliga,2025-2026,FC Augsburg,1. FC Heidenheim,1-0,yes,OU25_OVER,BTTS_YES,lost,lost
+2026-02-15,Bundesliga,2025-2026,RB Leipzig,VfL Wolfsburg,2-2,yes,OU25_OVER,BTTS_YES,won,won
+2026-02-14,Bundesliga,2025-2026,1899 Hoffenheim,SC Freiburg,3-0,yes,OU25_OVER,BTTS_YES,won,lost
+2026-02-14,Bundesliga,2025-2026,Bayer Leverkusen,FC St. Pauli,4-0,yes,OU25_OVER,BTTS_YES,won,lost
+2026-02-14,Bundesliga,2025-2026,Eintracht Frankfurt,Borussia Mönchengladbach,3-0,no,,,,
+2026-02-14,Bundesliga,2025-2026,Hamburger SV,Union Berlin,3-2,yes,OU25_OVER,BTTS_YES,won,won
+2026-02-14,Bundesliga,2025-2026,VfB Stuttgart,1. FC Köln,3-1,no,,,,
+2026-02-14,Bundesliga,2025-2026,Werder Bremen,Bayern München,0-3,no,,,,
+2026-02-13,Bundesliga,2025-2026,Borussia Dortmund,FSV Mainz 05,4-0,yes,OU25_OVER,BTTS_YES,won,lost
+2026-02-08,Bundesliga,2025-2026,1. FC Köln,RB Leipzig,1-2,no,,,,
+2026-02-08,Bundesliga,2025-2026,Bayern München,1899 Hoffenheim,5-1,no,,,,
+2026-02-07,Bundesliga,2025-2026,1. FC Heidenheim,Hamburger SV,0-2,yes,OU25_OVER,BTTS_YES,lost,lost
+2026-02-07,Bundesliga,2025-2026,Borussia Mönchengladbach,Bayer Leverkusen,1-1,no,,,,
+2026-02-07,Bundesliga,2025-2026,FC St. Pauli,VfB Stuttgart,2-1,yes,OU25_OVER,BTTS_YES,won,won
+2026-02-07,Bundesliga,2025-2026,FSV Mainz 05,FC Augsburg,2-0,yes,OU25_UNDER,BTTS_YES,won,lost
+2026-02-07,Bundesliga,2025-2026,SC Freiburg,Werder Bremen,1-0,yes,OU25_OVER,BTTS_YES,lost,lost
+2026-02-07,Bundesliga,2025-2026,VfL Wolfsburg,Borussia Dortmund,1-2,yes,OU25_OVER,BTTS_YES,won,won

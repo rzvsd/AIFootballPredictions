@@ -1,0 +1,13 @@
+country,league,matches,ou_hits,ou_hit_pct,btts_hits,btts_hit_pct,status,matches_prev,ou_hits_prev,ou_hit_pct_prev,btts_hits_prev,btts_hit_pct_prev,status_prev,ou_hit_pct_delta,btts_hit_pct_delta
+England,Premier League,10,5,50.0,5,50.0,ok,10.0,7.0,70.0,5.0,50.0,ok,-20.0,0.0
+England,Championship,12,8,66.67,5,41.67,ok,12.0,7.0,58.33,6.0,50.0,ok,8.34,-8.33
+Spain,La Liga,10,5,50.0,6,60.0,ok,10.0,6.0,60.0,3.0,30.0,ok,-10.0,30.0
+Italy,Serie A,10,5,50.0,6,60.0,ok,10.0,5.0,50.0,6.0,60.0,ok,0.0,0.0
+Italy,Serie B,10,5,50.0,6,60.0,ok,10.0,3.0,30.0,5.0,50.0,ok,20.0,10.0
+France,Ligue 1,0,0,,0,,empty,0.0,0.0,,0.0,,empty,,
+France,Ligue 2,0,0,,0,,empty,0.0,0.0,,0.0,,empty,,
+Germany,Bundesliga,9,5,55.56,4,44.44,ok,9.0,5.0,55.56,6.0,66.67,ok,0.0,-22.23
+Netherlands,Eredivisie,9,5,55.56,5,55.56,ok,9.0,5.0,55.56,4.0,44.44,ok,0.0,11.12
+Portugal,Primeira Liga,9,4,44.44,7,77.78,ok,9.0,4.0,44.44,6.0,66.67,ok,0.0,11.11
+Romania,Liga I,8,6,75.0,5,62.5,ok,8.0,3.0,37.5,5.0,62.5,ok,37.5,0.0
+Turkey,Super Lig,0,0,,0,,empty,,,,,,,,

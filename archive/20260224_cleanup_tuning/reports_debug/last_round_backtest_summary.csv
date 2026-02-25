@@ -1,0 +1,13 @@
+country,league,matches,ou_hits,ou_hit_pct,btts_hits,btts_hit_pct,status
+France,Ligue 1,0,0,,0,,empty
+France,Ligue 2,0,0,,0,,empty
+Turkey,Süper Lig,0,0,,0,,empty
+England,Championship,12,7,58.33,6,50.0,ok
+England,Premier League,10,7,70.0,5,50.0,ok
+Germany,Bundesliga,9,5,55.56,6,66.67,ok
+Italy,Serie A,10,5,50.0,6,60.0,ok
+Italy,Serie B,10,3,30.0,5,50.0,ok
+Netherlands,Eredivisie,9,5,55.56,4,44.44,ok
+Portugal,Primeira Liga,9,4,44.44,6,66.67,ok
+Romania,Liga I,8,3,37.5,5,62.5,ok
+Spain,La Liga,10,6,60.0,3,30.0,ok
