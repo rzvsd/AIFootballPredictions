@@ -172,8 +172,9 @@ BTTS_YES_THRESHOLD_DEFAULT = 0.50
 # Per-league overrides (canonical league names from data/API)
 # Purpose: fix persistent directional bias without changing model training.
 OU25_OVER_THRESHOLD_BY_LEAGUE = {
-    "Bundesliga": 0.30,  # tuned on 2025-11-01..2026-02-22 backtest window (133 matches)
-    "Serie A": 0.54,     # light under-bias correction from 2025-11-01..2026-02-23 window (170 matches)
+    "Bundesliga": 0.42,  # updated after 3-league threshold rescan (less over-bias)
+    "Premier League": 0.39,  # updated after 3-league threshold rescan (less under-bias)
+    "Serie A": 0.50,     # updated after 3-league threshold rescan (more balanced O/U split)
     "Ligue 1": 0.52,     # batch-1 tuning window 2025-11-01..2026-02-22 (117 matches)
     "La Liga": 0.46,     # batch-1 tuning window 2025-11-01..2026-02-23 (148 matches)
     "Liga I": 0.26,      # temporary recent-form pilot (2 rounds): adapt to Feb scoring shift
