@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1379231"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 2
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 5
+        },
+        {
+          "type": "Total Shots",
+          "value": 12
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 5
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 6
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 6
+        },
+        {
+          "type": "Fouls",
+          "value": 13
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 9
+        },
+        {
+          "type": "Offsides",
+          "value": 2
+        },
+        {
+          "type": "Ball Possession",
+          "value": "67%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 4
+        },
+        {
+          "type": "Red Cards",
+          "value": 1
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 3
+        },
+        {
+          "type": "Total passes",
+          "value": 605
+        },
+        {
+          "type": "Passes accurate",
+          "value": 533
+        },
+        {
+          "type": "Passes %",
+          "value": "88%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "1.99"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 49,
+        "logo": "https://media.api-sports.io/football/teams/49.png",
+        "name": "Chelsea"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 4
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 6
+        },
+        {
+          "type": "Total Shots",
+          "value": 12
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 2
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 9
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 3
+        },
+        {
+          "type": "Fouls",
+          "value": 11
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 5
+        },
+        {
+          "type": "Offsides",
+          "value": 4
+        },
+        {
+          "type": "Ball Possession",
+          "value": "33%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 2
+        },
+        {
+          "type": "Red Cards",
+          "value": 0
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 1
+        },
+        {
+          "type": "Total passes",
+          "value": 302
+        },
+        {
+          "type": "Passes accurate",
+          "value": 240
+        },
+        {
+          "type": "Passes %",
+          "value": "79%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "0.85"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 44,
+        "logo": "https://media.api-sports.io/football/teams/44.png",
+        "name": "Burnley"
+      }
+    }
+  ],
+  "results": 2
+}

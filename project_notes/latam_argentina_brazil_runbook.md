@@ -1,4 +1,4 @@
-LATAM Runbook (Argentina + Brazil, Isolated)
+﻿LATAM Runbook (Argentina + Brazil, Isolated)
 
 Goal
 - Run Argentina + Brazil with the same pipeline quality (history, league averages, training, predictions, backtest),
@@ -74,13 +74,13 @@ Step 5 - Build Elo + stats + xG proxy (isolated)
 3. xG proxy:
    - `python -m cgm.build_xg_proxy --history data/enhanced_latam/cgm_match_history_with_elo_stats.csv --out data/enhanced_latam/cgm_match_history_with_elo_stats_xg.csv`
 
-Step 6 - Training (isolated)
-1. Build training matrix:
-   - `python -m cgm.build_frankenstein --data-dir data/enhanced_latam --match-history cgm_match_history_with_elo_stats_xg.csv --out data/enhanced_latam/frankenstein_training.csv --out-full data/enhanced_latam/frankenstein_training_full.csv`
-2. Train models:
-   - `python -m cgm.train_frankenstein_mu --data data/enhanced_latam/frankenstein_training.csv --out-dir models_latam --variant full`
-- What this does:
-  - Trains LATAM-specific `mu_home` / `mu_away` models into `models_latam`.
+Step 6 - Strict mu engine note (isolated)
+- No separate model training step exists in current production path.
+- Mu is computed at prediction time from:
+  - league anchor
+  - Elo module
+  - xG module
+  - pressure module
 
 Step 7 - Next-round predictions (isolated)
 1. Predict:
@@ -144,3 +144,4 @@ One-command wrapper (PowerShell)
 What is safe to tune later
 - Threshold tuning for LATAM should be kept separate from Europe until validated.
 - If added, keep LATAM thresholds clearly isolated (or explicitly scoped) to avoid cross-league side effects.
+

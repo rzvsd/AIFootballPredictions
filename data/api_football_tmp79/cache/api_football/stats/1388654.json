@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1388654"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 3
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 6
+        },
+        {
+          "type": "Total Shots",
+          "value": 21
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 12
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 13
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 8
+        },
+        {
+          "type": "Fouls",
+          "value": 13
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 15
+        },
+        {
+          "type": "Offsides",
+          "value": null
+        },
+        {
+          "type": "Ball Possession",
+          "value": "66%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 2
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 0
+        },
+        {
+          "type": "Total passes",
+          "value": 513
+        },
+        {
+          "type": "Passes accurate",
+          "value": 453
+        },
+        {
+          "type": "Passes %",
+          "value": "88%"
+        },
+        {
+          "type": "expected_goals",
+          "value": null
+        },
+        {
+          "type": "goals_prevented",
+          "value": null
+        }
+      ],
+      "team": {
+        "id": 166,
+        "logo": "https://media.api-sports.io/football/teams/166.png",
+        "name": "Hannover 96"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 3
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 5
+        },
+        {
+          "type": "Total Shots",
+          "value": 9
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 1
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 6
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 3
+        },
+        {
+          "type": "Fouls",
+          "value": 19
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 0
+        },
+        {
+          "type": "Offsides",
+          "value": null
+        },
+        {
+          "type": "Ball Possession",
+          "value": "34%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 5
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 2
+        },
+        {
+          "type": "Total passes",
+          "value": 271
+        },
+        {
+          "type": "Passes accurate",
+          "value": 218
+        },
+        {
+          "type": "Passes %",
+          "value": "80%"
+        },
+        {
+          "type": "expected_goals",
+          "value": null
+        },
+        {
+          "type": "goals_prevented",
+          "value": null
+        }
+      ],
+      "team": {
+        "id": 159,
+        "logo": "https://media.api-sports.io/football/teams/159.png",
+        "name": "Hertha BSC"
+      }
+    }
+  ],
+  "results": 2
+}

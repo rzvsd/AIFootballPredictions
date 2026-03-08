@@ -62,12 +62,13 @@ def audit_elo_replay() -> dict[str, Any]:
     """Replay Elo from raw history and compare to stored values."""
     name = "Elo Replay"
     try:
-        from cgm.calculate_elo import (
-            margin_multiplier, expected_home,
+        from scripts.calc_cgm_elo import (
+            margin_multiplier, expected_home, infer_team,
             START_ELO_DEFAULT, K_FACTOR_DEFAULT, HOME_ADV_DEFAULT,
         )
+        import config  # type: ignore
     except ImportError as e:
-        return _fail(name, f"Cannot import calculate_elo: {e}")
+        return _fail(name, f"Cannot import calc_cgm_elo: {e}")
 
     enhanced_path = _ENHANCED / "cgm_match_history_with_elo_stats_xg.csv"
     if not enhanced_path.exists():
@@ -77,20 +78,23 @@ def audit_elo_replay() -> dict[str, Any]:
     if "datetime" in df.columns:
         df = df.sort_values("datetime")
 
-    # Replay Elo step-by-step, comparing pre-match Elo to stored values
+    rating_floor = float(getattr(config, "ELO_DEFAULTS", {}).get("rating_floor", 1000.0))
+
+    # Replay Elo step-by-step, comparing pre-match Elo to stored values.
     ratings: dict[str, float] = {}
     tolerance = 1.0  # Allow 1 Elo point tolerance for floating-point differences
     checked = 0
     mismatches = 0
+    trace_checked = 0
     issues = []
 
     for idx, row in df.iterrows():
-        home_id = str(int(row["code_home"])) if pd.notna(row.get("code_home")) else str(row.get("home", ""))
-        away_id = str(int(row["code_away"])) if pd.notna(row.get("code_away")) else str(row.get("away", ""))
+        home_id = infer_team(row, home=True)
+        away_id = infer_team(row, home=False)
         ft_home = row.get("ft_home")
         ft_away = row.get("ft_away")
 
-        if pd.isna(ft_home) or pd.isna(ft_away):
+        if home_id is None or away_id is None:
             continue
 
         r_home = ratings.get(home_id, START_ELO_DEFAULT)
@@ -114,23 +118,55 @@ def audit_elo_replay() -> dict[str, Any]:
                 if len(issues) < 3:
                     issues.append(f"Row {idx} {row.get('away','?')}(A): replayed={r_away:.1f} stored={float(stored_away):.1f} diff={diff_a:.1f}")
 
-        # Update ratings (same logic as calculate_elo.py)
-        exp_home = expected_home(r_home, r_away, HOME_ADV_DEFAULT)
+        if pd.isna(ft_home) or pd.isna(ft_away):
+            continue
+
+        hfa = pd.to_numeric(row.get("elo_hfa_used", HOME_ADV_DEFAULT), errors="coerce")
+        hfa = float(hfa) if pd.notna(hfa) else float(HOME_ADV_DEFAULT)
+
+        exp_home = expected_home(r_home, r_away, hfa)
         if ft_home > ft_away:
             actual = 1.0
         elif ft_home == ft_away:
             actual = 0.5
         else:
             actual = 0.0
-        gd = int(abs(ft_home - ft_away))
-        mult = margin_multiplier(gd)
-        delta = K_FACTOR_DEFAULT * mult * (actual - exp_home)
-        ratings[home_id] = r_home + delta
-        ratings[away_id] = r_away - delta
+
+        # Prefer row-level V2 trace coefficients when present.
+        k_used = pd.to_numeric(row.get("elo_k_used", np.nan), errors="coerce")
+        if not pd.notna(k_used):
+            k_used = pd.to_numeric(row.get("elo_k_base_used", K_FACTOR_DEFAULT), errors="coerce")
+        k_used = float(k_used) if pd.notna(k_used) else float(K_FACTOR_DEFAULT)
+
+        g_used = pd.to_numeric(row.get("elo_g_used", np.nan), errors="coerce")
+        if not pd.notna(g_used):
+            g_used = float(margin_multiplier(int(abs(ft_home - ft_away))))
+        else:
+            g_used = float(g_used)
+
+        delta = float(k_used * g_used * (actual - exp_home))
+        ratings[home_id] = max(rating_floor, r_home + delta)
+        ratings[away_id] = max(rating_floor, r_away - delta)
+
+        # Optional trace checks if V2 columns exist.
+        if "elo_expected_home" in df.columns and pd.notna(row.get("elo_expected_home")):
+            trace_checked += 1
+            if abs(float(row.get("elo_expected_home")) - exp_home) > 1e-3 and len(issues) < 3:
+                issues.append(
+                    f"Row {idx}: expected_home mismatch replay={exp_home:.4f} stored={float(row.get('elo_expected_home')):.4f}"
+                )
+        if "elo_delta" in df.columns and pd.notna(row.get("elo_delta")):
+            trace_checked += 1
+            if abs(float(row.get("elo_delta")) - delta) > 1e-2 and len(issues) < 3:
+                issues.append(
+                    f"Row {idx}: delta mismatch replay={delta:.4f} stored={float(row.get('elo_delta')):.4f}"
+                )
 
     if mismatches > 0:
         return _fail(name, f"{mismatches}/{checked} values differ (>{tolerance}pt): {'; '.join(issues[:3])}")
-    return _pass(name, f"{checked} pre-match Elo values verified within +/-{tolerance}pt")
+    if issues:
+        return _fail(name, "; ".join(issues[:3]))
+    return _pass(name, f"{checked} pre-match Elo values verified within +/-{tolerance}pt (trace checks={trace_checked})")
 
 
 # ---------------------------------------------------------------------------
@@ -256,13 +292,13 @@ def audit_xg_sanity() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def audit_data_continuity() -> dict[str, Any]:
-    """Check for NaN floods and duplicates in the training matrix."""
+    """Check for NaN floods and duplicates in the enhanced history matrix."""
     name = "Data Continuity"
-    frank_path = _ENHANCED / "frankenstein_training_full.csv"
-    if not frank_path.exists():
-        return _fail(name, f"Missing {frank_path.name}")
+    matrix_path = _ENHANCED / "cgm_match_history_with_elo_stats_xg.csv"
+    if not matrix_path.exists():
+        return _fail(name, f"Missing {matrix_path.name}")
 
-    df = pd.read_csv(frank_path, low_memory=False)
+    df = pd.read_csv(matrix_path, low_memory=False)
     issues = []
 
     total_rows = len(df)
@@ -273,7 +309,7 @@ def audit_data_continuity() -> dict[str, Any]:
     critical_cols = [
         "EloDiff", "elo_home", "elo_away",
         "lg_avg_gf_home", "lg_avg_gf_away",
-        "y_home", "y_away",
+        "ft_home", "ft_away",
     ]
 
     for col in critical_cols:
@@ -321,7 +357,7 @@ def audit_data_continuity() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def audit_mu_predictions() -> dict[str, Any]:
-    """Verify Poisson math in upcoming predictions."""
+    """Verify probability math in upcoming predictions (Poisson core or Poisson V2)."""
     name = "Mu Prediction Check"
     pred_path = _REPORTS / "cgm_upcoming_predictions.csv"
     if not pred_path.exists():
@@ -356,26 +392,52 @@ def audit_mu_predictions() -> dict[str, Any]:
         if max_diff > 0.001:
             issues.append(f"mu_total != mu_home + mu_away (max diff={max_diff:.6f})")
 
-    # Poisson verification: p_over25 should ~ 1 - P(X<=2) where X ~ Poisson(mu_total)
-    if "p_over25" in df.columns and "mu_total" in df.columns:
+    # Probability coherence checks (works for both legacy Poisson and Poisson V2 variants).
+    if all(c in df.columns for c in ["p_over25", "p_under25"]):
+        p_ov = pd.to_numeric(df["p_over25"], errors="coerce")
+        p_un = pd.to_numeric(df["p_under25"], errors="coerce")
+        valid_ou = p_ov.notna() & p_un.notna()
+        if valid_ou.sum() > 0:
+            ou_sum = (p_ov[valid_ou] + p_un[valid_ou]).astype(float)
+            max_ou_diff = float(np.abs(ou_sum.values - 1.0).max())
+            if max_ou_diff > 0.01:
+                issues.append(f"p_over25 + p_under25 != 1 (max diff={max_ou_diff:.4f})")
+
+    if all(c in df.columns for c in ["p_btts_yes", "p_btts_no"]):
+        p_by = pd.to_numeric(df["p_btts_yes"], errors="coerce")
+        p_bn = pd.to_numeric(df["p_btts_no"], errors="coerce")
+        valid_b = p_by.notna() & p_bn.notna()
+        if valid_b.sum() > 0:
+            b_sum = (p_by[valid_b] + p_bn[valid_b]).astype(float)
+            max_b_diff = float(np.abs(b_sum.values - 1.0).max())
+            if max_b_diff > 0.01:
+                issues.append(f"p_btts_yes + p_btts_no != 1 (max diff={max_b_diff:.4f})")
+
+    # Legacy-only check: when Poisson V2 is not enabled, p_over25 should match Poisson(mu_total).
+    # With Poisson V2 enabled, deviations are expected (dispersion + dependence + low-score correction).
+    v2_enabled = False
+    if "poisson_v2_enabled" in df.columns:
+        try:
+            v2_enabled = bool(pd.to_numeric(df["poisson_v2_enabled"], errors="coerce").fillna(0).max() > 0)
+        except Exception:
+            v2_enabled = False
+
+    if (not v2_enabled) and ("p_over25" in df.columns) and ("mu_total" in df.columns):
         from scipy.stats import poisson
         mu_t = pd.to_numeric(df["mu_total"], errors="coerce")
         p_stored = pd.to_numeric(df["p_over25"], errors="coerce")
         valid = mu_t.notna() & p_stored.notna() & (mu_t > 0)
-
         if valid.sum() > 0:
             p_expected = 1.0 - poisson.cdf(2, mu_t[valid].values)
             max_poisson_diff = float(np.abs(p_stored[valid].values - p_expected).max())
             if max_poisson_diff > 0.01:
                 issues.append(f"p_over25 vs Poisson(mu_total): max diff={max_poisson_diff:.4f}")
-            else:
-                # This is a strong signal things are correct
-                pass
 
     if issues:
         return _fail(name, "; ".join(issues[:4]))
 
     n = len(df)
+    mu_t = pd.to_numeric(df.get("mu_total", pd.Series(np.nan, index=df.index)), errors="coerce")
     mu_range = f"mu_total range: [{mu_t.min():.2f}, {mu_t.max():.2f}]" if "mu_total" in df.columns else ""
     sterile_matchup = pd.to_numeric(df.get("sterile_matchup_flag", pd.Series(0, index=df.index)), errors="coerce")
     sterile_legacy = pd.to_numeric(df.get("sterile_flag", pd.Series(0, index=df.index)), errors="coerce")
@@ -413,7 +475,6 @@ def audit_row_counts() -> dict[str, Any]:
         ("with_elo", _ENHANCED / "cgm_match_history_with_elo.csv"),
         ("with_elo_stats", _ENHANCED / "cgm_match_history_with_elo_stats.csv"),
         ("with_elo_stats_xg", _ENHANCED / "cgm_match_history_with_elo_stats_xg.csv"),
-        ("frankenstein_training_full", _ENHANCED / "frankenstein_training_full.csv"),
     ]
 
     counts = {}
@@ -441,13 +502,8 @@ def audit_row_counts() -> dict[str, Any]:
             continue
         current = counts[label]
         if prev_count is not None:
-            # Allow frankenstein to have a different count (it's a merge product)
-            if "frankenstein" not in label:
-                if current < prev_count * 0.95:  # >5% drop
-                    issues.append(f"{prev_label}({prev_count}) -> {label}({current}): {prev_count - current} rows lost")
-            # But frankenstein should not have MORE rows than the base history
-            if "frankenstein" in label and current > prev_count * 1.05:
-                issues.append(f"{label} has more rows ({current}) than base ({prev_count}) - possible duplication")
+            if current < prev_count * 0.95:  # >5% drop
+                issues.append(f"{prev_label}({prev_count}) -> {label}({current}): {prev_count - current} rows lost")
         prev_label = label
         prev_count = current
 

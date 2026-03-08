@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1379254"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 4
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 5
+        },
+        {
+          "type": "Total Shots",
+          "value": 18
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 9
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 12
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 6
+        },
+        {
+          "type": "Fouls",
+          "value": 15
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 9
+        },
+        {
+          "type": "Offsides",
+          "value": 2
+        },
+        {
+          "type": "Ball Possession",
+          "value": "70%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 1
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 0
+        },
+        {
+          "type": "Total passes",
+          "value": 550
+        },
+        {
+          "type": "Passes accurate",
+          "value": 455
+        },
+        {
+          "type": "Passes %",
+          "value": "83%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "1.15"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 63,
+        "logo": "https://media.api-sports.io/football/teams/63.png",
+        "name": "Leeds"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 1
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 1
+        },
+        {
+          "type": "Total Shots",
+          "value": 3
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 2
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 3
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 0
+        },
+        {
+          "type": "Fouls",
+          "value": 19
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 2
+        },
+        {
+          "type": "Offsides",
+          "value": 5
+        },
+        {
+          "type": "Ball Possession",
+          "value": "30%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 3
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 4
+        },
+        {
+          "type": "Total passes",
+          "value": 233
+        },
+        {
+          "type": "Passes accurate",
+          "value": 143
+        },
+        {
+          "type": "Passes %",
+          "value": "61%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "0.86"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 746,
+        "logo": "https://media.api-sports.io/football/teams/746.png",
+        "name": "Sunderland"
+      }
+    }
+  ],
+  "results": 2
+}

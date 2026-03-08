@@ -1,4 +1,4 @@
-"""
+﻿"""
 Recompute Elo time series from match history (ignores any Elo stored in the CSV).
 
 Inputs:
@@ -9,13 +9,12 @@ Outputs:
 - data/enhanced/cgm_match_history_with_elo.csv (or --out)
   Adds/overwrites: elo_home_calc, elo_away_calc, EloDiff_calc, Band_H_calc, Band_A_calc
 
-Constants (override via CLI):
-- START_ELO = 1500
-- K_FACTOR = 20
-- HOME_ADV = 65
-- BAND_THRESH = 150 (for BULLY/PEER/DOG labels)
-
-Margin multiplier: World Football Elo style.
+Elo V2:
+- league-aware K/home-advantage from config.ELO_LEAGUE_PARAMS
+- match-type K multipliers from config.ELO_MATCHTYPE_MULTIPLIERS
+- upset and new-team K multipliers
+- capped goal-difference multiplier
+- per-row trace fields (elo_*_used)
 """
 
 from __future__ import annotations
@@ -32,6 +31,11 @@ import numpy as np
 import pandas as pd
 
 try:
+    import config  # type: ignore
+except Exception:  # pragma: no cover
+    config = None  # type: ignore
+
+try:
     from cgm.team_registry import build_team_registry
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cgm"))
@@ -45,17 +49,45 @@ BAND_THRESH_DEFAULT = 150.0
 LOG_PATH_DEFAULT = Path("reports/run_log.jsonl")
 
 
-def margin_multiplier(goal_diff: int) -> float:
+def _cfg_map(name: str, default: dict | None = None) -> dict:
+    if default is None:
+        default = {}
+    if config is None:
+        return dict(default)
+    val = getattr(config, name, default)
+    if isinstance(val, dict):
+        return dict(val)
+    return dict(default)
+
+
+def _cfg_bool(name: str, default: bool) -> bool:
+    if config is None:
+        return bool(default)
+    return bool(getattr(config, name, default))
+
+
+def _safe_float(value, fallback: float) -> float:
+    try:
+        v = float(value)
+        if np.isfinite(v):
+            return float(v)
+    except Exception:
+        pass
+    return float(fallback)
+
+
+def margin_multiplier(goal_diff: int, cap: float | None = None) -> float:
+    """Football-style margin multiplier with optional cap."""
     gd = abs(int(goal_diff))
-    if gd == 0:
-        return 1.0
-    if gd == 1:
-        return 1.0
-    if gd == 2:
-        return 1.5
-    if gd == 3:
-        return 1.75
-    return 1.75 + (gd - 3) / 8.0
+    if gd <= 1:
+        mult = 1.0
+    elif gd == 2:
+        mult = 1.5
+    else:
+        mult = (11.0 + float(gd)) / 8.0
+    if cap is not None:
+        mult = min(float(mult), float(cap))
+    return float(mult)
 
 
 def expected_home(r_home: float, r_away: float, home_adv: float) -> float:
@@ -106,20 +138,55 @@ def infer_team(row: pd.Series, home: bool) -> str | None:
     return None
 
 
+def _norm_key(val: object) -> str:
+    return str(val or "").strip().lower()
+
+
+def _infer_match_type(row: pd.Series) -> str:
+    candidates = [
+        row.get("match_type"),
+        row.get("competition_type"),
+        row.get("fixture_type"),
+        row.get("stage"),
+    ]
+    for raw in candidates:
+        s = str(raw or "").strip().lower()
+        if not s:
+            continue
+        if "friend" in s or "amical" in s:
+            return "friendly"
+        if "playoff" in s or "play-off" in s or "promotion" in s or "relegation" in s:
+            return "playoff"
+        if "cup" in s or "copa" in s or "coupe" in s or "pokal" in s or "cupa" in s:
+            return "cup"
+        if "league" in s or "liga" in s or "division" in s:
+            return "league"
+        return "unknown"
+
+    lg = str(row.get("league") or "").strip().lower()
+    if any(tok in lg for tok in ["cup", "copa", "coupe", "pokal", "cupa"]):
+        return "cup"
+    return "league" if lg else "unknown"
+
+
 def load_history(path: Path, max_date: str | None = None) -> pd.DataFrame:
     df = pd.read_csv(path)
-    # Always normalize datetime; some upstream files contain a present-but-empty
-    # `datetime` column (float NaN), which would break timestamp comparisons.
-    dt_existing = pd.to_datetime(df["datetime"], errors="coerce") if "datetime" in df.columns else pd.Series(pd.NaT, index=df.index)
+    dt_existing = (
+        pd.to_datetime(df["datetime"], errors="coerce", utc=True).dt.tz_convert(None)
+        if "datetime" in df.columns
+        else pd.Series(pd.NaT, index=df.index)
+    )
     dt_from_parts = pd.Series(pd.NaT, index=df.index)
     if "date" in df.columns:
-        dt_combo = pd.to_datetime(df["date"].astype(str) + " " + df.get("time", "").astype(str), errors="coerce")
-        dt_date_only = pd.to_datetime(df["date"], errors="coerce")
+        dt_combo = pd.to_datetime(
+            df["date"].astype(str) + " " + df.get("time", "").astype(str), errors="coerce", utc=True
+        ).dt.tz_convert(None)
+        dt_date_only = pd.to_datetime(df["date"], errors="coerce", utc=True).dt.tz_convert(None)
         dt_from_parts = dt_combo.fillna(dt_date_only)
     df["datetime"] = dt_existing.fillna(dt_from_parts)
     df = df.sort_values("datetime")
     if max_date:
-        cutoff = pd.to_datetime(max_date)
+        cutoff = pd.to_datetime(max_date, utc=True).tz_convert(None)
         df = df[df["datetime"] <= cutoff]
     return df
 
@@ -145,14 +212,49 @@ def compute_elo_series(
     start_elo: float,
     k_factor: float,
     home_adv: float,
-) -> Tuple[pd.Series, pd.Series]:
+) -> pd.DataFrame:
+    defaults = _cfg_map("ELO_DEFAULTS", {})
+    league_params = _cfg_map("ELO_LEAGUE_PARAMS", {})
+    matchtype_mults = _cfg_map("ELO_MATCHTYPE_MULTIPLIERS", {})
+    elo_v2_enabled = _cfg_bool("ELO_V2_ENABLED", True)
+
+    margin_cap = _safe_float(defaults.get("margin_cap", 2.75), 2.75)
+    upset_expected_low = _safe_float(defaults.get("upset_expected_low", 0.35), 0.35)
+    upset_expected_high = _safe_float(defaults.get("upset_expected_high", 0.65), 0.65)
+    upset_multiplier = _safe_float(defaults.get("upset_multiplier", 1.20), 1.20)
+    new_team_games = int(_safe_float(defaults.get("new_team_games", 12), 12.0))
+    new_team_k_multiplier = _safe_float(defaults.get("new_team_k_multiplier", 1.25), 1.25)
+    rating_floor = _safe_float(defaults.get("rating_floor", 1000.0), 1000.0)
+
+    # CLI keeps final control over base defaults.
+    start_elo = _safe_float(start_elo, _safe_float(defaults.get("start_elo", start_elo), start_elo))
+    k_factor = _safe_float(k_factor, _safe_float(defaults.get("k_factor", k_factor), k_factor))
+    home_adv = _safe_float(home_adv, _safe_float(defaults.get("home_adv", home_adv), home_adv))
+
+    league_params_ci = {_norm_key(k): v for k, v in league_params.items() if isinstance(v, dict)}
+    mt_ci = {_norm_key(k): _safe_float(v, 1.0) for k, v in matchtype_mults.items()}
+
     ratings: Dict[str, float] = {}
+    team_games: Dict[str, int] = {}
+
     elo_home_list = []
     elo_away_list = []
+    elo_hfa_used = []
+    elo_k_base_used = []
+    elo_k_matchtype_mult = []
+    elo_k_newteam_mult = []
+    elo_k_upset_mult = []
+    elo_k_used = []
+    elo_g_used = []
+    elo_expected_home = []
+    elo_actual_home = []
+    elo_delta = []
+    elo_match_type = []
 
     for _, row in df.iterrows():
         home_id = infer_team(row, home=True)
         away_id = infer_team(row, home=False)
+
         fh_raw = row.get("ft_home")
         fa_raw = row.get("ft_away")
         try:
@@ -164,33 +266,86 @@ def compute_elo_series(
         except Exception:
             fa = np.nan
 
-        # Default to starting Elo if unknown or missing
         r_home = ratings.get(home_id, start_elo) if home_id else start_elo
         r_away = ratings.get(away_id, start_elo) if away_id else start_elo
 
-        elo_home_list.append(r_home)
-        elo_away_list.append(r_away)
+        elo_home_list.append(float(r_home))
+        elo_away_list.append(float(r_away))
 
-        # If result missing, don't update ratings
-        if pd.isna(fh) or pd.isna(fa) or home_id is None or away_id is None:
-            continue
+        league_name = str(row.get("league") or "").strip()
+        league_cfg = league_params_ci.get(_norm_key(league_name), {}) if elo_v2_enabled else {}
+        hfa_used = _safe_float(league_cfg.get("home_adv", home_adv), home_adv)
+        k_base_used = _safe_float(league_cfg.get("k_factor", k_factor), k_factor)
 
-        exp_home = expected_home(r_home, r_away, home_adv)
-        if fh > fa:
-            actual = 1.0
-        elif fh == fa:
-            actual = 0.5
-        else:
-            actual = 0.0
+        match_type = _infer_match_type(row)
+        match_mult = _safe_float(mt_ci.get(_norm_key(match_type), mt_ci.get("unknown", 1.0)), 1.0)
 
-        gd = int(abs(fh - fa))
-        mult = margin_multiplier(gd)
-        delta = k_factor * mult * (actual - exp_home)
+        games_home = int(team_games.get(home_id, 0)) if home_id else 0
+        games_away = int(team_games.get(away_id, 0)) if away_id else 0
+        min_games = min(games_home, games_away)
+        new_mult = float(new_team_k_multiplier) if min_games < new_team_games else 1.0
 
-        ratings[home_id] = r_home + delta
-        ratings[away_id] = r_away - delta
+        # Pre-calc defaults for trace columns.
+        exp_home = np.nan
+        actual = np.nan
+        g_mult = np.nan
+        upset_mult = 1.0
+        k_used = np.nan
+        delta = np.nan
 
-    return pd.Series(elo_home_list, index=df.index), pd.Series(elo_away_list, index=df.index)
+        if not (pd.isna(fh) or pd.isna(fa) or home_id is None or away_id is None):
+            exp_home = expected_home(r_home, r_away, hfa_used)
+            if fh > fa:
+                actual = 1.0
+            elif fh == fa:
+                actual = 0.5
+            else:
+                actual = 0.0
+
+            if elo_v2_enabled:
+                if (actual == 1.0 and exp_home < upset_expected_low) or (actual == 0.0 and exp_home > upset_expected_high):
+                    upset_mult = float(upset_multiplier)
+
+            gd = int(abs(fh - fa))
+            g_mult = margin_multiplier(gd, cap=margin_cap if elo_v2_enabled else None)
+
+            k_used = float(k_base_used * match_mult * new_mult * upset_mult)
+            delta = float(k_used * g_mult * (actual - exp_home))
+
+            ratings[home_id] = max(rating_floor, float(r_home + delta))
+            ratings[away_id] = max(rating_floor, float(r_away - delta))
+            team_games[home_id] = games_home + 1
+            team_games[away_id] = games_away + 1
+
+        elo_hfa_used.append(float(hfa_used))
+        elo_k_base_used.append(float(k_base_used))
+        elo_k_matchtype_mult.append(float(match_mult))
+        elo_k_newteam_mult.append(float(new_mult))
+        elo_k_upset_mult.append(float(upset_mult))
+        elo_k_used.append(float(k_used) if np.isfinite(k_used) else np.nan)
+        elo_g_used.append(float(g_mult) if np.isfinite(g_mult) else np.nan)
+        elo_expected_home.append(float(exp_home) if np.isfinite(exp_home) else np.nan)
+        elo_actual_home.append(float(actual) if np.isfinite(actual) else np.nan)
+        elo_delta.append(float(delta) if np.isfinite(delta) else np.nan)
+        elo_match_type.append(str(match_type))
+
+    return pd.DataFrame(
+        {
+            "elo_home_calc": pd.Series(elo_home_list, index=df.index),
+            "elo_away_calc": pd.Series(elo_away_list, index=df.index),
+            "elo_hfa_used": pd.Series(elo_hfa_used, index=df.index),
+            "elo_k_base_used": pd.Series(elo_k_base_used, index=df.index),
+            "elo_k_matchtype_mult": pd.Series(elo_k_matchtype_mult, index=df.index),
+            "elo_k_newteam_mult": pd.Series(elo_k_newteam_mult, index=df.index),
+            "elo_k_upset_mult": pd.Series(elo_k_upset_mult, index=df.index),
+            "elo_k_used": pd.Series(elo_k_used, index=df.index),
+            "elo_g_used": pd.Series(elo_g_used, index=df.index),
+            "elo_expected_home": pd.Series(elo_expected_home, index=df.index),
+            "elo_actual_home": pd.Series(elo_actual_home, index=df.index),
+            "elo_delta": pd.Series(elo_delta, index=df.index),
+            "elo_match_type": pd.Series(elo_match_type, index=df.index),
+        }
+    )
 
 
 def band_from_diff(diff: float, thresh: float) -> str:
@@ -202,13 +357,19 @@ def band_from_diff(diff: float, thresh: float) -> str:
 
 
 def main() -> None:
+    cfg_defaults = _cfg_map("ELO_DEFAULTS", {})
+    cfg_start = _safe_float(cfg_defaults.get("start_elo", START_ELO_DEFAULT), START_ELO_DEFAULT)
+    cfg_k = _safe_float(cfg_defaults.get("k_factor", K_FACTOR_DEFAULT), K_FACTOR_DEFAULT)
+    cfg_hfa = _safe_float(cfg_defaults.get("home_adv", HOME_ADV_DEFAULT), HOME_ADV_DEFAULT)
+    cfg_band = _safe_float(cfg_defaults.get("band_thresh", BAND_THRESH_DEFAULT), BAND_THRESH_DEFAULT)
+
     ap = argparse.ArgumentParser(description="Recompute Elo time series from match history")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history.csv", help="Input history CSV")
     ap.add_argument("--out", default="data/enhanced/cgm_match_history_with_elo.csv", help="Output CSV path (cleaned)")
-    ap.add_argument("--start-elo", type=float, default=START_ELO_DEFAULT, help="Starting Elo for new teams")
-    ap.add_argument("--k-factor", type=float, default=K_FACTOR_DEFAULT, help="K factor")
-    ap.add_argument("--home-adv", type=float, default=HOME_ADV_DEFAULT, help="Home advantage points")
-    ap.add_argument("--band-thresh", type=float, default=BAND_THRESH_DEFAULT, help="Band threshold for BULLY/PEER/DOG")
+    ap.add_argument("--start-elo", type=float, default=cfg_start, help="Starting Elo for new teams")
+    ap.add_argument("--k-factor", type=float, default=cfg_k, help="Base K factor")
+    ap.add_argument("--home-adv", type=float, default=cfg_hfa, help="Base home advantage points")
+    ap.add_argument("--band-thresh", type=float, default=cfg_band, help="Band threshold for BULLY/PEER/DOG")
     ap.add_argument("--data-dir", default="data/api_football", help="Data directory for team registry (id/name mapping)")
     ap.add_argument(
         "--max-date",
@@ -244,7 +405,8 @@ def main() -> None:
         },
         log_path=Path(args.log_json),
     )
-    elo_home, elo_away = compute_elo_series(
+
+    elo_df = compute_elo_series(
         hist,
         start_elo=args.start_elo,
         k_factor=args.k_factor,
@@ -252,13 +414,16 @@ def main() -> None:
     )
 
     hist_out = hist.copy()
-    hist_out["elo_home_calc"] = elo_home
-    hist_out["elo_away_calc"] = elo_away
-    hist_out["EloDiff_calc"] = (hist_out["elo_home_calc"] + args.home_adv) - hist_out["elo_away_calc"]
+    for col in elo_df.columns:
+        hist_out[col] = elo_df[col]
+
+    # EloDiff now uses row-level HFA (league-aware in Elo V2).
+    hfa_series = pd.to_numeric(hist_out.get("elo_hfa_used", args.home_adv), errors="coerce").fillna(float(args.home_adv))
+    hist_out["EloDiff_calc"] = (hist_out["elo_home_calc"] + hfa_series) - hist_out["elo_away_calc"]
     hist_out["Band_H_calc"] = hist_out["EloDiff_calc"].apply(lambda d: band_from_diff(d, args.band_thresh))
     hist_out["Band_A_calc"] = hist_out["EloDiff_calc"].apply(lambda d: band_from_diff(-d, args.band_thresh))
 
-    # Overwrite legacy Elo columns to avoid downstream accidental use
+    # Overwrite legacy Elo columns to avoid downstream accidental use.
     hist_out["elo_home"] = hist_out["elo_home_calc"]
     hist_out["elo_away"] = hist_out["elo_away_calc"]
     hist_out["elo_diff"] = hist_out["elo_home"] - hist_out["elo_away"]
@@ -320,7 +485,6 @@ def main() -> None:
         hist_out["elo_away_calc"].max(),
     )
 
-    # Approx max Elo delta per team (home/away contexts)
     home_delta = (
         hist_out.sort_values("datetime").groupby("home")["elo_home_calc"].diff().abs().max()
     )
@@ -348,7 +512,10 @@ def main() -> None:
                 "home_adv": args.home_adv,
                 "band_thresh": args.band_thresh,
                 "cutoff": max_date,
-                "margin_multiplier": "world_football",
+                "elo_v2_enabled": _cfg_bool("ELO_V2_ENABLED", True),
+                "elo_defaults": _cfg_map("ELO_DEFAULTS", {}),
+                "elo_league_params": _cfg_map("ELO_LEAGUE_PARAMS", {}),
+                "elo_matchtype_multipliers": _cfg_map("ELO_MATCHTYPE_MULTIPLIERS", {}),
             },
         },
         log_path=Path(args.log_json),

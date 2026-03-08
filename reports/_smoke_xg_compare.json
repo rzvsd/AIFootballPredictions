@@ -1,0 +1,24 @@
+{
+  "baseline": "data\\enhanced\\_smoke_xg_v1.csv",
+  "candidate": "data\\enhanced\\_smoke_xg_v2.csv",
+  "aligned_matches": 3251,
+  "overall_baseline": {
+    "n_matches": 3251.0,
+    "n_sides": 6502.0,
+    "side_rmse": 0.9936899948752674,
+    "total_rmse": 1.4143969574818231,
+    "side_poisson_nll": 0.7900743312307149,
+    "side_brier_goal": 0.1641420526231809,
+    "side_logloss_goal": 0.5015292445172153
+  },
+  "overall_candidate": {
+    "n_matches": 3251.0,
+    "n_sides": 6502.0,
+    "side_rmse": 1.024977115353481,
+    "total_rmse": 1.4534177736315559,
+    "side_poisson_nll": 0.822322965440104,
+    "side_brier_goal": 0.17100450633873357,
+    "side_logloss_goal": 0.51848853293272
+  },
+  "rows_written": 70
+}

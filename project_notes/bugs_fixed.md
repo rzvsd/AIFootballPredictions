@@ -1,4 +1,4 @@
-Bugs Fixed (Current Snapshot)
+﻿Bugs Fixed (Current Snapshot)
 
 Date: 2026-02-18
 
@@ -35,7 +35,7 @@ Date: 2026-02-25
 - Issue: core audits existed but did not explicitly fail on training-leak signatures, weak live evidence coverage, or skip-accounting drift.
 - Fix: new audits added and integrated into audit runner.
 - Files:
-  - `scripts/audit_training_leakage_guard.py`
+  - `archive/legacy_engine/scripts/audit_training_leakage_guard.py`
   - `scripts/audit_prediction_data_health.py`
   - `scripts/audit_skip_reconciliation.py`
   - `scripts/run_all_audits.py`
@@ -46,3 +46,35 @@ Date: 2026-02-25
 - Files:
   - `predict.py`
   - `scripts/run_all_audits.py`
+
+Date: 2026-03-07
+
+7. Sync quality gate could stop full pipeline on partial data quality
+- Issue:
+  - Sync could exit non-zero when quality thresholds were missed, causing downstream steps to stop even when usable data existed.
+- Fix:
+  - Added soft-vs-strict behavior in sync:
+    - default soft mode logs warnings and continues,
+    - strict mode available via `--strict-quality-gate`,
+    - hard fail still enforced when zero fixtures are loaded.
+- File:
+  - `scripts/sync_api_football.py`
+
+8. Missing optional provider stats were not visible per fixture in prediction output
+- Issue:
+  - Non-technical review of output table could not quickly identify weak-evidence rows.
+- Fix:
+  - Added row-level quality fields to prediction output:
+    - `quality_status`, `quality_critical`, `quality_issue_count`, `quality_flags`.
+- File:
+  - `cgm/predict_upcoming.py`
+
+9. Pressure v2 schema expansion risked training leakage via new raw stat columns
+- Issue:
+  - Extended stat ingestion increased risk that raw/leaky fields could enter training unintentionally.
+- Fix:
+  - Expanded leakage guard and banned exact raw-stat columns in training feature selection.
+- File:
+  - `archive/legacy_engine/cgm/train_frankenstein_mu.py`
+
+

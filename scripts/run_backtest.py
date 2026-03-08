@@ -111,6 +111,7 @@ def run_backtest(
     history_path_str: str,
     output_file: str,
     models_dir: str = "models",
+    model_variant: str = "full",
 ):
     history_path = Path(history_path_str)
     if not history_path.exists():
@@ -180,6 +181,7 @@ def run_backtest(
                 "--data-dir", str(temp_data_dir),
                 "--history", str(history_path),  # Use full history, not filtered
                 "--models-dir", str(models_dir),
+                "--model-variant", str(model_variant),
                 "--out", str(pred_out_file),
                 "--as-of-date", as_of_arg,
                 "--log-level", "WARNING"  # Reduce spam
@@ -262,11 +264,20 @@ def main():
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv")
     parser.add_argument("--models-dir", default="models")
+    parser.add_argument("--model-variant", default="full", choices=["full", "no_odds", "no_lgavg"])
     parser.add_argument("--out", default="reports/latest_backtest.csv")
     
     args = parser.parse_args()
     
-    run_backtest(args.league, args.season, args.start_date, args.history, args.out, args.models_dir)
+    run_backtest(
+        args.league,
+        args.season,
+        args.start_date,
+        args.history,
+        args.out,
+        args.models_dir,
+        args.model_variant,
+    )
 
 if __name__ == "__main__":
     main()

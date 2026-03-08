@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1388735"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 7
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 8
+        },
+        {
+          "type": "Total Shots",
+          "value": 18
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 3
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 11
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 7
+        },
+        {
+          "type": "Fouls",
+          "value": 12
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 4
+        },
+        {
+          "type": "Offsides",
+          "value": 2
+        },
+        {
+          "type": "Ball Possession",
+          "value": "57%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 2
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 2
+        },
+        {
+          "type": "Total passes",
+          "value": 589
+        },
+        {
+          "type": "Passes accurate",
+          "value": 533
+        },
+        {
+          "type": "Passes %",
+          "value": "90%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "2.26"
+        },
+        {
+          "type": "goals_prevented",
+          "value": null
+        }
+      ],
+      "team": {
+        "id": 166,
+        "logo": "https://media.api-sports.io/football/teams/166.png",
+        "name": "Hannover 96"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 2
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 5
+        },
+        {
+          "type": "Total Shots",
+          "value": 9
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 2
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 4
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 5
+        },
+        {
+          "type": "Fouls",
+          "value": 8
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 1
+        },
+        {
+          "type": "Offsides",
+          "value": 0
+        },
+        {
+          "type": "Ball Possession",
+          "value": "43%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 1
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 4
+        },
+        {
+          "type": "Total passes",
+          "value": 446
+        },
+        {
+          "type": "Passes accurate",
+          "value": 370
+        },
+        {
+          "type": "Passes %",
+          "value": "83%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "0.62"
+        },
+        {
+          "type": "goals_prevented",
+          "value": null
+        }
+      ],
+      "team": {
+        "id": 785,
+        "logo": "https://media.api-sports.io/football/teams/785.png",
+        "name": "Karlsruher SC"
+      }
+    }
+  ],
+  "results": 2
+}

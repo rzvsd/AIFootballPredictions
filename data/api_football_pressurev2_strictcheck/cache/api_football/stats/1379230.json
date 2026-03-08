@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1379230"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 3
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 10
+        },
+        {
+          "type": "Total Shots",
+          "value": 13
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 0
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 9
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 4
+        },
+        {
+          "type": "Fouls",
+          "value": 9
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 6
+        },
+        {
+          "type": "Offsides",
+          "value": 1
+        },
+        {
+          "type": "Ball Possession",
+          "value": "52%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 1
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 5
+        },
+        {
+          "type": "Total passes",
+          "value": 439
+        },
+        {
+          "type": "Passes accurate",
+          "value": 343
+        },
+        {
+          "type": "Passes %",
+          "value": "78%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "1.60"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 55,
+        "logo": "https://media.api-sports.io/football/teams/55.png",
+        "name": "Brentford"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 7
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 3
+        },
+        {
+          "type": "Total Shots",
+          "value": 11
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 1
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 6
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 5
+        },
+        {
+          "type": "Fouls",
+          "value": 14
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 4
+        },
+        {
+          "type": "Offsides",
+          "value": 1
+        },
+        {
+          "type": "Ball Possession",
+          "value": "48%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 2
+        },
+        {
+          "type": "Red Cards",
+          "value": null
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 4
+        },
+        {
+          "type": "Total passes",
+          "value": 416
+        },
+        {
+          "type": "Passes accurate",
+          "value": 319
+        },
+        {
+          "type": "Passes %",
+          "value": "77%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "1.09"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 51,
+        "logo": "https://media.api-sports.io/football/teams/51.png",
+        "name": "Brighton"
+      }
+    }
+  ],
+  "results": 2
+}

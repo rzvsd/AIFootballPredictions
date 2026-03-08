@@ -8,6 +8,21 @@ to a canonical split set of numeric columns used by Pressure features:
   sot_H, sot_A
   corners_H, corners_A
   pos_H, pos_A
+  shots_off_H, shots_off_A
+  blocked_shots_H, blocked_shots_A
+  goal_attempts_H, goal_attempts_A
+  attacks_H, attacks_A
+  dangerous_attacks_H, dangerous_attacks_A
+  counter_attacks_H, counter_attacks_A
+  cross_attacks_H, cross_attacks_A
+  goalkeeper_saves_H, goalkeeper_saves_A
+  fouls_H, fouls_A
+  offsides_H, offsides_A
+  free_kicks_H, free_kicks_A
+  throwins_H, throwins_A
+  yellow_cards_H, yellow_cards_A
+  red_cards_H, red_cards_A
+  substitutions_H, substitutions_A
 """
 
 from __future__ import annotations
@@ -100,7 +115,25 @@ def ensure_pressure_inputs_fill(df: pd.DataFrame, *, overwrite: bool = False) ->
     out = df.copy()
 
     # Ensure canonical columns exist (keeps downstream code simpler).
-    for c in ("shots_H", "shots_A", "sot_H", "sot_A", "corners_H", "corners_A", "pos_H", "pos_A"):
+    canonical_cols = (
+        "shots_H", "shots_A", "sot_H", "sot_A", "corners_H", "corners_A", "pos_H", "pos_A",
+        "shots_off_H", "shots_off_A",
+        "blocked_shots_H", "blocked_shots_A",
+        "goal_attempts_H", "goal_attempts_A",
+        "attacks_H", "attacks_A",
+        "dangerous_attacks_H", "dangerous_attacks_A",
+        "counter_attacks_H", "counter_attacks_A",
+        "cross_attacks_H", "cross_attacks_A",
+        "goalkeeper_saves_H", "goalkeeper_saves_A",
+        "fouls_H", "fouls_A",
+        "offsides_H", "offsides_A",
+        "free_kicks_H", "free_kicks_A",
+        "throwins_H", "throwins_A",
+        "yellow_cards_H", "yellow_cards_A",
+        "red_cards_H", "red_cards_A",
+        "substitutions_H", "substitutions_A",
+    )
+    for c in canonical_cols:
         if c not in out.columns:
             out[c] = np.nan
         out[c] = pd.to_numeric(out[c], errors="coerce")
@@ -150,5 +183,96 @@ def ensure_pressure_inputs_fill(df: pd.DataFrame, *, overwrite: bool = False) ->
         or _ensure_pair_from_combined_col(out, "ballp")
     )
     _apply_pair("pos_H", "pos_A", pair)
+
+    # Extended pressure stats (optional; only filled when available)
+    pair = (
+        _ensure_pair_from_split_cols(out, "shots_off_home", "shots_off_away")
+        or _ensure_pair_from_combined_col(out, "shots_off")
+    )
+    _apply_pair("shots_off_H", "shots_off_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "blocked_shots_home", "blocked_shots_away")
+        or _ensure_pair_from_combined_col(out, "blocked_shots")
+    )
+    _apply_pair("blocked_shots_H", "blocked_shots_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "goal_attempts_home", "goal_attempts_away")
+        or _ensure_pair_from_combined_col(out, "goal_attempts")
+    )
+    _apply_pair("goal_attempts_H", "goal_attempts_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "attacks_home", "attacks_away")
+        or _ensure_pair_from_combined_col(out, "attacks")
+    )
+    _apply_pair("attacks_H", "attacks_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "dangerous_attacks_home", "dangerous_attacks_away")
+        or _ensure_pair_from_combined_col(out, "dangerous_attacks")
+    )
+    _apply_pair("dangerous_attacks_H", "dangerous_attacks_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "counter_attacks_home", "counter_attacks_away")
+        or _ensure_pair_from_combined_col(out, "counter_attacks")
+    )
+    _apply_pair("counter_attacks_H", "counter_attacks_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "cross_attacks_home", "cross_attacks_away")
+        or _ensure_pair_from_combined_col(out, "cross_attacks")
+    )
+    _apply_pair("cross_attacks_H", "cross_attacks_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "goalkeeper_saves_home", "goalkeeper_saves_away")
+        or _ensure_pair_from_combined_col(out, "goalkeeper_saves")
+    )
+    _apply_pair("goalkeeper_saves_H", "goalkeeper_saves_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "fouls_home", "fouls_away")
+        or _ensure_pair_from_combined_col(out, "fouls")
+    )
+    _apply_pair("fouls_H", "fouls_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "offsides_home", "offsides_away")
+        or _ensure_pair_from_combined_col(out, "offsides")
+    )
+    _apply_pair("offsides_H", "offsides_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "free_kicks_home", "free_kicks_away")
+        or _ensure_pair_from_combined_col(out, "free_kicks")
+    )
+    _apply_pair("free_kicks_H", "free_kicks_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "throwins_home", "throwins_away")
+        or _ensure_pair_from_combined_col(out, "throwins")
+    )
+    _apply_pair("throwins_H", "throwins_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "yellow_cards_home", "yellow_cards_away")
+        or _ensure_pair_from_combined_col(out, "yellow_cards")
+    )
+    _apply_pair("yellow_cards_H", "yellow_cards_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "red_cards_home", "red_cards_away")
+        or _ensure_pair_from_combined_col(out, "red_cards")
+    )
+    _apply_pair("red_cards_H", "red_cards_A", pair)
+
+    pair = (
+        _ensure_pair_from_split_cols(out, "substitutions_home", "substitutions_away")
+        or _ensure_pair_from_combined_col(out, "substitutions")
+    )
+    _apply_pair("substitutions_H", "substitutions_A", pair)
 
     return out

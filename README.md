@@ -132,12 +132,6 @@ python -m cgm.narrator --in reports/picks.csv --out reports/picks_explained.csv
 python -m scripts.audit_narrator
 ```
 
-Audit no-odds invariance (mu/probs unchanged if odds change):
-
-```
-python -m scripts.audit_no_odds --upcoming "CGM data/multiple leagues and seasons/allratingv.csv" --as-of-date YYYY-MM-DD
-```
-
 Upcoming feed scope audit (shows how many rows get dropped by each filter step):
 
 ```

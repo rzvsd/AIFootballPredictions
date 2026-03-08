@@ -1,0 +1,176 @@
+{
+  "errors": [],
+  "get": "fixtures/statistics",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "fixture": "1379199"
+  },
+  "response": [
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 5
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 11
+        },
+        {
+          "type": "Total Shots",
+          "value": 27
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 11
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 17
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 10
+        },
+        {
+          "type": "Fouls",
+          "value": 8
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 12
+        },
+        {
+          "type": "Offsides",
+          "value": 1
+        },
+        {
+          "type": "Ball Possession",
+          "value": "72%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 1
+        },
+        {
+          "type": "Red Cards",
+          "value": 0
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 0
+        },
+        {
+          "type": "Total passes",
+          "value": 636
+        },
+        {
+          "type": "Passes accurate",
+          "value": 558
+        },
+        {
+          "type": "Passes %",
+          "value": "88%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "2.40"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 66,
+        "logo": "https://media.api-sports.io/football/teams/66.png",
+        "name": "Aston Villa"
+      }
+    },
+    {
+      "statistics": [
+        {
+          "type": "Shots on Goal",
+          "value": 2
+        },
+        {
+          "type": "Shots off Goal",
+          "value": 3
+        },
+        {
+          "type": "Total Shots",
+          "value": 6
+        },
+        {
+          "type": "Blocked Shots",
+          "value": 1
+        },
+        {
+          "type": "Shots insidebox",
+          "value": 5
+        },
+        {
+          "type": "Shots outsidebox",
+          "value": 1
+        },
+        {
+          "type": "Fouls",
+          "value": 8
+        },
+        {
+          "type": "Corner Kicks",
+          "value": 1
+        },
+        {
+          "type": "Offsides",
+          "value": 6
+        },
+        {
+          "type": "Ball Possession",
+          "value": "28%"
+        },
+        {
+          "type": "Yellow Cards",
+          "value": 3
+        },
+        {
+          "type": "Red Cards",
+          "value": 1
+        },
+        {
+          "type": "Goalkeeper Saves",
+          "value": 5
+        },
+        {
+          "type": "Total passes",
+          "value": 256
+        },
+        {
+          "type": "Passes accurate",
+          "value": 184
+        },
+        {
+          "type": "Passes %",
+          "value": "72%"
+        },
+        {
+          "type": "expected_goals",
+          "value": "0.38"
+        },
+        {
+          "type": "goals_prevented",
+          "value": 0
+        }
+      ],
+      "team": {
+        "id": 55,
+        "logo": "https://media.api-sports.io/football/teams/55.png",
+        "name": "Brentford"
+      }
+    }
+  ],
+  "results": 2
+}

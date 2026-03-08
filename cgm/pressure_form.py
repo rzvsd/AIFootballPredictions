@@ -7,6 +7,13 @@ Feature contract (v1):
   press_n_H, press_n_A
   press_stats_n_H, press_stats_n_A
 
+Optional V2 dominance features (if stats available):
+  press_dom_goal_attempts_H/A
+  press_dom_shots_off_H/A
+  press_dom_blocked_shots_H/A
+  press_dom_attacks_H/A
+  press_dom_dangerous_attacks_H/A
+
 Internal (helper) columns (used by inference/divergence; must be dropped from training features):
   _press_form_H_post, _press_form_A_post
   _press_n_H_post, _press_n_A_post
@@ -19,11 +26,36 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+try:
+    import config  # type: ignore
+except Exception:  # pragma: no cover
+    config = None  # type: ignore
 
-W_SHOTS = 0.45
-W_SOT = 0.30
-W_CORNERS = 0.15
-W_POS = 0.10
+
+def _cfgf(name: str, default: float) -> float:
+    if config is None:
+        return float(default)
+    try:
+        v = float(getattr(config, name, default))
+        if np.isfinite(v):
+            return float(v)
+    except Exception:
+        pass
+    return float(default)
+
+
+# Core pressure weights (legacy defaults preserved)
+W_SHOTS = _cfgf("PRESSURE_W_SHOTS", 0.45)
+W_SOT = _cfgf("PRESSURE_W_SOT", 0.30)
+W_CORNERS = _cfgf("PRESSURE_W_CORNERS", 0.15)
+W_POS = _cfgf("PRESSURE_W_POSSESSION", 0.10)
+
+# Optional V2 pressure components (used only when stats are present)
+W_GOAL_ATTEMPTS = _cfgf("PRESSURE_W_GOAL_ATTEMPTS", 0.12)
+W_SHOTS_OFF = _cfgf("PRESSURE_W_SHOTS_OFF", 0.06)
+W_BLOCKED_SHOTS = _cfgf("PRESSURE_W_BLOCKED_SHOTS", 0.05)
+W_ATTACKS = _cfgf("PRESSURE_W_ATTACKS", 0.05)
+W_DANGEROUS_ATTACKS = _cfgf("PRESSURE_W_DANGEROUS_ATTACKS", 0.10)
 
 
 def _neutral_dom() -> float:
@@ -97,6 +129,16 @@ def add_pressure_form_features(
     cor_a = out.get("corners_A")
     pos_h = out.get("pos_H")
     pos_a = out.get("pos_A")
+    goal_attempts_h = out.get("goal_attempts_H")
+    goal_attempts_a = out.get("goal_attempts_A")
+    shots_off_h = out.get("shots_off_H")
+    shots_off_a = out.get("shots_off_A")
+    blocked_h = out.get("blocked_shots_H")
+    blocked_a = out.get("blocked_shots_A")
+    attacks_h = out.get("attacks_H")
+    attacks_a = out.get("attacks_A")
+    dangerous_attacks_h = out.get("dangerous_attacks_H")
+    dangerous_attacks_a = out.get("dangerous_attacks_A")
 
     def _dom_series(for_s: pd.Series | None, against_s: pd.Series | None) -> pd.Series:
         if for_s is None or against_s is None:
@@ -105,13 +147,23 @@ def add_pressure_form_features(
         a = pd.to_numeric(against_s, errors="coerce").replace({np.nan: None})
         return pd.Series([_dom_ratio(fv, av) for fv, av in zip(f.tolist(), a.tolist())], index=out.index, dtype=float)
 
+    def _pair_present(for_s: pd.Series | None, against_s: pd.Series | None) -> pd.Series:
+        if for_s is None or against_s is None:
+            return pd.Series([0.0] * len(out), index=out.index, dtype=float)
+        f = pd.to_numeric(for_s, errors="coerce")
+        a = pd.to_numeric(against_s, errors="coerce")
+        return (f.notna() & a.notna()).astype(float)
+
     # Keep per-match dominance as raw internal columns to avoid "rolling a rolling".
     out["_press_dom_shots_H_raw"] = _dom_series(shots_h, shots_a)
     out["_press_dom_shots_A_raw"] = _dom_series(shots_a, shots_h)
+    out["_press_dom_shots_present_raw"] = _pair_present(shots_h, shots_a)
     out["_press_dom_sot_H_raw"] = _dom_series(sot_h, sot_a)
     out["_press_dom_sot_A_raw"] = _dom_series(sot_a, sot_h)
+    out["_press_dom_sot_present_raw"] = _pair_present(sot_h, sot_a)
     out["_press_dom_corners_H_raw"] = _dom_series(cor_h, cor_a)
     out["_press_dom_corners_A_raw"] = _dom_series(cor_a, cor_h)
+    out["_press_dom_corners_present_raw"] = _pair_present(cor_h, cor_a)
 
     def _poss_series(s: pd.Series | None) -> pd.Series:
         if s is None:
@@ -121,21 +173,58 @@ def add_pressure_form_features(
 
     out["_press_dom_pos_H_raw"] = _poss_series(pos_h)
     out["_press_dom_pos_A_raw"] = _poss_series(pos_a)
+    out["_press_dom_pos_present_raw"] = pd.to_numeric(pos_h, errors="coerce").notna().astype(float) if pos_h is not None else pd.Series([0.0] * len(out), index=out.index, dtype=float)
     if "pos_A" not in out.columns or out["pos_A"].isna().all():
         out["_press_dom_pos_A_raw"] = 1.0 - out["_press_dom_pos_H_raw"]
 
-    out["_press_index_H"] = (
-        W_SHOTS * out["_press_dom_shots_H_raw"]
-        + W_SOT * out["_press_dom_sot_H_raw"]
-        + W_CORNERS * out["_press_dom_corners_H_raw"]
-        + W_POS * out["_press_dom_pos_H_raw"]
-    )
-    out["_press_index_A"] = (
-        W_SHOTS * out["_press_dom_shots_A_raw"]
-        + W_SOT * out["_press_dom_sot_A_raw"]
-        + W_CORNERS * out["_press_dom_corners_A_raw"]
-        + W_POS * out["_press_dom_pos_A_raw"]
-    )
+    # Optional V2 dominance components (only active when data is present)
+    out["_press_dom_goal_attempts_H_raw"] = _dom_series(goal_attempts_h, goal_attempts_a)
+    out["_press_dom_goal_attempts_A_raw"] = _dom_series(goal_attempts_a, goal_attempts_h)
+    out["_press_dom_goal_attempts_present_raw"] = _pair_present(goal_attempts_h, goal_attempts_a)
+
+    out["_press_dom_shots_off_H_raw"] = _dom_series(shots_off_h, shots_off_a)
+    out["_press_dom_shots_off_A_raw"] = _dom_series(shots_off_a, shots_off_h)
+    out["_press_dom_shots_off_present_raw"] = _pair_present(shots_off_h, shots_off_a)
+
+    out["_press_dom_blocked_shots_H_raw"] = _dom_series(blocked_h, blocked_a)
+    out["_press_dom_blocked_shots_A_raw"] = _dom_series(blocked_a, blocked_h)
+    out["_press_dom_blocked_shots_present_raw"] = _pair_present(blocked_h, blocked_a)
+
+    out["_press_dom_attacks_H_raw"] = _dom_series(attacks_h, attacks_a)
+    out["_press_dom_attacks_A_raw"] = _dom_series(attacks_a, attacks_h)
+    out["_press_dom_attacks_present_raw"] = _pair_present(attacks_h, attacks_a)
+
+    out["_press_dom_dangerous_attacks_H_raw"] = _dom_series(dangerous_attacks_h, dangerous_attacks_a)
+    out["_press_dom_dangerous_attacks_A_raw"] = _dom_series(dangerous_attacks_a, dangerous_attacks_h)
+    out["_press_dom_dangerous_attacks_present_raw"] = _pair_present(dangerous_attacks_h, dangerous_attacks_a)
+
+    def _weighted_pressure_index(side: str) -> pd.Series:
+        comps = [
+            (f"_press_dom_shots_{side}_raw", "_press_dom_shots_present_raw", W_SHOTS),
+            (f"_press_dom_sot_{side}_raw", "_press_dom_sot_present_raw", W_SOT),
+            (f"_press_dom_corners_{side}_raw", "_press_dom_corners_present_raw", W_CORNERS),
+            (f"_press_dom_pos_{side}_raw", "_press_dom_pos_present_raw", W_POS),
+            (f"_press_dom_goal_attempts_{side}_raw", "_press_dom_goal_attempts_present_raw", W_GOAL_ATTEMPTS),
+            (f"_press_dom_shots_off_{side}_raw", "_press_dom_shots_off_present_raw", W_SHOTS_OFF),
+            (f"_press_dom_blocked_shots_{side}_raw", "_press_dom_blocked_shots_present_raw", W_BLOCKED_SHOTS),
+            (f"_press_dom_attacks_{side}_raw", "_press_dom_attacks_present_raw", W_ATTACKS),
+            (f"_press_dom_dangerous_attacks_{side}_raw", "_press_dom_dangerous_attacks_present_raw", W_DANGEROUS_ATTACKS),
+        ]
+        num = pd.Series([0.0] * len(out), index=out.index, dtype=float)
+        den = pd.Series([0.0] * len(out), index=out.index, dtype=float)
+        for dom_col, present_col, w in comps:
+            if dom_col not in out.columns or present_col not in out.columns:
+                continue
+            present = pd.to_numeric(out[present_col], errors="coerce").fillna(0.0).clip(0.0, 1.0)
+            dom = pd.to_numeric(out[dom_col], errors="coerce").fillna(_neutral_dom()).clip(0.0, 1.0)
+            num = num + float(w) * dom * present
+            den = den + float(w) * present
+        with np.errstate(divide="ignore", invalid="ignore"):
+            idx_vals = np.where(den > 0, num / den, _neutral_dom())
+        return pd.Series(idx_vals, index=out.index, dtype=float).clip(0.0, 1.0)
+
+    out["_press_index_H"] = _weighted_pressure_index("H")
+    out["_press_index_A"] = _weighted_pressure_index("A")
 
     out = out.sort_values([datetime_col, home_col, away_col], kind="mergesort")
 
@@ -224,6 +313,21 @@ def add_pressure_form_features(
     out["press_dom_pos_H"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_H_raw")
     ).fillna(_neutral_dom())
+    out["press_dom_goal_attempts_H"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_goal_attempts_H_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_shots_off_H"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_off_H_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_blocked_shots_H"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_blocked_shots_H_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_attacks_H"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_attacks_H_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_dangerous_attacks_H"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_dangerous_attacks_H_raw")
+    ).fillna(_neutral_dom())
 
     # Post-match home states (including current match) for inference snapshots
     out["_press_form_H_post"] = out.groupby(home_col, group_keys=False).apply(
@@ -243,6 +347,21 @@ def add_pressure_form_features(
     ).fillna(_neutral_dom())
     out["_press_dom_pos_H_post"] = out.groupby(home_col, group_keys=False).apply(
         lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_H_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_goal_attempts_H_post"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_goal_attempts_H_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_shots_off_H_post"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_off_H_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_blocked_shots_H_post"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_blocked_shots_H_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_attacks_H_post"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_attacks_H_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_dangerous_attacks_H_post"] = out.groupby(home_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_dangerous_attacks_H_raw")
     ).fillna(_neutral_dom())
 
     # Rolling evidence counts (how many matches in the window had complete stats).
@@ -279,6 +398,21 @@ def add_pressure_form_features(
     out["press_dom_pos_A"] = out.groupby(away_col, group_keys=False).apply(
         lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_A_raw")
     ).fillna(_neutral_dom())
+    out["press_dom_goal_attempts_A"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_goal_attempts_A_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_shots_off_A"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_off_A_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_blocked_shots_A"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_blocked_shots_A_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_attacks_A"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_attacks_A_raw")
+    ).fillna(_neutral_dom())
+    out["press_dom_dangerous_attacks_A"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_pre(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_dangerous_attacks_A_raw")
+    ).fillna(_neutral_dom())
 
     # Post-match away states (including current match) for inference snapshots
     out["_press_form_A_post"] = out.groupby(away_col, group_keys=False).apply(
@@ -298,6 +432,21 @@ def add_pressure_form_features(
     ).fillna(_neutral_dom())
     out["_press_dom_pos_A_post"] = out.groupby(away_col, group_keys=False).apply(
         lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_pos_A_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_goal_attempts_A_post"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_goal_attempts_A_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_shots_off_A_post"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_shots_off_A_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_blocked_shots_A_post"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_blocked_shots_A_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_attacks_A_post"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_attacks_A_raw")
+    ).fillna(_neutral_dom())
+    out["_press_dom_dangerous_attacks_A_post"] = out.groupby(away_col, group_keys=False).apply(
+        lambda g: _roll_post(g.sort_values(datetime_col, kind="mergesort"), "_press_dom_dangerous_attacks_A_raw")
     ).fillna(_neutral_dom())
 
     out["press_stats_n_A"] = out.groupby(away_col, group_keys=False).apply(
@@ -320,6 +469,25 @@ def add_pressure_form_features(
             "_press_dom_corners_A_raw",
             "_press_dom_pos_H_raw",
             "_press_dom_pos_A_raw",
+            "_press_dom_goal_attempts_H_raw",
+            "_press_dom_goal_attempts_A_raw",
+            "_press_dom_shots_off_H_raw",
+            "_press_dom_shots_off_A_raw",
+            "_press_dom_blocked_shots_H_raw",
+            "_press_dom_blocked_shots_A_raw",
+            "_press_dom_attacks_H_raw",
+            "_press_dom_attacks_A_raw",
+            "_press_dom_dangerous_attacks_H_raw",
+            "_press_dom_dangerous_attacks_A_raw",
+            "_press_dom_shots_present_raw",
+            "_press_dom_sot_present_raw",
+            "_press_dom_corners_present_raw",
+            "_press_dom_pos_present_raw",
+            "_press_dom_goal_attempts_present_raw",
+            "_press_dom_shots_off_present_raw",
+            "_press_dom_blocked_shots_present_raw",
+            "_press_dom_attacks_present_raw",
+            "_press_dom_dangerous_attacks_present_raw",
             "_press_stats_present_raw",
         ],
         errors="ignore",

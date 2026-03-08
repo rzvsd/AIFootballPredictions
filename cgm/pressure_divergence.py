@@ -171,7 +171,7 @@ def add_pressure_divergence_features(
             elo_z_h.append(z_elo_h)
             elo_z_a.append(z_elo_a)
 
-            # Update Elo state AFTER this match (Milestone 1 parameters, using pre-match Elo from row).
+            # Update Elo state AFTER this match using row-level Elo V2 trace when available.
             fh = row.get("ft_home")
             fa = row.get("ft_away")
             try:
@@ -182,7 +182,8 @@ def add_pressure_divergence_features(
                 fa_f = np.nan
 
             if not np.isnan(elo_h) and not np.isnan(elo_a) and not np.isnan(fh_f) and not np.isnan(fa_f):
-                home_adv = home_adv_used
+                row_hfa = pd.to_numeric(row.get("elo_hfa_used", np.nan), errors="coerce")
+                home_adv = float(row_hfa) if pd.notna(row_hfa) else home_adv_used
                 if callable(expected_home):
                     exp_home = float(expected_home(elo_h, elo_a, home_adv))
                 else:
@@ -195,18 +196,16 @@ def add_pressure_divergence_features(
                 else:
                     actual = 0.0
                 gd = int(abs(fh_f - fa_f))
-                if callable(margin_multiplier):
+                row_mult = pd.to_numeric(row.get("elo_g_used", np.nan), errors="coerce")
+                if pd.notna(row_mult):
+                    mult = float(row_mult)
+                elif callable(margin_multiplier):
                     mult = float(margin_multiplier(gd))
                 else:
-                    if gd <= 1:
-                        mult = 1.0
-                    elif gd == 2:
-                        mult = 1.5
-                    elif gd == 3:
-                        mult = 1.75
-                    else:
-                        mult = 1.75 + (gd - 3) / 8.0
-                delta = k_default * mult * (actual - exp_home)
+                    mult = 1.0 if gd <= 1 else 1.5 if gd == 2 else 1.75 + max(0, gd - 3) / 8.0
+                row_k = pd.to_numeric(row.get("elo_k_used", np.nan), errors="coerce")
+                k_used = float(row_k) if pd.notna(row_k) else float(k_default)
+                delta = k_used * mult * (actual - exp_home)
                 elo_state[home] = elo_h + delta
                 elo_state[away] = elo_a - delta
             else:

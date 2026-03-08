@@ -1,8 +1,14 @@
-Audits and Validation (Current)
+﻿Audits and Validation (Current)
+
+Operational warning semantics (sync stage)
+- API sync can run in:
+  - soft mode (default): warns and continues when quality thresholds are below target,
+  - strict mode: fails on quality-gate violations (`--strict-quality-gate`).
+- Hard fail remains mandatory when sync loads zero fixtures.
+- This behavior is intentional to avoid empty operational days due to partial provider coverage.
 
 Update (2026-02-25): audit hardening + mandatory pre-bet gate
-- We added 3 new audit scripts focused on strict correctness:
-  - `scripts/audit_training_leakage_guard.py`
+- We added strict correctness audits:
   - `scripts/audit_prediction_data_health.py`
   - `scripts/audit_skip_reconciliation.py`
 - We fixed reliability issues in existing audits:
@@ -13,14 +19,13 @@ Update (2026-02-25): audit hardening + mandatory pre-bet gate
 - We upgraded `scripts/run_all_audits.py`:
   - supports `--critical-only`
   - supports `--as-of-date YYYY-MM-DD`
-  - supports `--model-variant {full,no_odds}`
 
 Mandatory pre-bet gate (live picks)
 - `predict.py` now runs a mandatory critical audit gate before any pick file is created.
 - Trigger condition:
   - `--emit-picks` enabled (default in current config).
 - Gate command executed by `predict.py`:
-  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
+  - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD`
 - Gate behavior:
   - If any critical audit fails: pick generation is blocked (`reports/picks.csv` is not produced/updated).
   - If all critical audits pass: pick engine + narrator run normally.
@@ -28,14 +33,6 @@ Mandatory pre-bet gate (live picks)
   - It only blocks unsafe output when integrity checks fail.
 
 Audit matrix (what each audit checks and when it applies)
-- `python scripts/audit_training_leakage_guard.py --variant full`
-  - Type: critical
-  - Applies when: before using picks from `full` variant runs.
-  - Checks:
-    - suspicious feature names
-    - target-clone / near-target-leak signals in training matrix
-    - numeric/NaN safety after training loader normalization
-
 - `python scripts/audit_detailed.py`
   - Type: critical
   - Applies when: any run that produced current history + predictions.
@@ -81,12 +78,6 @@ Audit matrix (what each audit checks and when it applies)
   - Checks:
     - league-by-league source vs predictions coverage
 
-- `python -m scripts.audit_no_odds`
-  - Type: non-critical (variant consistency)
-  - Applies when: validating `no_odds` variant invariance.
-  - Checks:
-    - mu/probabilities unchanged under odds perturbation
-
 - `python -m scripts.audit_backtest`
   - Type: non-critical (historical sanity)
   - Applies when: reviewing backtest outputs.
@@ -106,12 +97,6 @@ Core checks
     - Upcoming fixtures are future-only.
     - Scope matches the configured next-round window.
 
-- No-odds invariance:
-  - `python -m scripts.audit_no_odds --as-of-date YYYY-MM-DD`
-  - Verifies probabilities are stable when odds are not used.
-  - Validates:
-    - Model output does not change when odds inputs change.
-
 - Multi-league coverage snapshot:
   - `python scripts/audit_multi_league.py`
   - Validates:
@@ -119,11 +104,11 @@ Core checks
 
 Scope note
 - These audits cover the core live pipeline (API sync, upcoming scope, no-odds output stability).
-- Additional niche audits were archived during cleanup and are not part of the current default runbook.
+- Legacy model-era audits were archived under `archive/legacy_engine/scripts/` and are not part of the current default runbook.
 
 Data freshness and anchor integrity
 - Recommended rebuild command when league averages look compressed or rounds are missing:
-  - `$env:API_FOOTBALL_HISTORY_DAYS="365"; $env:API_FOOTBALL_LEAGUE_IDS="39,40,140,78,135,136,61,62,88,94,203,283"; $env:API_FOOTBALL_MAX_REQUESTS="7500"; $env:API_FOOTBALL_RATE_PER_MINUTE="120"; python predict.py --rebuild-history --skip-train --max-date YYYY-MM-DD`
+  - `$env:API_FOOTBALL_HISTORY_DAYS="365"; $env:API_FOOTBALL_LEAGUE_IDS="39,40,140,78,135,136,61,62,88,94,203,283"; $env:API_FOOTBALL_MAX_REQUESTS="7500"; $env:API_FOOTBALL_RATE_PER_MINUTE="120"; python predict.py --rebuild-history --max-date YYYY-MM-DD`
 - Why this matters:
   - League anchors (`lg_avg_gf_home`, `lg_avg_gf_away`) are rebuilt from history and directly affect OU/BTTS probabilities.
 
@@ -158,7 +143,7 @@ EPL and Serie A threshold-scan recipe
 
 Batch Tuning Runbook (repeatable)
 - 1) Rebuild history + averages before tuning batch:
-  - `$env:API_FOOTBALL_HISTORY_DAYS="365"; $env:API_FOOTBALL_LEAGUE_IDS="39,78,135,61,140,283"; $env:API_FOOTBALL_MAX_REQUESTS="7500"; $env:API_FOOTBALL_RATE_PER_MINUTE="120"; python predict.py --rebuild-history --skip-train --max-date YYYY-MM-DD`
+  - `$env:API_FOOTBALL_HISTORY_DAYS="365"; $env:API_FOOTBALL_LEAGUE_IDS="39,78,135,61,140,283"; $env:API_FOOTBALL_MAX_REQUESTS="7500"; $env:API_FOOTBALL_RATE_PER_MINUTE="120"; python predict.py --rebuild-history --max-date YYYY-MM-DD`
 - 2) Build tuning windows (example batch-1):
   - `python -m scripts.run_backtest --league "Ligue 1" --season "2025-2026" --start-date "2025-11-01" --out "reports/backtest_ligue1_tuning_window.csv"`
   - `python -m scripts.run_backtest --league "La Liga" --season "2025-2026" --start-date "2025-11-01" --out "reports/backtest_laliga_tuning_window.csv"`
@@ -198,16 +183,16 @@ Batch-3 commands (Serie B + Ligue 2 + Primeira Liga)
   - `python -m scripts.run_backtest --league "Ligue 2" --season "2025-2026" --start-date "2026-02-20" --out "reports/backtest_lastround_ligue_2.csv"`
   - `python -m scripts.run_backtest --league "Primeira Liga" --season "2025-2026" --start-date "2026-02-20" --out "reports/backtest_lastround_primeira_liga.csv"`
 
-Batch-4 commands (2. Bundesliga + Süper Lig)
+Batch-4 commands (2. Bundesliga + SÃ¼per Lig)
 - Build windows:
   - `python -m scripts.run_backtest --league "2. Bundesliga" --season "2025-2026" --start-date "2025-11-01" --out "reports/backtest_2bundesliga_tuning_window.csv"`
-  - `python -m scripts.run_backtest --league "Süper Lig" --season "2025-2026" --start-date "2025-11-01" --out "reports/backtest_super_lig_tuning_window.csv"`
+  - `python -m scripts.run_backtest --league "SÃ¼per Lig" --season "2025-2026" --start-date "2025-11-01" --out "reports/backtest_super_lig_tuning_window.csv"`
 - Scan:
-  - `python scripts/scan_thresholds.py --input "2. Bundesliga=reports/backtest_2bundesliga_tuning_window.csv" --input "Süper Lig=reports/backtest_super_lig_tuning_window.csv" --out reports/tuning_batch_2bund_superlig_summary.csv`
-  - `python scripts/scan_thresholds.py --input "2. Bundesliga=reports/backtest_2bundesliga_tuning_window.csv" --input "Süper Lig=reports/backtest_super_lig_tuning_window.csv" --min-yes-rate 0.35 --max-yes-rate 0.65 --out reports/tuning_batch_2bund_superlig_balanced_summary.csv`
+  - `python scripts/scan_thresholds.py --input "2. Bundesliga=reports/backtest_2bundesliga_tuning_window.csv" --input "SÃ¼per Lig=reports/backtest_super_lig_tuning_window.csv" --out reports/tuning_batch_2bund_superlig_summary.csv`
+  - `python scripts/scan_thresholds.py --input "2. Bundesliga=reports/backtest_2bundesliga_tuning_window.csv" --input "SÃ¼per Lig=reports/backtest_super_lig_tuning_window.csv" --min-yes-rate 0.35 --max-yes-rate 0.65 --out reports/tuning_batch_2bund_superlig_balanced_summary.csv`
 - Validate last round:
   - `python -m scripts.run_backtest --league "2. Bundesliga" --season "2025-2026" --start-date "2026-02-20" --out "reports/backtest_lastround_2bundesliga_after.csv"`
-  - `python -m scripts.run_backtest --league "Süper Lig" --season "2025-2026" --start-date "2026-02-20" --out "reports/backtest_lastround_super_lig_after.csv"`
+  - `python -m scripts.run_backtest --league "SÃ¼per Lig" --season "2025-2026" --start-date "2026-02-20" --out "reports/backtest_lastround_super_lig_after.csv"`
 
 Recommended cadence
 - Full rebuild (365-day window): once per week, and always before starting a new tuning batch.
@@ -244,3 +229,4 @@ LATAM isolated validation (Argentina + Brazil)
   - Backtest with explicit model folder:
     - `python -m scripts.run_backtest --league "Liga Profesional Argentina" --season "2025-2026" --start-date "YYYY-MM-DD" --history data/enhanced_latam/cgm_match_history_with_elo_stats_xg.csv --models-dir models_latam --out reports_latam/backtest_argentina.csv`
     - `python -m scripts.run_backtest --league "Serie A Brazil" --season "2025-2026" --start-date "YYYY-MM-DD" --history data/enhanced_latam/cgm_match_history_with_elo_stats_xg.csv --models-dir models_latam --out reports_latam/backtest_brazil.csv`
+

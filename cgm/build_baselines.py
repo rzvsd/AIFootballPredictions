@@ -18,6 +18,7 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
+import config
 
 try:
     from cgm.team_registry import build_team_registry, normalize_team  # type: ignore
@@ -49,7 +50,7 @@ def _band_from_diff(diff: float, bully_thresh: float = 150.0) -> str:
     return "PEER"
 
 
-HOME_ADV_DEFAULT = 65.0
+HOME_ADV_DEFAULT = float(getattr(config, "ELO_DEFAULTS", {}).get("home_adv", 65.0))
 
 
 def build_baselines(data_dir: str = "data/api_football",

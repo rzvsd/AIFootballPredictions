@@ -30,9 +30,9 @@ Why some leagues are OU-only tuned or BTTS-only tuned
 - This is intentional risk control, not a missing configuration.
 
 Important clarification
-- If a league is “BTTS-only tuned”, the bot still predicts OU as usual.
-- If a league is “OU-only tuned”, the bot still predicts BTTS as usual.
-- “Only tuned” means “only that threshold changed”, not “only that market is predicted”.
+- If a league is "BTTS-only tuned", the bot still predicts OU as usual.
+- If a league is "OU-only tuned", the bot still predicts BTTS as usual.
+- "Only tuned" means "only that threshold changed", not "only that market is predicted".
 
 Lower vs Higher threshold (plain language)
 - Lower threshold (ex: `0.31`) = easier to trigger YES side:
@@ -88,3 +88,9 @@ Retune workflow (only when triggered)
 2. Run threshold scan with `scripts/scan_thresholds.py`.
 3. Apply conservative threshold change in `config.py`.
 4. Validate on last round before keeping it.
+
+Full-Season Tuning Mode (updated)
+- The active direction is season-to-date no-leak threshold generation.
+- Detailed process, evidence files, and currently applied values are tracked in:
+  - `project_notes/full_season_threshold_tuning.md`
+

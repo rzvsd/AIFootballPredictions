@@ -1,0 +1,24 @@
+{
+  "baseline": "C:\\BOTS\\AIFootballPredictions\\data\\enhanced\\_xg_v1_noshrink.csv",
+  "candidate": "C:\\BOTS\\AIFootballPredictions\\data\\enhanced\\_xg_v2_noshrink.csv",
+  "aligned_matches": 3251,
+  "overall_baseline": {
+    "n_matches": 3251.0,
+    "n_sides": 6502.0,
+    "side_rmse": 0.9936899948752674,
+    "total_rmse": 1.4143969574818231,
+    "side_poisson_nll": 0.7900743312307149,
+    "side_brier_goal": 0.1641420526231809,
+    "side_logloss_goal": 0.5015292445172153
+  },
+  "overall_candidate": {
+    "n_matches": 3251.0,
+    "n_sides": 6502.0,
+    "side_rmse": 0.9770266436017999,
+    "total_rmse": 1.4167235047274582,
+    "side_poisson_nll": 0.7734321695422246,
+    "side_brier_goal": 0.1590820707484573,
+    "side_logloss_goal": 0.4895181982452962
+  },
+  "rows_written": 70
+}

@@ -1,0 +1,17 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-03-07",
+    "league": "39",
+    "season": "2025",
+    "status": "NS",
+    "to": "2026-03-10"
+  },
+  "response": [],
+  "results": 0
+}

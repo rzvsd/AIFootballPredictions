@@ -1,15 +1,15 @@
 {
   "counts": {
-    "fixtures_finished": 788,
-    "fixtures_total": 788,
+    "fixtures_finished": 772,
+    "fixtures_total": 772,
     "fixtures_upcoming": 0
   },
   "coverage": {
     "history": {
-      "rows": 788,
+      "rows": 772,
       "with_btts_odds": 0,
       "with_ou_odds": 0,
-      "with_stats": 788
+      "with_stats": 772
     },
     "upcoming": {
       "rows": 0,
@@ -19,14 +19,14 @@
     }
   },
   "errors": [],
-  "generated_at_utc": "2026-02-25T19:52:40Z",
+  "generated_at_utc": "2026-03-07T18:51:04Z",
   "hydration": {
     "budget_exhausted": false,
     "odds_api_fetches": 0,
     "odds_cache_hits": 0,
     "odds_errors": 0,
     "stats_api_fetches": 0,
-    "stats_cache_hits": 788,
+    "stats_cache_hits": 772,
     "stats_errors": 0
   },
   "inputs": {
@@ -34,7 +34,7 @@
     "dry_run": false,
     "fetch_odds": false,
     "history_days": 365,
-    "horizon_days": 7,
+    "horizon_days": 14,
     "league_ids": [
       71,
       128
@@ -45,22 +45,6 @@
   },
   "missing_fixture_ids": {
     "history_missing_ou_odds": [
-      1334381,
-      1334382,
-      1334383,
-      1334384,
-      1334385,
-      1334386,
-      1334387,
-      1334388,
-      1334389,
-      1334390,
-      1334391,
-      1334394,
-      1334395,
-      1334396,
-      1334392,
-      1334393,
       1334397,
       1334398,
       1334399,
@@ -144,7 +128,23 @@
       1334446,
       1334451,
       1334463,
-      1334459
+      1334459,
+      1334468,
+      1351067,
+      1351072,
+      1334458,
+      1351065,
+      1334457,
+      1351064,
+      1334467,
+      1334471,
+      1351070,
+      1351066,
+      1351069,
+      1334469,
+      1351063,
+      1351071,
+      1334464
     ],
     "history_missing_stats": [],
     "upcoming_missing_btts_odds": [],
@@ -159,19 +159,20 @@
     "odds_gate_skipped_fetch_disabled": true,
     "odds_gate_skipped_no_upcoming": true,
     "stats_coverage": 1.0,
+    "strict_quality_gate": false,
     "upcoming_btts_odds_coverage": 1.0,
     "upcoming_ou_odds_coverage": 1.0
   },
   "request_budget": {
-    "date_utc": "2026-02-25",
+    "date_utc": "2026-03-07",
     "max_requests_per_day": 7500,
     "process_request_attempts": 0,
-    "used_requests_today": 792
+    "used_requests_today": 6
   },
   "windows": {
-    "history_from": "2025-02-25",
-    "history_to": "2026-02-25",
-    "upcoming_from": "2026-02-25",
-    "upcoming_to": "2026-03-04"
+    "history_from": "2025-03-07",
+    "history_to": "2026-03-07",
+    "upcoming_from": "2026-03-07",
+    "upcoming_to": "2026-03-21"
   }
 }

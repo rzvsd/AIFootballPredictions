@@ -72,6 +72,37 @@ OUTPUT_COLUMNS = [
     "corners_away",
     "possession_home",
     "possession_away",
+    # Extended match stats (optional, when API provides them)
+    "shots_off_home",
+    "shots_off_away",
+    "blocked_shots_home",
+    "blocked_shots_away",
+    "goal_attempts_home",
+    "goal_attempts_away",
+    "attacks_home",
+    "attacks_away",
+    "dangerous_attacks_home",
+    "dangerous_attacks_away",
+    "counter_attacks_home",
+    "counter_attacks_away",
+    "cross_attacks_home",
+    "cross_attacks_away",
+    "goalkeeper_saves_home",
+    "goalkeeper_saves_away",
+    "fouls_home",
+    "fouls_away",
+    "offsides_home",
+    "offsides_away",
+    "free_kicks_home",
+    "free_kicks_away",
+    "throwins_home",
+    "throwins_away",
+    "yellow_cards_home",
+    "yellow_cards_away",
+    "red_cards_home",
+    "red_cards_away",
+    "substitutions_home",
+    "substitutions_away",
     "odds_over_2_5",
     "odds_under_2_5",
     "odds_btts_yes",
@@ -257,6 +288,21 @@ def _extract_team_stats(entry: dict[str, Any]) -> dict[str, float | None]:
     return {
         "shots": pick("total shots", "shots total"),
         "shots_on_target": pick("shots on goal", "shots on target"),
+        "shots_off": pick("shots off goal", "shots off target"),
+        "blocked_shots": pick("blocked shots"),
+        "goal_attempts": pick("goal attempts", "goal attempt"),
+        "attacks": pick("attacks", "total attacks"),
+        "dangerous_attacks": pick("dangerous attacks", "dangerous attack", "danger attacks"),
+        "counter_attacks": pick("counter attacks", "counter attack"),
+        "cross_attacks": pick("cross attacks", "cross attack"),
+        "goalkeeper_saves": pick("goalkeeper saves", "saves"),
+        "fouls": pick("fouls"),
+        "offsides": pick("offsides", "offsides"),
+        "free_kicks": pick("free kicks", "freekicks"),
+        "throwins": pick("throwins", "throw-ins", "throw in"),
+        "yellow_cards": pick("yellow cards", "yellow card"),
+        "red_cards": pick("red cards", "red card"),
+        "substitutions": pick("substitutions", "substitution"),
         "corners": pick("corner kicks", "corners"),
         "possession": pick("ball possession", "possession"),
     }
@@ -302,6 +348,36 @@ def _fixture_stats_from_payload(
         "shots_away": away_stats.get("shots"),
         "shots_on_target_home": home_stats.get("shots_on_target"),
         "shots_on_target_away": away_stats.get("shots_on_target"),
+        "shots_off_home": home_stats.get("shots_off"),
+        "shots_off_away": away_stats.get("shots_off"),
+        "blocked_shots_home": home_stats.get("blocked_shots"),
+        "blocked_shots_away": away_stats.get("blocked_shots"),
+        "goal_attempts_home": home_stats.get("goal_attempts"),
+        "goal_attempts_away": away_stats.get("goal_attempts"),
+        "attacks_home": home_stats.get("attacks"),
+        "attacks_away": away_stats.get("attacks"),
+        "dangerous_attacks_home": home_stats.get("dangerous_attacks"),
+        "dangerous_attacks_away": away_stats.get("dangerous_attacks"),
+        "counter_attacks_home": home_stats.get("counter_attacks"),
+        "counter_attacks_away": away_stats.get("counter_attacks"),
+        "cross_attacks_home": home_stats.get("cross_attacks"),
+        "cross_attacks_away": away_stats.get("cross_attacks"),
+        "goalkeeper_saves_home": home_stats.get("goalkeeper_saves"),
+        "goalkeeper_saves_away": away_stats.get("goalkeeper_saves"),
+        "fouls_home": home_stats.get("fouls"),
+        "fouls_away": away_stats.get("fouls"),
+        "offsides_home": home_stats.get("offsides"),
+        "offsides_away": away_stats.get("offsides"),
+        "free_kicks_home": home_stats.get("free_kicks"),
+        "free_kicks_away": away_stats.get("free_kicks"),
+        "throwins_home": home_stats.get("throwins"),
+        "throwins_away": away_stats.get("throwins"),
+        "yellow_cards_home": home_stats.get("yellow_cards"),
+        "yellow_cards_away": away_stats.get("yellow_cards"),
+        "red_cards_home": home_stats.get("red_cards"),
+        "red_cards_away": away_stats.get("red_cards"),
+        "substitutions_home": home_stats.get("substitutions"),
+        "substitutions_away": away_stats.get("substitutions"),
         "corners_home": home_stats.get("corners"),
         "corners_away": away_stats.get("corners"),
         "possession_home": home_stats.get("possession"),
@@ -465,6 +541,36 @@ def _normalize_fixture_row(
     corners_away = _to_int(stats.get("corners_away"))
     poss_home = _to_float(stats.get("possession_home"))
     poss_away = _to_float(stats.get("possession_away"))
+    shots_off_home = _to_int(stats.get("shots_off_home"))
+    shots_off_away = _to_int(stats.get("shots_off_away"))
+    blocked_shots_home = _to_int(stats.get("blocked_shots_home"))
+    blocked_shots_away = _to_int(stats.get("blocked_shots_away"))
+    goal_attempts_home = _to_int(stats.get("goal_attempts_home"))
+    goal_attempts_away = _to_int(stats.get("goal_attempts_away"))
+    attacks_home = _to_int(stats.get("attacks_home"))
+    attacks_away = _to_int(stats.get("attacks_away"))
+    dangerous_attacks_home = _to_int(stats.get("dangerous_attacks_home"))
+    dangerous_attacks_away = _to_int(stats.get("dangerous_attacks_away"))
+    counter_attacks_home = _to_int(stats.get("counter_attacks_home"))
+    counter_attacks_away = _to_int(stats.get("counter_attacks_away"))
+    cross_attacks_home = _to_int(stats.get("cross_attacks_home"))
+    cross_attacks_away = _to_int(stats.get("cross_attacks_away"))
+    goalkeeper_saves_home = _to_int(stats.get("goalkeeper_saves_home"))
+    goalkeeper_saves_away = _to_int(stats.get("goalkeeper_saves_away"))
+    fouls_home = _to_int(stats.get("fouls_home"))
+    fouls_away = _to_int(stats.get("fouls_away"))
+    offsides_home = _to_int(stats.get("offsides_home"))
+    offsides_away = _to_int(stats.get("offsides_away"))
+    free_kicks_home = _to_int(stats.get("free_kicks_home"))
+    free_kicks_away = _to_int(stats.get("free_kicks_away"))
+    throwins_home = _to_int(stats.get("throwins_home"))
+    throwins_away = _to_int(stats.get("throwins_away"))
+    yellow_cards_home = _to_int(stats.get("yellow_cards_home"))
+    yellow_cards_away = _to_int(stats.get("yellow_cards_away"))
+    red_cards_home = _to_int(stats.get("red_cards_home"))
+    red_cards_away = _to_int(stats.get("red_cards_away"))
+    substitutions_home = _to_int(stats.get("substitutions_home"))
+    substitutions_away = _to_int(stats.get("substitutions_away"))
 
     over_25 = _to_float(odds.get("odds_over_2_5"))
     under_25 = _to_float(odds.get("odds_under_2_5"))
@@ -495,6 +601,36 @@ def _normalize_fixture_row(
         "corners_away": corners_away,
         "possession_home": poss_home,
         "possession_away": poss_away,
+        "shots_off_home": shots_off_home,
+        "shots_off_away": shots_off_away,
+        "blocked_shots_home": blocked_shots_home,
+        "blocked_shots_away": blocked_shots_away,
+        "goal_attempts_home": goal_attempts_home,
+        "goal_attempts_away": goal_attempts_away,
+        "attacks_home": attacks_home,
+        "attacks_away": attacks_away,
+        "dangerous_attacks_home": dangerous_attacks_home,
+        "dangerous_attacks_away": dangerous_attacks_away,
+        "counter_attacks_home": counter_attacks_home,
+        "counter_attacks_away": counter_attacks_away,
+        "cross_attacks_home": cross_attacks_home,
+        "cross_attacks_away": cross_attacks_away,
+        "goalkeeper_saves_home": goalkeeper_saves_home,
+        "goalkeeper_saves_away": goalkeeper_saves_away,
+        "fouls_home": fouls_home,
+        "fouls_away": fouls_away,
+        "offsides_home": offsides_home,
+        "offsides_away": offsides_away,
+        "free_kicks_home": free_kicks_home,
+        "free_kicks_away": free_kicks_away,
+        "throwins_home": throwins_home,
+        "throwins_away": throwins_away,
+        "yellow_cards_home": yellow_cards_home,
+        "yellow_cards_away": yellow_cards_away,
+        "red_cards_home": red_cards_home,
+        "red_cards_away": red_cards_away,
+        "substitutions_home": substitutions_home,
+        "substitutions_away": substitutions_away,
         "odds_over_2_5": over_25,
         "odds_under_2_5": under_25,
         "odds_btts_yes": btts_yes,
@@ -903,6 +1039,14 @@ def _parse_args() -> argparse.Namespace:
         help="Fetch/normalize only; do not write output CSV/report files.",
     )
     parser.add_argument(
+        "--strict-quality-gate",
+        action="store_true",
+        help=(
+            "Fail with non-zero exit when quality gate does not pass. "
+            "Default behavior is soft (write outputs + warn)."
+        ),
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -1025,6 +1169,7 @@ def main() -> None:
                 "min_odds_coverage": float(args.min_odds_coverage),
                 "odds_gate_skipped_no_upcoming": odds_gate_skipped,
                 "odds_gate_skipped_fetch_disabled": odds_gate_skipped_fetch_disabled,
+                "strict_quality_gate": bool(args.strict_quality_gate),
             },
             "quality_gate_passed": quality_gate_passed,
             "quality_gate_reasons": quality_reasons,
@@ -1091,7 +1236,15 @@ def main() -> None:
         }
         logger.info("summary: %s", json.dumps(summary, ensure_ascii=True))
         if not quality_gate_passed:
-            raise SystemExit(2)
+            joined_reasons = "; ".join(quality_reasons) if quality_reasons else "unknown reason"
+            if total_rows <= 0:
+                logger.error("quality gate FAILED with zero fixtures loaded: %s", joined_reasons)
+                raise SystemExit(2)
+            if args.strict_quality_gate:
+                logger.error("quality gate FAILED (strict mode): %s", joined_reasons)
+                raise SystemExit(2)
+            logger.warning("quality gate FAILED (soft mode): %s", joined_reasons)
+            logger.warning("continuing with generated outputs (history/upcoming/report were written)")
 
 
 if __name__ == "__main__":

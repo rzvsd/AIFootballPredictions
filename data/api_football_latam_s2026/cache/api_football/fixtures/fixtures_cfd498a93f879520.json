@@ -1,0 +1,578 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-03-02",
+    "league": "128",
+    "season": "2026",
+    "status": "NS",
+    "to": "2026-03-09"
+  },
+  "response": [
+    {
+      "fixture": {
+        "date": "2026-03-05T00:00:00+00:00",
+        "id": 1491915,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772668800,
+        "timezone": "UTC",
+        "venue": {
+          "city": null,
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 7",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 451,
+          "logo": "https://media.api-sports.io/football/teams/451.png",
+          "name": "Boca Juniors",
+          "winner": null
+        },
+        "home": {
+          "id": 446,
+          "logo": "https://media.api-sports.io/football/teams/446.png",
+          "name": "Lanus",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T00:15:00+00:00",
+        "id": 1491924,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "F. Echenique",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772583300,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Tucuman",
+          "id": null,
+          "name": "Estadio Monumental Jose Fierro"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 436,
+          "logo": "https://media.api-sports.io/football/teams/436.png",
+          "name": "Racing Club",
+          "winner": null
+        },
+        "home": {
+          "id": 455,
+          "logo": "https://media.api-sports.io/football/teams/455.png",
+          "name": "Atletico Tucuman",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T00:30:00+00:00",
+        "id": 1491925,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772497800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Buenos Aires",
+          "id": null,
+          "name": "Estadio Florencio Sola"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 463,
+          "logo": "https://media.api-sports.io/football/teams/463.png",
+          "name": "Aldosivi",
+          "winner": null
+        },
+        "home": {
+          "id": 449,
+          "logo": "https://media.api-sports.io/football/teams/449.png",
+          "name": "Banfield",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-02T22:15:00+00:00",
+        "id": 1491928,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "N. Arasa",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772489700,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Buenos Aires",
+          "id": null,
+          "name": "Estadio Guillermo Laza"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 1064,
+          "logo": "https://media.api-sports.io/football/teams/1064.png",
+          "name": "Platense",
+          "winner": null
+        },
+        "home": {
+          "id": 476,
+          "logo": "https://media.api-sports.io/football/teams/476.png",
+          "name": "Deportivo Riestra",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-02T22:15:00+00:00",
+        "id": 1491929,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "S. Martinez",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772489700,
+        "timezone": "UTC",
+        "venue": {
+          "city": "La Plata",
+          "id": null,
+          "name": "Estadio Jorge Luis Hirschi"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 438,
+          "logo": "https://media.api-sports.io/football/teams/438.png",
+          "name": "Velez Sarsfield",
+          "winner": null
+        },
+        "home": {
+          "id": 450,
+          "logo": "https://media.api-sports.io/football/teams/450.png",
+          "name": "Estudiantes L.P.",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T22:15:00+00:00",
+        "id": 1491930,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "A. Penel",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772576100,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Buenos Aires",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 440,
+          "logo": "https://media.api-sports.io/football/teams/440.png",
+          "name": "Belgrano Cordoba",
+          "winner": null
+        },
+        "home": {
+          "id": 445,
+          "logo": "https://media.api-sports.io/football/teams/445.png",
+          "name": "Huracan",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T00:30:00+00:00",
+        "id": 1491932,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772497800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Mendoza",
+          "id": null,
+          "name": "Estadio Juan Bautista Gargantini"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 435,
+          "logo": "https://media.api-sports.io/football/teams/435.png",
+          "name": "River Plate",
+          "winner": null
+        },
+        "home": {
+          "id": 473,
+          "logo": "https://media.api-sports.io/football/teams/473.png",
+          "name": "Independ. Rivadavia",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T22:00:00+00:00",
+        "id": 1491935,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": "J. C. Loustau",
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772575200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Junin",
+          "id": null,
+          "name": "Estadio Eva Peron"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Argentina",
+        "flag": "https://media.api-sports.io/flags/ar.svg",
+        "id": 128,
+        "logo": "https://media.api-sports.io/football/leagues/128.png",
+        "name": "Liga Profesional Argentina",
+        "round": "Regular Season - 8",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 2424,
+          "logo": "https://media.api-sports.io/football/teams/2424.png",
+          "name": "Estudiantes de Rio Cuarto",
+          "winner": null
+        },
+        "home": {
+          "id": 474,
+          "logo": "https://media.api-sports.io/football/teams/474.png",
+          "name": "Sarmiento Junin",
+          "winner": null
+        }
+      }
+    }
+  ],
+  "results": 8
+}

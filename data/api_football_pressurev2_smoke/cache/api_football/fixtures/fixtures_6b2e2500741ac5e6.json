@@ -1,0 +1,718 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-03-02",
+    "league": "39",
+    "season": "2025",
+    "status": "FT-AET-PEN",
+    "to": "2026-03-07"
+  },
+  "response": [
+    {
+      "fixture": {
+        "date": "2026-03-03T19:30:00+00:00",
+        "id": 1379250,
+        "periods": {
+          "first": 1772566200,
+          "second": 1772569800
+        },
+        "referee": "Craig Pawson, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 7,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772566200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Bournemouth",
+          "id": 504,
+          "name": "Vitality Stadium"
+        }
+      },
+      "goals": {
+        "away": 0,
+        "home": 0
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 0,
+          "home": 0
+        },
+        "halftime": {
+          "away": 0,
+          "home": 0
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 55,
+          "logo": "https://media.api-sports.io/football/teams/55.png",
+          "name": "Brentford",
+          "winner": null
+        },
+        "home": {
+          "id": 35,
+          "logo": "https://media.api-sports.io/football/teams/35.png",
+          "name": "Bournemouth",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T19:30:00+00:00",
+        "id": 1379252,
+        "periods": {
+          "first": 1772566200,
+          "second": 1772569800
+        },
+        "referee": "Tim Robinson, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 9,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772566200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Liverpool",
+          "id": 22033,
+          "name": "Hill Dickinson Stadium"
+        }
+      },
+      "goals": {
+        "away": 0,
+        "home": 2
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 0,
+          "home": 2
+        },
+        "halftime": {
+          "away": 0,
+          "home": 1
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 44,
+          "logo": "https://media.api-sports.io/football/teams/44.png",
+          "name": "Burnley",
+          "winner": false
+        },
+        "home": {
+          "id": 45,
+          "logo": "https://media.api-sports.io/football/teams/45.png",
+          "name": "Everton",
+          "winner": true
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T19:30:00+00:00",
+        "id": 1379254,
+        "periods": {
+          "first": 1772566200,
+          "second": 1772569800
+        },
+        "referee": "Stuart Attwell, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 14,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772566200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Leeds",
+          "id": 546,
+          "name": "Elland Road"
+        }
+      },
+      "goals": {
+        "away": 1,
+        "home": 0
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 1,
+          "home": 0
+        },
+        "halftime": {
+          "away": 0,
+          "home": 0
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 746,
+          "logo": "https://media.api-sports.io/football/teams/746.png",
+          "name": "Sunderland",
+          "winner": true
+        },
+        "home": {
+          "id": 63,
+          "logo": "https://media.api-sports.io/football/teams/63.png",
+          "name": "Leeds",
+          "winner": false
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-03T20:15:00+00:00",
+        "id": 1379258,
+        "periods": {
+          "first": 1772568900,
+          "second": 1772572500
+        },
+        "referee": "Thomas Bramall, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 8,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772568900,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Wolverhampton",
+          "id": 600,
+          "name": "Molineux Stadium"
+        }
+      },
+      "goals": {
+        "away": 1,
+        "home": 2
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 1,
+          "home": 2
+        },
+        "halftime": {
+          "away": 0,
+          "home": 0
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 40,
+          "logo": "https://media.api-sports.io/football/teams/40.png",
+          "name": "Liverpool",
+          "winner": false
+        },
+        "home": {
+          "id": 39,
+          "logo": "https://media.api-sports.io/football/teams/39.png",
+          "name": "Wolves",
+          "winner": true
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T19:30:00+00:00",
+        "id": 1379253,
+        "periods": {
+          "first": 1772652600,
+          "second": 1772656200
+        },
+        "referee": "Matt Donohue, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 10,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772652600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "London",
+          "id": 535,
+          "name": "Craven Cottage"
+        }
+      },
+      "goals": {
+        "away": 1,
+        "home": 0
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 1,
+          "home": 0
+        },
+        "halftime": {
+          "away": 0,
+          "home": 0
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 48,
+          "logo": "https://media.api-sports.io/football/teams/48.png",
+          "name": "West Ham",
+          "winner": true
+        },
+        "home": {
+          "id": 36,
+          "logo": "https://media.api-sports.io/football/teams/36.png",
+          "name": "Fulham",
+          "winner": false
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T19:30:00+00:00",
+        "id": 1379255,
+        "periods": {
+          "first": 1772652600,
+          "second": 1772656200
+        },
+        "referee": "Darren England, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 9,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772652600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Manchester",
+          "id": 555,
+          "name": "Etihad Stadium"
+        }
+      },
+      "goals": {
+        "away": 2,
+        "home": 2
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 2,
+          "home": 2
+        },
+        "halftime": {
+          "away": 0,
+          "home": 1
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 65,
+          "logo": "https://media.api-sports.io/football/teams/65.png",
+          "name": "Nottingham Forest",
+          "winner": null
+        },
+        "home": {
+          "id": 50,
+          "logo": "https://media.api-sports.io/football/teams/50.png",
+          "name": "Manchester City",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T19:30:00+00:00",
+        "id": 1379251,
+        "periods": {
+          "first": 1772652600,
+          "second": 1772656200
+        },
+        "referee": "Chris Kavanagh, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 8,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772652600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Brighton",
+          "id": 508,
+          "name": "Amex Stadium"
+        }
+      },
+      "goals": {
+        "away": 1,
+        "home": 0
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 1,
+          "home": 0
+        },
+        "halftime": {
+          "away": 1,
+          "home": 0
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 42,
+          "logo": "https://media.api-sports.io/football/teams/42.png",
+          "name": "Arsenal",
+          "winner": true
+        },
+        "home": {
+          "id": 51,
+          "logo": "https://media.api-sports.io/football/teams/51.png",
+          "name": "Brighton",
+          "winner": false
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T19:30:00+00:00",
+        "id": 1379249,
+        "periods": {
+          "first": 1772652600,
+          "second": 1772656200
+        },
+        "referee": "Jarred Gillett, Australia",
+        "status": {
+          "elapsed": 90,
+          "extra": 7,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772652600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Birmingham",
+          "id": 495,
+          "name": "Villa Park"
+        }
+      },
+      "goals": {
+        "away": 4,
+        "home": 1
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 4,
+          "home": 1
+        },
+        "halftime": {
+          "away": 2,
+          "home": 1
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 49,
+          "logo": "https://media.api-sports.io/football/teams/49.png",
+          "name": "Chelsea",
+          "winner": true
+        },
+        "home": {
+          "id": 66,
+          "logo": "https://media.api-sports.io/football/teams/66.png",
+          "name": "Aston Villa",
+          "winner": false
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-04T20:15:00+00:00",
+        "id": 1379256,
+        "periods": {
+          "first": 1772655300,
+          "second": 1772658900
+        },
+        "referee": "Peter Bankes, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 9,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772655300,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Newcastle",
+          "id": 562,
+          "name": "St. James' Park"
+        }
+      },
+      "goals": {
+        "away": 1,
+        "home": 2
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 1,
+          "home": 2
+        },
+        "halftime": {
+          "away": 1,
+          "home": 1
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 33,
+          "logo": "https://media.api-sports.io/football/teams/33.png",
+          "name": "Manchester United",
+          "winner": false
+        },
+        "home": {
+          "id": 34,
+          "logo": "https://media.api-sports.io/football/teams/34.png",
+          "name": "Newcastle",
+          "winner": true
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-05T20:00:00+00:00",
+        "id": 1379257,
+        "periods": {
+          "first": 1772740800,
+          "second": 1772744400
+        },
+        "referee": "Andy Madley, England",
+        "status": {
+          "elapsed": 90,
+          "extra": 6,
+          "long": "Match Finished",
+          "short": "FT"
+        },
+        "timestamp": 1772740800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "London",
+          "id": 593,
+          "name": "Tottenham Hotspur Stadium"
+        }
+      },
+      "goals": {
+        "away": 3,
+        "home": 1
+      },
+      "league": {
+        "country": "England",
+        "flag": "https://media.api-sports.io/flags/gb-eng.svg",
+        "id": 39,
+        "logo": "https://media.api-sports.io/football/leagues/39.png",
+        "name": "Premier League",
+        "round": "Regular Season - 29",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": 3,
+          "home": 1
+        },
+        "halftime": {
+          "away": 3,
+          "home": 1
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 52,
+          "logo": "https://media.api-sports.io/football/teams/52.png",
+          "name": "Crystal Palace",
+          "winner": true
+        },
+        "home": {
+          "id": 47,
+          "logo": "https://media.api-sports.io/football/teams/47.png",
+          "name": "Tottenham",
+          "winner": false
+        }
+      }
+    }
+  ],
+  "results": 10
+}

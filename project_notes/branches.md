@@ -1,10 +1,11 @@
-Branch Guide (Current)
+﻿Branch Guide (Current)
 
 Last updated: 2026-02-24
 
 Current branch topology
 - `main`: stable baseline branch.
 - `test`: integration/validation branch.
+- `dev` (future/planned): experimental branch for full Poisson revamp only (not active by default).
 
 Current lineage (at branch pointers)
 - `main` -> commit `05430b3`
@@ -50,3 +51,7 @@ Branch usage policy
 - Do all ongoing changes in `test` unless a temporary feature branch is explicitly created.
 - Use `test` for verification and release-candidate checks.
 - Keep `main` clean and promotion-only.
+- Reserve `dev` for high-risk modeling changes (example: full Poisson revamp).
+  - Plan reference:
+    - `project_notes/dev_poisson_full_revamp_plan.md`
+

@@ -1,0 +1,15 @@
+group,league,wins,matches,win_pct,marks,file
+primary,2. Bundesliga,5,9,55.55555555555556,X ? X ? ? X X ? ?,backtest_lastround_2bundesliga_after.csv
+primary,Bundesliga,5,9,55.55555555555556,? ? ? X X ? ? X X,backtest_lastround_bundesliga.csv
+primary,Championship,8,12,66.66666666666667,X ? ? ? ? X ? X X ? ? ?,backtest_lastround_championship.csv
+primary,Eredivisie,6,9,66.66666666666667,? ? ? ? X ? X X ?,backtest_lastround_eredivisie.csv
+primary,La Liga,6,10,60.0,X ? X ? ? ? ? ? X X,backtest_lastround_la_liga.csv
+primary,Liga I,5,8,62.5,? ? ? ? X X X ?,backtest_lastround_liga_i.csv
+primary,Ligue 1,6,9,66.66666666666667,? ? ? ? X ? ? X X,backtest_lastround_ligue_1.csv
+primary,Ligue 2,5,9,55.55555555555556,? ? X ? X ? X ? X,backtest_lastround_ligue_2.csv
+primary,Premier League,6,10,60.0,X ? X ? ? X ? X ? ?,backtest_lastround_premier_league.csv
+primary,Primeira Liga,5,9,55.55555555555556,X ? X ? ? ? X X ?,backtest_lastround_primeira_liga.csv
+primary,Serie A,8,10,80.0,? ? ? ? X ? X ? ? ?,backtest_lastround_serie_a.csv
+primary,Serie B,6,10,60.0,? X ? ? ? X X ? X ?,backtest_lastround_serie_b.csv
+latam,Liga Profesional Argentina,12,16,75.0,? ? ? X ? X ? X ? ? ? ? ? ? ? X,backtest_lastround_argentina.csv
+latam,Serie A Brazil,4,7,57.142857142857146,X X ? ? ? ? X,backtest_lastround_brazil_rebalanced.csv

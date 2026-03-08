@@ -19,19 +19,9 @@ from typing import Any, Dict, List
 _ROOT = Path(__file__).resolve().parents[1]
 
 
-def _build_audits(*, as_of_date: str, model_variant: str) -> List[Dict[str, Any]]:
+def _build_audits(*, as_of_date: str) -> List[Dict[str, Any]]:
     """Build audit command list."""
     return [
-        {
-            "name": "Training Leakage Guard",
-            "cmd": [
-                sys.executable,
-                "scripts/audit_training_leakage_guard.py",
-                "--variant",
-                str(model_variant),
-            ],
-            "critical": True,
-        },
         {
             "name": "Detailed Audit Log",
             "cmd": [sys.executable, "scripts/audit_detailed.py"],
@@ -51,11 +41,6 @@ def _build_audits(*, as_of_date: str, model_variant: str) -> List[Dict[str, Any]
         {
             "name": "Multi-League Coverage",
             "cmd": [sys.executable, "scripts/audit_multi_league.py"],
-            "critical": False,
-        },
-        {
-            "name": "No-Odds Invariance",
-            "cmd": [sys.executable, "-m", "scripts.audit_no_odds"],
             "critical": False,
         },
         {
@@ -94,12 +79,6 @@ def main() -> int:
         help="As-of date (YYYY-MM-DD) forwarded to scope audit.",
     )
     ap.add_argument(
-        "--model-variant",
-        choices=["full", "no_odds"],
-        default="full",
-        help="Model variant used by training leakage guard.",
-    )
-    ap.add_argument(
         "--timeout-sec",
         type=int,
         default=120,
@@ -107,7 +86,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    audits = _build_audits(as_of_date=str(args.as_of_date), model_variant=str(args.model_variant))
+    audits = _build_audits(as_of_date=str(args.as_of_date))
     if args.critical_only:
         audits = [a for a in audits if bool(a.get("critical", False))]
 
@@ -117,7 +96,6 @@ def main() -> int:
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Mode: {mode}")
     print(f"As-Of Date: {args.as_of_date}")
-    print(f"Model Variant: {args.model_variant}")
     print("=" * 80)
 
     results = []

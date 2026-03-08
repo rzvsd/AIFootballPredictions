@@ -100,20 +100,7 @@ Run-PythonStep -Name "Build xG proxy (LATAM)" -Args @(
     "--out", "data/enhanced_latam/cgm_match_history_with_elo_stats_xg.csv"
 )
 
-# 6) Build training matrix + train isolated models
-Run-PythonStep -Name "Build Frankenstein training (LATAM)" -Args @(
-    "-m", "cgm.build_frankenstein",
-    "--data-dir", "data/enhanced_latam",
-    "--match-history", "cgm_match_history_with_elo_stats_xg.csv",
-    "--out", "data/enhanced_latam/frankenstein_training.csv",
-    "--out-full", "data/enhanced_latam/frankenstein_training_full.csv"
-)
-Run-PythonStep -Name "Train models (LATAM)" -Args @(
-    "-m", "cgm.train_frankenstein_mu",
-    "--data", "data/enhanced_latam/frankenstein_training.csv",
-    "--out-dir", "models_latam",
-    "--variant", "full"
-)
+# 6) Strict module engine has no separate training step.
 
 # 7) Predict next round
 Run-PythonStep -Name "Predict upcoming next round (LATAM)" -Args @(

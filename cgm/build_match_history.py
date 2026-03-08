@@ -345,8 +345,15 @@ def build_match_history(
 
     # Select/rename key columns
     out_cols = {
+        "fixture_id": "fixture_id",
+        "status": "status",
+        "league_id": "league_id",
+        "round": "round",
+        "match_type": "match_type",
+        "competition_type": "competition_type",
         "sezonul": "season",
         "season": "season",
+        "fixture_datetime_utc": "datetime",
         "datameci": "date",
         "date": "date",
         "fixture_date": "date",

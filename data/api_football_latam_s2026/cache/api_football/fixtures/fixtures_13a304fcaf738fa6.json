@@ -1,0 +1,788 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-03-07",
+    "league": "71",
+    "season": "2026",
+    "status": "NS",
+    "to": "2026-03-14"
+  },
+  "response": [
+    {
+      "fixture": {
+        "date": "2026-03-11T22:00:00+00:00",
+        "id": 1492151,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773266400,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Belo Horizonte",
+          "id": null,
+          "name": "MRV Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 119,
+          "logo": "https://media.api-sports.io/football/teams/119.png",
+          "name": "Internacional",
+          "winner": null
+        },
+        "home": {
+          "id": 1062,
+          "logo": "https://media.api-sports.io/football/teams/1062.png",
+          "name": "Atletico-MG",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-11T23:00:00+00:00",
+        "id": 1492152,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773270000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Salvador",
+          "id": null,
+          "name": "Arena Fonte Nova"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 136,
+          "logo": "https://media.api-sports.io/football/teams/136.png",
+          "name": "Vitoria",
+          "winner": null
+        },
+        "home": {
+          "id": 118,
+          "logo": "https://media.api-sports.io/football/teams/118.png",
+          "name": "Bahia",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-12T00:30:00+00:00",
+        "id": 1492153,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773275400,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Sao Paulo",
+          "id": null,
+          "name": "Neo Quimica Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 147,
+          "logo": "https://media.api-sports.io/football/teams/147.png",
+          "name": "Coritiba",
+          "winner": null
+        },
+        "home": {
+          "id": 131,
+          "logo": "https://media.api-sports.io/football/teams/131.png",
+          "name": "Corinthians",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-12T00:30:00+00:00",
+        "id": 1492154,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773275400,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Rio de Janeiro",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 135,
+          "logo": "https://media.api-sports.io/football/teams/135.png",
+          "name": "Cruzeiro",
+          "winner": null
+        },
+        "home": {
+          "id": 127,
+          "logo": "https://media.api-sports.io/football/teams/127.png",
+          "name": "Flamengo",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-13T00:30:00+00:00",
+        "id": 1492155,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773361800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Porto Alegre",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 794,
+          "logo": "https://media.api-sports.io/football/teams/794.png",
+          "name": "RB Bragantino",
+          "winner": null
+        },
+        "home": {
+          "id": 130,
+          "logo": "https://media.api-sports.io/football/teams/130.png",
+          "name": "Gremio",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-11T00:30:00+00:00",
+        "id": 1492156,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773189000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Mirassol",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 128,
+          "logo": "https://media.api-sports.io/football/teams/128.png",
+          "name": "Santos",
+          "winner": null
+        },
+        "home": {
+          "id": 7848,
+          "logo": "https://media.api-sports.io/football/teams/7848.png",
+          "name": "Mirassol",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-12T22:00:00+00:00",
+        "id": 1492157,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773352800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Belem",
+          "id": null,
+          "name": "Estadio Evandro Almeida"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 124,
+          "logo": "https://media.api-sports.io/football/teams/124.png",
+          "name": "Fluminense",
+          "winner": null
+        },
+        "home": {
+          "id": 1198,
+          "logo": "https://media.api-sports.io/football/teams/1198.png",
+          "name": "remo",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-12T23:00:00+00:00",
+        "id": 1492158,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773356400,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Sao Paulo",
+          "id": null,
+          "name": "Estadio Do MorumBIS"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 132,
+          "logo": "https://media.api-sports.io/football/teams/132.png",
+          "name": "Chapecoense-sc",
+          "winner": null
+        },
+        "home": {
+          "id": 126,
+          "logo": "https://media.api-sports.io/football/teams/126.png",
+          "name": "Sao Paulo",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-12T22:30:00+00:00",
+        "id": 1492159,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773354600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Rio de Janeiro",
+          "id": null,
+          "name": null
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 5",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 121,
+          "logo": "https://media.api-sports.io/football/teams/121.png",
+          "name": "Palmeiras",
+          "winner": null
+        },
+        "home": {
+          "id": 133,
+          "logo": "https://media.api-sports.io/football/teams/133.png",
+          "name": "Vasco DA Gama",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T23:30:00+00:00",
+        "id": 1492160,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773531000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Rio de Janeiro",
+          "id": null,
+          "name": "Estadio Olimpico Nilton Santos"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 6",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 127,
+          "logo": "https://media.api-sports.io/football/teams/127.png",
+          "name": "Flamengo",
+          "winner": null
+        },
+        "home": {
+          "id": 120,
+          "logo": "https://media.api-sports.io/football/teams/120.png",
+          "name": "Botafogo",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T21:30:00+00:00",
+        "id": 1492169,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773523800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Salvador",
+          "id": null,
+          "name": "Barradao"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Brazil",
+        "flag": "https://media.api-sports.io/flags/br.svg",
+        "id": 71,
+        "logo": "https://media.api-sports.io/football/leagues/71.png",
+        "name": "Serie A",
+        "round": "Regular Season - 6",
+        "season": 2026,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 1062,
+          "logo": "https://media.api-sports.io/football/teams/1062.png",
+          "name": "Atletico-MG",
+          "winner": null
+        },
+        "home": {
+          "id": 136,
+          "logo": "https://media.api-sports.io/football/teams/136.png",
+          "name": "Vitoria",
+          "winner": null
+        }
+      }
+    }
+  ],
+  "results": 11
+}

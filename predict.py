@@ -459,7 +459,6 @@ def main() -> None:
     )
 
     ap.add_argument("--rebuild-history", action="store_true", help="Force rebuild match history from CGM exports")
-    ap.add_argument("--skip-train", action="store_true", help="Skip training (use existing models)")
     ap.add_argument("--predict-only", action="store_true", help="Only run prediction using existing artifacts/models")
     ap.add_argument(
         "--allow-stale-history",
@@ -560,7 +559,6 @@ def main() -> None:
     elo_csv = enhanced_dir / "cgm_match_history_with_elo.csv"
     elo_stats_csv = enhanced_dir / "cgm_match_history_with_elo_stats.csv"
     elo_stats_xg_csv = enhanced_dir / "cgm_match_history_with_elo_stats_xg.csv"
-    franken_csv = enhanced_dir / "frankenstein_training.csv"
     if api_context is not None:
         stats_source = api_context["history_fixtures"]
     else:
@@ -772,40 +770,9 @@ def main() -> None:
         ]
     )
 
-    # 6) Build Frankenstein training matrix
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "cgm.build_frankenstein",
-            "--data-dir",
-            str(enhanced_dir),
-            "--match-history",
-            elo_stats_xg_csv.name,
-            "--out",
-            str(franken_csv),
-            "--out-full",
-            str(enhanced_dir / "frankenstein_training_full.csv"),
-        ]
-    )
+    # 6) Strict module engine has no separate training step.
 
-    # 7) Train mu models (unless skipped)
-    if not args.skip_train:
-        _run(
-            [
-                sys.executable,
-                "-m",
-                "cgm.train_frankenstein_mu",
-                "--data",
-                str(franken_csv),
-                "--out-dir",
-                str(models_dir),
-                "--variant",
-                model_variant,
-            ]
-        )
-
-    # 8) Predict upcoming (internal model probabilities)
+    # 7) Predict upcoming (internal model probabilities)
     if bool(args.next_round_only):
         _pipeline_cmd_extra = ["--next-round-only"]
     else:

@@ -15,7 +15,6 @@ import hashlib
 import logging
 import random
 
-import joblib
 import numpy as np
 import pandas as pd
 from scipy.stats import poisson
@@ -38,8 +37,7 @@ from cgm.pressure_inputs import ensure_pressure_inputs
 from cgm.pressure_form import add_pressure_form_features
 from cgm.xg_form import add_xg_form_features
 from cgm.goal_timing import build_team_timing_profiles, compute_match_timing
-from cgm.league_features import get_league_features_for_fixture
-from cgm.h2h_features import get_h2h_features_for_fixture
+from cgm.strict_mu_engine import compute_strict_weighted_mu
 
 
 LOG_PATH_DEFAULT = Path("reports/run_log.jsonl")
@@ -156,13 +154,14 @@ def _add_franken_features(df: pd.DataFrame, windows: List[int], alpha: float = 0
 
     def _ratio(num, den):
         try:
+            if num is None or den is None:
+                return np.nan
             num_f = float(num)
             den_f = float(den)
-            if den_f == 0 or np.isnan(den_f) or np.isnan(num_f):
+            if den_f == 0 or (not np.isfinite(den_f)) or (not np.isfinite(num_f)):
                 return np.nan
             return num_f / den_f
-        except Exception as e:
-            _logger.warning(f"_ratio error: {e}")
+        except Exception:
             return np.nan
 
     df["Attack_H"] = df.apply(lambda r: _ratio(r.get("H_gf_L5"), r.get("lg_avg_gf_home")), axis=1)
@@ -280,18 +279,116 @@ def _league_scalar(
     return float(np.clip(float(default_value), min_value, max_value))
 
 
-def _poisson_probs(mu_h: float, mu_a: float) -> dict:
-    max_goals = 10
-    ph = [poisson.pmf(i, mu_h) for i in range(max_goals + 1)]
-    pa = [poisson.pmf(i, mu_a) for i in range(max_goals + 1)]
-    P = np.outer(ph, pa)
+def _normalize_matrix(P: np.ndarray) -> np.ndarray:
+    total = float(np.nansum(P))
+    if not np.isfinite(total) or total <= 0:
+        n = int(P.shape[0]) if P.ndim == 2 else 1
+        return np.full((n, n), 1.0 / max(1, n * n), dtype=float)
+    return P / total
+
+
+def _max_goals_for_mu(mu_h: float, mu_a: float, floor: int = 10, cap: int = 14) -> int:
+    mu_total = max(0.01, float(mu_h) + float(mu_a))
+    dynamic = int(np.ceil(mu_total + 6.0 * np.sqrt(mu_total + 1.0)))
+    return int(np.clip(max(floor, dynamic), floor, cap))
+
+
+def _bivar_poisson_matrix(mu_h: float, mu_a: float, dep_strength: float, max_goals: int) -> np.ndarray:
+    mu_h = max(0.01, float(mu_h))
+    mu_a = max(0.01, float(mu_a))
+    n = int(max_goals)
+    dep_strength = float(np.clip(dep_strength, 0.0, 0.45))
+    lam_c = float(dep_strength * min(mu_h, mu_a))
+    lam_c = float(np.clip(lam_c, 0.0, max(0.0, min(mu_h, mu_a) - 1e-9)))
+    lam_h = max(1e-9, mu_h - lam_c)
+    lam_a = max(1e-9, mu_a - lam_c)
+
+    pu = np.array([poisson.pmf(i, lam_h) for i in range(n + 1)], dtype=float)
+    pv = np.array([poisson.pmf(i, lam_a) for i in range(n + 1)], dtype=float)
+    pw = np.array([poisson.pmf(i, lam_c) for i in range(n + 1)], dtype=float)
+
+    P = np.zeros((n + 1, n + 1), dtype=float)
+    for w in range(n + 1):
+        pw_w = float(pw[w])
+        if pw_w <= 0:
+            continue
+        vmax = n - w
+        pvw = pv[: vmax + 1]
+        for u in range(n - w + 1):
+            x = u + w
+            pu_u = float(pu[u])
+            if pu_u <= 0:
+                continue
+            P[x, w : vmax + w + 1] += pw_w * pu_u * pvw
+    return _normalize_matrix(P)
+
+
+def _dispersion_mixture_matrix(mu_h: float, mu_a: float, dep_strength: float, dispersion_alpha: float, max_goals: int) -> np.ndarray:
+    # Symmetric two-point mean mixture preserving E[mu], inflating variance:
+    # Var ~= mu + alpha * mu^2 via d = sqrt(alpha).
+    alpha = float(np.clip(dispersion_alpha, 0.0, 0.60))
+    if alpha <= 1e-12:
+        return _bivar_poisson_matrix(mu_h, mu_a, dep_strength, max_goals)
+    d = float(np.clip(np.sqrt(alpha), 0.0, 0.75))
+    mu_h_low = max(0.01, float(mu_h) * (1.0 - d))
+    mu_h_high = max(0.01, float(mu_h) * (1.0 + d))
+    mu_a_low = max(0.01, float(mu_a) * (1.0 - d))
+    mu_a_high = max(0.01, float(mu_a) * (1.0 + d))
+    combos = [
+        (mu_h_low, mu_a_low, 0.25),
+        (mu_h_low, mu_a_high, 0.25),
+        (mu_h_high, mu_a_low, 0.25),
+        (mu_h_high, mu_a_high, 0.25),
+    ]
+    P = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
+    for mh, ma, w in combos:
+        P += float(w) * _bivar_poisson_matrix(mh, ma, dep_strength, max_goals)
+    return _normalize_matrix(P)
+
+
+def _apply_dixon_coles_low_score(P: np.ndarray, mu_h: float, mu_a: float, rho: float) -> np.ndarray:
+    # Dixon-Coles style low-score adjustment on (0,0), (0,1), (1,0), (1,1).
+    rho = float(np.clip(rho, -0.30, 0.30))
+    if abs(rho) < 1e-12 or P.shape[0] < 2 or P.shape[1] < 2:
+        return _normalize_matrix(P)
+    T = np.ones_like(P, dtype=float)
+    T[0, 0] = 1.0 - float(mu_h * mu_a * rho)
+    T[0, 1] = 1.0 + float(mu_h * rho)
+    T[1, 0] = 1.0 + float(mu_a * rho)
+    T[1, 1] = 1.0 - float(rho)
+    T = np.clip(T, 0.05, 5.0)
+    return _normalize_matrix(P * T)
+
+
+def _poisson_probs(
+    mu_h: float,
+    mu_a: float,
+    *,
+    max_goals: int | None = None,
+    dep_strength: float = 0.0,
+    dispersion_alpha: float = 0.0,
+    dc_rho: float = 0.0,
+) -> dict:
+    n = _max_goals_for_mu(mu_h, mu_a) if max_goals is None else int(max(6, max_goals))
+    P = _dispersion_mixture_matrix(
+        mu_h=mu_h,
+        mu_a=mu_a,
+        dep_strength=dep_strength,
+        dispersion_alpha=dispersion_alpha,
+        max_goals=n,
+    )
+    P = _apply_dixon_coles_low_score(P, mu_h=mu_h, mu_a=mu_a, rho=dc_rho)
     home = np.tril(P, -1).sum()
     draw = np.diag(P).sum()
     away = np.triu(P, 1).sum()
-    ou25_over = P[np.add.outer(range(max_goals + 1), range(max_goals + 1)) > 2].sum()
+    goal_grid = np.add.outer(range(n + 1), range(n + 1))
+    ou25_over = P[goal_grid > 2].sum()
     ou25_under = 1.0 - ou25_over
+    p_btts_yes = float(P[1:, 1:].sum())
+    p_btts_no = float(1.0 - p_btts_yes)
     return {"p_home": float(home), "p_draw": float(draw), "p_away": float(away),
-            "p_over25": float(ou25_over), "p_under25": float(ou25_under)}
+            "p_over25": float(ou25_over), "p_under25": float(ou25_under),
+            "p_btts_yes": p_btts_yes, "p_btts_no": p_btts_no}
 
 
 def _parse_upcoming_datetime(datameci: object, orameci: object) -> pd.Timestamp:
@@ -327,19 +424,24 @@ def _log_run(meta: dict, out_path: Path) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Predict upcoming fixtures using Frankenstein models")
+    ap = argparse.ArgumentParser(description="Predict upcoming fixtures using strict module mu engine")
     ap.add_argument("--data-dir", default="data/api_football", help="Data directory containing normalized fixture files")
     ap.add_argument("--history", default="data/enhanced/cgm_match_history_with_elo_stats_xg.csv", help="Match history with features")
-    ap.add_argument("--models-dir", default="models", help="Directory with frankenstein_mu_home/away.pkl")
+    ap.add_argument("--models-dir", default="models", help="Compatibility argument (ignored by strict mu engine)")
     ap.add_argument(
         "--model-variant",
-        choices=["full", "no_odds"],
+        choices=["full", "no_odds", "no_lgavg"],
         default=str(getattr(config, "PIPELINE_DEFAULT_MODEL_VARIANT", "no_odds")),
-        help="Model variant (feature set)",
+        help="Prediction profile (odds usage toggles only; strict mu engine remains active)",
     )
     ap.add_argument("--out", default="reports/cgm_upcoming_predictions.csv", help="Output predictions CSV")
     ap.add_argument("--windows", nargs="+", type=int, default=[5, 10], help="Rolling windows")
-    ap.add_argument("--min-matches", type=int, default=8, help="Minimum matches required per team to use prediction")
+    ap.add_argument(
+        "--min-matches",
+        type=int,
+        default=int(getattr(config, "PIPELINE_MIN_MATCHES", 3) or 3),
+        help="Minimum matches required per team to use prediction",
+    )
 
     # Live scope (Milestone 4+). Defaults come from config.py; CLI overrides are deterministic.
     ap.add_argument("--as-of-date", default=None, help="Run as-of date (YYYY-MM-DD). Used to filter past fixtures strictly.")
@@ -426,6 +528,26 @@ def main() -> None:
     btts_yes_threshold_by_league = getattr(config, "BTTS_YES_THRESHOLD_BY_LEAGUE", {})
     mu_goal_multiplier_default = float(getattr(config, "MU_GOAL_MULTIPLIER_DEFAULT", 1.0))
     mu_goal_multiplier_by_league = getattr(config, "MU_GOAL_MULTIPLIER_BY_LEAGUE", {})
+    strict_module_mu_enabled = bool(getattr(config, "STRICT_MODULE_MU_ENABLED", False))
+    strict_module_weights = getattr(config, "STRICT_MODULE_WEIGHTS", {})
+    strict_default_anchor_home = float(getattr(config, "STRICT_MODULE_DEFAULT_ANCHOR_HOME", 1.35))
+    strict_default_anchor_away = float(getattr(config, "STRICT_MODULE_DEFAULT_ANCHOR_AWAY", 1.15))
+    strict_goals_clip_min = float(getattr(config, "STRICT_MODULE_GOALS_CLIP_MIN", 0.20))
+    strict_goals_clip_max = float(getattr(config, "STRICT_MODULE_GOALS_CLIP_MAX", 3.50))
+    strict_pressure_share_clip_min = float(getattr(config, "STRICT_MODULE_PRESSURE_SHARE_CLIP_MIN", 0.25))
+    strict_pressure_share_clip_max = float(getattr(config, "STRICT_MODULE_PRESSURE_SHARE_CLIP_MAX", 0.75))
+    strict_pressure_total_clip_min = float(getattr(config, "STRICT_MODULE_PRESSURE_TOTAL_CLIP_MIN", 0.85))
+    strict_pressure_total_clip_max = float(getattr(config, "STRICT_MODULE_PRESSURE_TOTAL_CLIP_MAX", 1.15))
+    strict_pressure_total_strength = float(getattr(config, "STRICT_MODULE_PRESSURE_TOTAL_STRENGTH", 0.70))
+    # Poisson V2 controls (incremental enhancement layer).
+    poisson_v2_enabled = bool(getattr(config, "POISSON_V2_ENABLED", True))
+    poisson_v2_max_goals = int(getattr(config, "POISSON_V2_MAX_GOALS", 12) or 12)
+    poisson_v2_disp_alpha_default = float(getattr(config, "POISSON_V2_DISPERSION_ALPHA_DEFAULT", 0.06))
+    poisson_v2_disp_alpha_by_league = getattr(config, "POISSON_V2_DISPERSION_ALPHA_BY_LEAGUE", {})
+    poisson_v2_dep_strength_default = float(getattr(config, "POISSON_V2_DEP_STRENGTH_DEFAULT", 0.08))
+    poisson_v2_dep_strength_by_league = getattr(config, "POISSON_V2_DEP_STRENGTH_BY_LEAGUE", {})
+    poisson_v2_dc_rho_default = float(getattr(config, "POISSON_V2_DC_RHO_DEFAULT", -0.04))
+    poisson_v2_dc_rho_by_league = getattr(config, "POISSON_V2_DC_RHO_BY_LEAGUE", {})
 
     # Derive as-of from CLI or (deterministically) from the history max date.
     as_of_date = None
@@ -527,20 +649,43 @@ def main() -> None:
     elo_home_col = "elo_home_calc" if "elo_home_calc" in hist.columns else "elo_home"
     elo_away_col = "elo_away_calc" if "elo_away_calc" in hist.columns else "elo_away"
 
-    # Infer the effective home advantage used in the history's EloDiff so inference matches training.
+    # Infer/resolve effective home advantage from history (league-specific when available).
+    home_adv_used = 65.0
+    home_adv_by_league: dict[str, float] = {}
     try:
-        if "EloDiff" in hist.columns and elo_home_col in hist.columns and elo_away_col in hist.columns:
-            adv_series = hist["EloDiff"] - (hist[elo_home_col] - hist[elo_away_col])
-            adv_series = (
-                pd.to_numeric(adv_series, errors="coerce")
+        if "elo_hfa_used" in hist.columns:
+            hfa_series = (
+                pd.to_numeric(hist["elo_hfa_used"], errors="coerce")
                 .replace([np.inf, -np.inf], np.nan)
-                .dropna()
             )
-            home_adv_used = float(adv_series.median()) if not adv_series.empty else 65.0
-        else:
-            home_adv_used = 65.0
+            home_adv_used = float(hfa_series.dropna().median()) if hfa_series.notna().any() else 65.0
+            if "league" in hist.columns:
+                hfa_df = pd.DataFrame({"league": hist["league"], "hfa": hfa_series}).dropna(subset=["league", "hfa"])
+                if not hfa_df.empty:
+                    home_adv_by_league = (
+                        hfa_df.groupby("league", dropna=False)["hfa"]
+                        .median()
+                        .astype(float)
+                        .to_dict()
+                    )
+        elif "EloDiff" in hist.columns and elo_home_col in hist.columns and elo_away_col in hist.columns:
+            adv_series = (
+                pd.to_numeric(hist["EloDiff"] - (hist[elo_home_col] - hist[elo_away_col]), errors="coerce")
+                .replace([np.inf, -np.inf], np.nan)
+            )
+            home_adv_used = float(adv_series.dropna().median()) if adv_series.notna().any() else 65.0
+            if "league" in hist.columns:
+                adv_df = pd.DataFrame({"league": hist["league"], "hfa": adv_series}).dropna(subset=["league", "hfa"])
+                if not adv_df.empty:
+                    home_adv_by_league = (
+                        adv_df.groupby("league", dropna=False)["hfa"]
+                        .median()
+                        .astype(float)
+                        .to_dict()
+                    )
     except Exception:
         home_adv_used = 65.0
+        home_adv_by_league = {}
 
     latest_elos: dict[str, float] = {}
     latest_team_meta: dict[str, dict] = {}
@@ -595,6 +740,11 @@ def main() -> None:
                 "sot": float(row.get("_press_dom_sot_H_post", 0.5)),
                 "corners": float(row.get("_press_dom_corners_H_post", 0.5)),
                 "pos": float(row.get("_press_dom_pos_H_post", 0.5)),
+                "goal_attempts": float(row.get("_press_dom_goal_attempts_H_post", 0.5)),
+                "shots_off": float(row.get("_press_dom_shots_off_H_post", 0.5)),
+                "blocked_shots": float(row.get("_press_dom_blocked_shots_H_post", 0.5)),
+                "attacks": float(row.get("_press_dom_attacks_H_post", 0.5)),
+                "dangerous_attacks": float(row.get("_press_dom_dangerous_attacks_H_post", 0.5)),
             }
             # Milestone 9: Decay features (use pre-match column which uses .shift() internally)
             if "press_form_H_decay" in row.index:
@@ -610,6 +760,11 @@ def main() -> None:
                 "sot": float(row.get("_press_dom_sot_A_post", 0.5)),
                 "corners": float(row.get("_press_dom_corners_A_post", 0.5)),
                 "pos": float(row.get("_press_dom_pos_A_post", 0.5)),
+                "goal_attempts": float(row.get("_press_dom_goal_attempts_A_post", 0.5)),
+                "shots_off": float(row.get("_press_dom_shots_off_A_post", 0.5)),
+                "blocked_shots": float(row.get("_press_dom_blocked_shots_A_post", 0.5)),
+                "attacks": float(row.get("_press_dom_attacks_A_post", 0.5)),
+                "dangerous_attacks": float(row.get("_press_dom_dangerous_attacks_A_post", 0.5)),
             }
             # Milestone 9: Decay features
             if "press_form_A_decay" in row.index:
@@ -944,60 +1099,19 @@ def main() -> None:
         logger.info("[TIMING] AGS.CSV not found; timing features disabled")
 
     model_variant = str(getattr(args, "model_variant", "full") or "full").strip() or "full"
-    suffix = "" if model_variant == "full" else f"_{model_variant}"
-    model_h_path = Path(args.models_dir) / f"frankenstein_mu_home{suffix}.pkl"
-    model_a_path = Path(args.models_dir) / f"frankenstein_mu_away{suffix}.pkl"
-    if not model_h_path.exists() or not model_a_path.exists():
-        raise FileNotFoundError(
-            f"Missing model files for variant='{model_variant}': {model_h_path} / {model_a_path}. "
-            f"Train them via: python -m cgm.train_frankenstein_mu --variant {model_variant}"
+    mu_engine_mode = "strict_module_weights_v1"
+    if not strict_module_mu_enabled:
+        raise RuntimeError(
+            "STRICT_MODULE_MU_ENABLED must be True. Legacy trained-model mu engines are archived and disabled."
         )
-    model_h_hash = file_hash(model_h_path)
-    model_a_hash = file_hash(model_a_path)
-    model_h = joblib.load(model_h_path)
-    model_a = joblib.load(model_a_path)
-
-    # Probability calibration intentionally disabled.
-    # Predictions use raw model + Poisson probabilities only.
-    logger.info("[CALIB] disabled; using raw probabilities")
-
-
-    # Feature contract audit
-    feat_cols_h = getattr(model_h, "feature_names_in_", None)
-    if feat_cols_h is None or len(feat_cols_h) == 0:
-        feat_cols_h = model_h.get_booster().feature_names
-    feat_cols_a = getattr(model_a, "feature_names_in_", None)
-    if feat_cols_a is None or len(feat_cols_a) == 0:
-        feat_cols_a = model_a.get_booster().feature_names
-    feat_cols_h = list(feat_cols_h)
-    feat_cols_a = list(feat_cols_a)
-    common_feats = sorted(set(feat_cols_h) | set(feat_cols_a))
-
-    # Poison-pill: inference must never require raw post-match truth/current-match stats.
-    banned_exact = {
-        "ft_home", "ft_away", "ht_home", "ht_away", "result", "validated",
-        "shots", "shots_on_target", "corners", "possession_home", "possession_away",
-        "shots_H", "shots_A", "sot_H", "sot_A", "corners_H", "corners_A", "pos_H", "pos_A",
-        # Milestone 2/3 internal helpers and current-match derived xG proxy columns.
-        "xg_proxy_H", "xg_proxy_A", "xg_usable",
-        "shot_quality_H", "shot_quality_A", "finishing_luck_H", "finishing_luck_A",
-    }
-    banned_prefixes = ("_press_", "_xg_")
-    banned_in_model = sorted([c for c in common_feats if (c in banned_exact) or c.startswith(banned_prefixes)])
-    if banned_in_model:
-        raise AssertionError(f"Banned features in model contract: {banned_in_model}")
-    logger.info("[ELO][FEATS] model features home=%d away=%d union=%d", len(feat_cols_h), len(feat_cols_a), len(common_feats))
+    logger.info("[MU_ENGINE] strict module weights enabled")
     log_json(
         {
-            "event": "ELO_FEATS",
-            "model_home": str(model_h_path),
-            "model_home_hash": model_h_hash,
-            "model_away": str(model_a_path),
-            "model_away_hash": model_a_hash,
+            "event": "STRICT_MU_ENGINE",
+            "enabled": True,
+            "mode": mu_engine_mode,
+            "weights": strict_module_weights,
             "model_variant": model_variant,
-            "feat_home": len(feat_cols_h),
-            "feat_away": len(feat_cols_a),
-            "feat_union": len(common_feats),
         },
         log_path=Path(args.log_json),
     )
@@ -1037,7 +1151,8 @@ def main() -> None:
                 logger.warning("[UNSEEN] away team '%s' (raw: '%s') not in history - using defaults", away, away_raw)
             skipped.append((home, away, "missing_snapshot"))
             continue
-        if counts.get(home, 0) < args.min_matches or counts.get(away, 0) < args.min_matches:
+        team_history_low = int(counts.get(home, 0) < args.min_matches or counts.get(away, 0) < args.min_matches)
+        if (not strict_module_mu_enabled) and team_history_low:
             # Log low-history teams
             if counts.get(home, 0) < args.min_matches:
                 logger.warning("[LOW_HISTORY] home '%s' has only %d matches (min=%d)", home, counts.get(home, 0), args.min_matches)
@@ -1061,11 +1176,14 @@ def main() -> None:
 
         elo_home = latest_elos.get(home)
         elo_away = latest_elos.get(away)
-        if elo_home is None or elo_away is None:
+        if (not strict_module_mu_enabled) and (elo_home is None or elo_away is None):
             skipped.append((home, away, "missing_elo"))
             continue
-        elo_diff = elo_home - elo_away
-        elo_diff_bonus = elo_diff + home_adv_used
+        elo_home = float(elo_home) if elo_home is not None else np.nan
+        elo_away = float(elo_away) if elo_away is not None else np.nan
+        elo_diff = elo_home - elo_away if np.isfinite(elo_home) and np.isfinite(elo_away) else np.nan
+        home_adv_fixture = float(home_adv_by_league.get(league, home_adv_used))
+        elo_diff_bonus = elo_diff + home_adv_fixture if np.isfinite(elo_diff) else np.nan
         band_h = _band_from_diff(elo_diff_bonus)
         band_a = _band_from_diff(-elo_diff_bonus)
 
@@ -1095,8 +1213,8 @@ def main() -> None:
 
         press_z_h = 0.0 if ph_std <= 0 or np.isnan(ph_std) else float((press_form_h - ph_mean) / ph_std)
         press_z_a = 0.0 if pa_std <= 0 or np.isnan(pa_std) else float((press_form_a - pa_mean) / pa_std)
-        elo_z_h = 0.0 if elo_std <= 0 or np.isnan(elo_std) else float((elo_home - elo_mean) / elo_std)
-        elo_z_a = 0.0 if elo_std <= 0 or np.isnan(elo_std) else float((elo_away - elo_mean) / elo_std)
+        elo_z_h = 0.0 if (elo_std <= 0 or np.isnan(elo_std) or not np.isfinite(elo_home)) else float((elo_home - elo_mean) / elo_std)
+        elo_z_a = 0.0 if (elo_std <= 0 or np.isnan(elo_std) or not np.isfinite(elo_away)) else float((elo_away - elo_mean) / elo_std)
         div_team_h = press_z_h - elo_z_h
         div_team_a = press_z_a - elo_z_a
         div_diff = div_team_h - div_team_a
@@ -1150,13 +1268,13 @@ def main() -> None:
         assassin_h = int((xg_stats_n_h > 0.0) and (press_z_h <= -1.0) and (xg_z_h >= 1.0))
         assassin_a = int((xg_stats_n_a > 0.0) and (press_z_a <= -1.0) and (xg_z_a >= 1.0))
 
-        odds_home = r.get("cotaa", r.get("odds_home"))
-        odds_draw = r.get("cotae", r.get("odds_draw"))
-        odds_away = r.get("cotad", r.get("odds_away"))
-        odds_over = r.get("cotao", r.get("odds_over25"))
-        odds_under = r.get("cotau", r.get("odds_under25"))
-        odds_btts_yes = r.get("gg", r.get("odds_btts_yes"))
-        odds_btts_no = r.get("ng", r.get("odds_btts_no"))
+        odds_home = pd.to_numeric(r.get("cotaa", r.get("odds_home")), errors="coerce")
+        odds_draw = pd.to_numeric(r.get("cotae", r.get("odds_draw")), errors="coerce")
+        odds_away = pd.to_numeric(r.get("cotad", r.get("odds_away")), errors="coerce")
+        odds_over = pd.to_numeric(r.get("cotao", r.get("odds_over25")), errors="coerce")
+        odds_under = pd.to_numeric(r.get("cotau", r.get("odds_under25")), errors="coerce")
+        odds_btts_yes = pd.to_numeric(r.get("gg", r.get("odds_btts_yes")), errors="coerce")
+        odds_btts_no = pd.to_numeric(r.get("ng", r.get("odds_btts_no")), errors="coerce")
         imp_1x2 = _implied_probs_1x2(odds_home, odds_draw, odds_away)
         imp_ou = _implied_probs_two_way(odds_over, odds_under)
         if model_variant == "no_odds":
@@ -1174,174 +1292,46 @@ def main() -> None:
         sigma = float(sigma_map.get(str(league), default_sigma))
         h_hist = elo_histories.get(home, {}).get("home", pd.DataFrame())
         a_hist = elo_histories.get(away, {}).get("away", pd.DataFrame())
-        gf_h, ga_h, w_h, n_h = kernel_similarity(h_hist, elo_away, sigma, as_of=as_of, inclusive=False)
-        gf_a, ga_a, w_a, n_a = kernel_similarity(a_hist, elo_home, sigma, as_of=as_of, inclusive=False)
-
-        feat_cols = feat_cols_h  # assume same feature set for home/away models
-
-        band_home_stats = band_stats.get(home, {}).get("home", {}).get(band_h, {})
-        band_away_stats = band_stats.get(away, {}).get("away", {}).get(band_a, {})
-
-        feats: dict[str, float | str | None] = {
-            "season": season,
-            "country": country,
-            "league": league,
-            "elo_home": elo_home,
-            "elo_away": elo_away,
-            "elo_diff": elo_diff,
-            "home_bonus_elo": home_bonus_f,
-            "EloDiff": elo_diff_bonus,
-            "Band_H": band_h,
-            "Band_A": band_a,
-            "odds_home": odds_home,
-            "odds_draw": odds_draw,
-            "odds_away": odds_away,
-            "odds_over": odds_over,
-            "odds_under": odds_under,
-            "odds_btts_yes": odds_btts_yes,
-            "odds_btts_no": odds_btts_no,
-            # Training data stores these as percentages (0..100). Keep inference on the same scale.
-            "p_home": (100.0 * imp_1x2["p_home"]) if imp_1x2["p_home"] is not None and not np.isnan(imp_1x2["p_home"]) else np.nan,
-            "p_draw": (100.0 * imp_1x2["p_draw"]) if imp_1x2["p_draw"] is not None and not np.isnan(imp_1x2["p_draw"]) else np.nan,
-            "p_away": (100.0 * imp_1x2["p_away"]) if imp_1x2["p_away"] is not None and not np.isnan(imp_1x2["p_away"]) else np.nan,
-            "fair_home": (1 / imp_1x2["p_home"]) if imp_1x2["p_home"] and not np.isnan(imp_1x2["p_home"]) else np.nan,
-            "fair_draw": (1 / imp_1x2["p_draw"]) if imp_1x2["p_draw"] and not np.isnan(imp_1x2["p_draw"]) else np.nan,
-            "fair_away": (1 / imp_1x2["p_away"]) if imp_1x2["p_away"] and not np.isnan(imp_1x2["p_away"]) else np.nan,
-            "p_over": (100.0 * imp_ou["p_over"]) if imp_ou["p_over"] is not None and not np.isnan(imp_ou["p_over"]) else np.nan,
-            "p_under": (100.0 * imp_ou["p_under"]) if imp_ou["p_under"] is not None and not np.isnan(imp_ou["p_under"]) else np.nan,
-            "fair_over": (1 / imp_ou["p_over"]) if imp_ou["p_over"] and not np.isnan(imp_ou["p_over"]) else np.nan,
-            "fair_under": (1 / imp_ou["p_under"]) if imp_ou["p_under"] and not np.isnan(imp_ou["p_under"]) else np.nan,
-            "form_home": pd.to_numeric(r.get("formah"), errors="coerce"),
-            "form_away": pd.to_numeric(r.get("formaa"), errors="coerce"),
-            "H_gf_vs_band": band_home_stats.get("gf", np.nan),
-            "H_ga_vs_band": band_home_stats.get("ga", np.nan),
-            "A_gf_vs_band": band_away_stats.get("gf", np.nan),
-            "A_ga_vs_band": band_away_stats.get("ga", np.nan),
-            "GFvsSim_H": gf_h,
-            "GAvsSim_H": ga_h,
-            "GFvsSim_A": gf_a,
-            "GAvsSim_A": ga_a,
-            "wsum_sim_H": w_h,
-            "wsum_sim_A": w_a,
-            "neff_sim_H": n_h,
-            "neff_sim_A": n_a,
-            # Milestone 2: Pressure Cooker
-            "press_form_H": press_form_h,
-            "press_form_A": press_form_a,
-            "press_n_H": press_n_h,
-            "press_n_A": press_n_a,
-            "press_stats_n_H": press_stats_n_h,
-            "press_stats_n_A": press_stats_n_a,
-            "press_dom_shots_H": float(dom_h.get("shots", 0.5)),
-            "press_dom_sot_H": float(dom_h.get("sot", 0.5)),
-            "press_dom_corners_H": float(dom_h.get("corners", 0.5)),
-            "press_dom_pos_H": float(dom_h.get("pos", 0.5)),
-            "press_dom_shots_A": float(dom_a.get("shots", 0.5)),
-            "press_dom_sot_A": float(dom_a.get("sot", 0.5)),
-            "press_dom_corners_A": float(dom_a.get("corners", 0.5)),
-            "press_dom_pos_A": float(dom_a.get("pos", 0.5)),
-            "press_z_H": press_z_h,
-            "press_z_A": press_z_a,
-            "elo_z_H": elo_z_h,
-            "elo_z_A": elo_z_a,
-            "div_team_H": div_team_h,
-            "div_team_A": div_team_a,
-            "div_diff": div_diff,
-            "pressure_usable": pressure_usable,
-            # Milestone 3: xG-proxy Sniper
-            "xg_for_form_H": xg_for_h,
-            "xg_against_form_H": xg_against_h,
-            "xg_diff_form_H": xg_diff_h,
-            "xg_shot_quality_form_H": xg_shot_quality_h,
-            "xg_finishing_luck_form_H": xg_finishing_luck_h,
-            "xg_n_H": xg_n_h,
-            "xg_stats_n_H": xg_stats_n_h,
-            "xg_for_form_A": xg_for_a,
-            "xg_against_form_A": xg_against_a,
-            "xg_diff_form_A": xg_diff_a,
-            "xg_shot_quality_form_A": xg_shot_quality_a,
-            "xg_finishing_luck_form_A": xg_finishing_luck_a,
-            "xg_n_A": xg_n_a,
-            "xg_stats_n_A": xg_stats_n_a,
-            "xg_z_H": xg_z_h,
-            "xg_z_A": xg_z_a,
-            "div_px_team_H": div_px_team_h,
-            "div_px_team_A": div_px_team_a,
-            "div_px_diff": div_px_diff,
-            "sterile_H": sterile_h,
-            "sterile_A": sterile_a,
-            "assassin_H": assassin_h,
-            "assassin_A": assassin_a,
-            # Milestone 9: Decay features
-            "press_form_H_decay": float(latest_press_decay_home.get(home, 0.5)),
-            "press_form_A_decay": float(latest_press_decay_away.get(away, 0.5)),
-            "xg_for_form_H_decay": float(latest_xg_for_decay_home.get(home, 0.0)),
-            "xg_against_form_H_decay": float(latest_xg_against_decay_home.get(home, 0.0)),
-            "xg_for_form_A_decay": float(latest_xg_for_decay_away.get(away, 0.0)),
-            "xg_against_form_A_decay": float(latest_xg_against_decay_away.get(away, 0.0)),
-        }
-
-        # Milestone 11: League-Specific Features (scoring patterns per competition)
-        league_features_enabled = getattr(config, "LEAGUE_FEATURES_ENABLED", True)
-        if league_features_enabled:
-            lg_feats = get_league_features_for_fixture(
-                hist, country=str(country or ""), league=str(league or ""), as_of=as_of
-            )
-            feats.update(lg_feats)
-
-        # Milestone 10: Head-to-Head Features (direct matchup patterns)
-        h2h_enabled = getattr(config, "H2H_ENABLED", True)
-        if h2h_enabled:
-            h2h_feats = get_h2h_features_for_fixture(
-                hist, home=home, away=away, as_of_datetime=as_of
-            )
-            feats.update(h2h_feats)
-
-
-        for w in args.windows:
-            feats[f"H_gf_L{w}"] = snap_h.get(f"H_gf_L{w}", np.nan)
-            feats[f"H_ga_L{w}"] = snap_h.get(f"H_ga_L{w}", np.nan)
-            feats[f"H_sot_for_L{w}"] = snap_h.get(f"H_sot_for_L{w}", np.nan)
-            feats[f"H_cor_for_L{w}"] = snap_h.get(f"H_cor_for_L{w}", np.nan)
-            feats[f"H_poss_for_L{w}"] = snap_h.get(f"H_poss_for_L{w}", np.nan)
-
-            feats[f"A_gf_L{w}"] = snap_a.get(f"A_gf_L{w}", np.nan)
-            feats[f"A_ga_L{w}"] = snap_a.get(f"A_ga_L{w}", np.nan)
-            feats[f"A_sot_for_L{w}"] = snap_a.get(f"A_sot_for_L{w}", np.nan)
-            feats[f"A_cor_for_L{w}"] = snap_a.get(f"A_cor_for_L{w}", np.nan)
-            feats[f"A_poss_for_L{w}"] = snap_a.get(f"A_poss_for_L{w}", np.nan)
-
-            feats[f"H_shot_quality_L{w}"] = snap_h.get(f"H_shot_quality_L{w}", np.nan)
-            feats[f"H_finish_rate_L{w}"] = snap_h.get(f"H_finish_rate_L{w}", np.nan)
-            feats[f"A_shot_quality_L{w}"] = snap_a.get(f"A_shot_quality_L{w}", np.nan)
-            feats[f"A_finish_rate_L{w}"] = snap_a.get(f"A_finish_rate_L{w}", np.nan)
-
-        feats["Attack_H"] = snap_h.get("Attack_H", np.nan)
-        feats["Defense_H"] = snap_h.get("Defense_H", np.nan)
-        feats["Attack_A"] = snap_a.get("Attack_A", np.nan)
-        feats["Defense_A"] = snap_a.get("Defense_A", np.nan)
-        feats["Expected_Destruction_H"] = snap_h.get("Expected_Destruction_H", np.nan)
-        feats["Expected_Destruction_A"] = snap_a.get("Expected_Destruction_A", np.nan)
+        if np.isfinite(elo_away):
+            gf_h, ga_h, w_h, n_h = kernel_similarity(h_hist, elo_away, sigma, as_of=as_of, inclusive=False)
+        else:
+            gf_h, ga_h, w_h, n_h = (np.nan, np.nan, 0.0, 0.0)
+        if np.isfinite(elo_home):
+            gf_a, ga_a, w_a, n_a = kernel_similarity(a_hist, elo_home, sigma, as_of=as_of, inclusive=False)
+        else:
+            gf_a, ga_a, w_a, n_a = (np.nan, np.nan, 0.0, 0.0)
 
         lg_defaults = league_meta.get(league, {})
-        for c in league_avg_cols:
-            feats[c] = snap_h.get(c, snap_a.get(c, lg_defaults.get(c, np.nan)))
-
-        feat_cols = list(feat_cols)
-        row_dict = {c: feats.get(c, np.nan) for c in feat_cols}
-        missing = [c for c in feat_cols if c not in feats]
-        if missing:
-            logger.error("[ELO][FEATS] missing features for %s vs %s: %s", home, away, missing)
-            raise AssertionError(f"Missing features for {home} vs {away}: {missing}")
-        X_row = pd.DataFrame([row_dict])
-        X_row = X_row.apply(pd.to_numeric, errors="coerce").fillna(0.0)
-        required_feats = [f"H_gf_L{args.windows[0]}", f"A_gf_L{args.windows[0]}"]
-        if any(pd.isna(row_dict.get(f)) for f in required_feats):
-            skipped.append((home, away, "missing_core_features"))
-            continue
-
-        mu_h_raw = float(model_h.predict(X_row)[0])
-        mu_a_raw = float(model_a.predict(X_row)[0])
+        strict_mu_result = compute_strict_weighted_mu(
+            weights=strict_module_weights if isinstance(strict_module_weights, dict) else {},
+            lg_avg_gf_home=snap_h.get("lg_avg_gf_home", snap_a.get("lg_avg_gf_home", lg_defaults.get("lg_avg_gf_home", np.nan))),
+            lg_avg_gf_away=snap_h.get("lg_avg_gf_away", snap_a.get("lg_avg_gf_away", lg_defaults.get("lg_avg_gf_away", np.nan))),
+            default_anchor_home=strict_default_anchor_home,
+            default_anchor_away=strict_default_anchor_away,
+            gf_home_vs_sim=gf_h,
+            ga_home_vs_sim=ga_h,
+            gf_away_vs_sim=gf_a,
+            ga_away_vs_sim=ga_a,
+            xg_for_home=xg_for_h,
+            xg_against_home=xg_against_h,
+            xg_for_away=xg_for_a,
+            xg_against_away=xg_against_a,
+            xg_usable=bool(xg_usable),
+            press_form_home=press_form_h,
+            press_form_away=press_form_a,
+            dom_home=dom_h,
+            dom_away=dom_a,
+            pressure_usable=bool(pressure_usable),
+            goals_clip_min=strict_goals_clip_min,
+            goals_clip_max=strict_goals_clip_max,
+            pressure_share_clip_min=strict_pressure_share_clip_min,
+            pressure_share_clip_max=strict_pressure_share_clip_max,
+            pressure_total_clip_min=strict_pressure_total_clip_min,
+            pressure_total_clip_max=strict_pressure_total_clip_max,
+            pressure_total_strength=strict_pressure_total_strength,
+        )
+        mu_h_raw = float(strict_mu_result.mu_home_raw)
+        mu_a_raw = float(strict_mu_result.mu_away_raw)
         mu_mult = _league_scalar(
             str(league),
             default_value=mu_goal_multiplier_default,
@@ -1352,7 +1342,38 @@ def main() -> None:
         # Apply league-level drift correction before Poisson conversion.
         mu_h = max(0.01, float(mu_h_raw * mu_mult))
         mu_a = max(0.01, float(mu_a_raw * mu_mult))
-        probs = _poisson_probs(mu_h, mu_a)
+        pois_disp_alpha = _league_scalar(
+            str(league),
+            default_value=poisson_v2_disp_alpha_default,
+            overrides=poisson_v2_disp_alpha_by_league if isinstance(poisson_v2_disp_alpha_by_league, dict) else {},
+            min_value=0.0,
+            max_value=0.60,
+        )
+        pois_dep_strength = _league_scalar(
+            str(league),
+            default_value=poisson_v2_dep_strength_default,
+            overrides=poisson_v2_dep_strength_by_league if isinstance(poisson_v2_dep_strength_by_league, dict) else {},
+            min_value=0.0,
+            max_value=0.45,
+        )
+        pois_dc_rho = _league_scalar(
+            str(league),
+            default_value=poisson_v2_dc_rho_default,
+            overrides=poisson_v2_dc_rho_by_league if isinstance(poisson_v2_dc_rho_by_league, dict) else {},
+            min_value=-0.30,
+            max_value=0.30,
+        )
+        if poisson_v2_enabled:
+            probs = _poisson_probs(
+                mu_h,
+                mu_a,
+                max_goals=poisson_v2_max_goals,
+                dep_strength=pois_dep_strength,
+                dispersion_alpha=pois_disp_alpha,
+                dc_rho=pois_dc_rho,
+            )
+        else:
+            probs = _poisson_probs(mu_h, mu_a, max_goals=poisson_v2_max_goals)
         neff_h_list.append(n_h)
         neff_a_list.append(n_a)
 
@@ -1367,6 +1388,7 @@ def main() -> None:
                     "elo": {
                         "home": elo_home,
                         "away": elo_away,
+                        "hfa_used": home_adv_fixture,
                         "home_bonus": home_bonus_f,
                         "elo_diff": elo_diff,
                         "elo_diff_bonus": elo_diff_bonus,
@@ -1387,11 +1409,21 @@ def main() -> None:
                         "neff_sim_A": n_a,
                     },
                     "mu": {
+                        "engine_mode": mu_engine_mode,
                         "home_raw": mu_h_raw,
                         "away_raw": mu_a_raw,
                         "multiplier": mu_mult,
                         "home": mu_h,
                         "away": mu_a,
+                        "anchor_home": float(strict_mu_result.anchor_home) if strict_mu_result is not None else np.nan,
+                        "anchor_away": float(strict_mu_result.anchor_away) if strict_mu_result is not None else np.nan,
+                        "elo_home": float(strict_mu_result.elo_home) if strict_mu_result is not None else np.nan,
+                        "elo_away": float(strict_mu_result.elo_away) if strict_mu_result is not None else np.nan,
+                        "xg_home": float(strict_mu_result.xg_home) if strict_mu_result is not None else np.nan,
+                        "xg_away": float(strict_mu_result.xg_away) if strict_mu_result is not None else np.nan,
+                        "pressure_home": float(strict_mu_result.pressure_home) if strict_mu_result is not None else np.nan,
+                        "pressure_away": float(strict_mu_result.pressure_away) if strict_mu_result is not None else np.nan,
+                        "neutralized_modules": list(strict_mu_result.neutralized_modules) if strict_mu_result is not None else [],
                     },
                     "probs": probs,
                 },
@@ -1408,16 +1440,9 @@ def main() -> None:
         ev_over = ev(probs["p_over25"], odds_over)
         ev_under = ev(probs["p_under25"], odds_under)
 
-        # BTTS (Yes/No) derived from mu under Poisson independence.
-        # P(BTTS=Yes) = (1 - e^-mu_home) * (1 - e^-mu_away)
-        try:
-            p_btts_yes = float((1.0 - np.exp(-mu_h)) * (1.0 - np.exp(-mu_a)))
-            p_btts_yes = float(np.clip(p_btts_yes, 0.0, 1.0))
-        except Exception as e:
-            logger.debug(f"BTTS calc error for mu_h={mu_h}, mu_a={mu_a}: {e}")
-            p_btts_yes = np.nan
-        
-        p_btts_no = (1.0 - p_btts_yes) if np.isfinite(p_btts_yes) else np.nan
+        # BTTS from same joint score engine (Poisson V2), not independence shortcut.
+        p_btts_yes = float(probs.get("p_btts_yes", np.nan))
+        p_btts_no = float(probs.get("p_btts_no", np.nan)) if np.isfinite(p_btts_yes) else np.nan
 
         ev_btts_yes = ev(p_btts_yes, odds_btts_yes)
         ev_btts_no = ev(p_btts_no, odds_btts_no)
@@ -1447,6 +1472,51 @@ def main() -> None:
             "late_goal_flag": int(timing.get("late_goal_flag", 0) or 0),
         }
 
+        # Row-level data quality flags for easy non-technical review in output CSV.
+        quality_flags: List[str] = []
+        if pressure_usable <= 0:
+            quality_flags.append("pressure_unusable")
+        if xg_usable <= 0:
+            quality_flags.append("xg_unusable")
+        if team_history_low:
+            quality_flags.append("team_history_low")
+        if strict_mu_result is not None:
+            for module_name in strict_mu_result.neutralized_modules:
+                quality_flags.append(f"{module_name}_neutralized")
+
+        if (press_stats_n_h <= 0.0) or (press_stats_n_a <= 0.0):
+            quality_flags.append("press_stats_missing")
+        elif min(press_stats_n_h, press_stats_n_a) < 3.0:
+            quality_flags.append("press_stats_low")
+
+        if (xg_stats_n_h <= 0.0) or (xg_stats_n_a <= 0.0):
+            quality_flags.append("xg_stats_missing")
+        elif min(xg_stats_n_h, xg_stats_n_a) < 3.0:
+            quality_flags.append("xg_stats_low")
+
+        if (n_h < float(args.min_matches)) or (n_a < float(args.min_matches)):
+            quality_flags.append("elo_evidence_low")
+
+        if not (np.isfinite(odds_over) and np.isfinite(odds_under)):
+            quality_flags.append("odds_ou_missing")
+        if not (np.isfinite(odds_btts_yes) and np.isfinite(odds_btts_no)):
+            quality_flags.append("odds_btts_missing")
+
+        critical_flags = {
+            "pressure_unusable",
+            "xg_unusable",
+            "press_stats_missing",
+            "xg_stats_missing",
+            "elo_evidence_low",
+        }
+        quality_critical = int(any(flag in critical_flags for flag in quality_flags))
+        if quality_critical:
+            quality_status = "BAD"
+        elif quality_flags:
+            quality_status = "WARN"
+        else:
+            quality_status = "OK"
+
         preds.append(
             {
                 "fixture_datetime": fixture_dt.isoformat() if not pd.isna(fixture_dt) else str(
@@ -1459,6 +1529,7 @@ def main() -> None:
                 "home": home,
                 "away": away,
                 "model_variant": model_variant,
+                "mu_engine_mode": mu_engine_mode,
                 # Scope metadata (copied into every row; deterministic audit trail)
                 "run_asof_datetime": run_asof_datetime.isoformat(),
                 "scope_country": scope_country or "",
@@ -1482,7 +1553,24 @@ def main() -> None:
                 "mu_home_raw": mu_h_raw,
                 "mu_away_raw": mu_a_raw,
                 "mu_goal_multiplier": mu_mult,
+                "mu_anchor_home": float(strict_mu_result.anchor_home) if strict_mu_result is not None else np.nan,
+                "mu_anchor_away": float(strict_mu_result.anchor_away) if strict_mu_result is not None else np.nan,
+                "mu_elo_home": float(strict_mu_result.elo_home) if strict_mu_result is not None else np.nan,
+                "mu_elo_away": float(strict_mu_result.elo_away) if strict_mu_result is not None else np.nan,
+                "mu_xg_home": float(strict_mu_result.xg_home) if strict_mu_result is not None else np.nan,
+                "mu_xg_away": float(strict_mu_result.xg_away) if strict_mu_result is not None else np.nan,
+                "mu_pressure_home": float(strict_mu_result.pressure_home) if strict_mu_result is not None else np.nan,
+                "mu_pressure_away": float(strict_mu_result.pressure_away) if strict_mu_result is not None else np.nan,
+                "mu_weight_anchor": float(strict_module_weights.get("league_anchor", np.nan)) if isinstance(strict_module_weights, dict) else np.nan,
+                "mu_weight_elo": float(strict_module_weights.get("elo", np.nan)) if isinstance(strict_module_weights, dict) else np.nan,
+                "mu_weight_xg": float(strict_module_weights.get("xg", np.nan)) if isinstance(strict_module_weights, dict) else np.nan,
+                "mu_weight_pressure": float(strict_module_weights.get("pressure", np.nan)) if isinstance(strict_module_weights, dict) else np.nan,
+                "poisson_v2_enabled": int(poisson_v2_enabled),
+                "poisson_v2_disp_alpha": float(pois_disp_alpha),
+                "poisson_v2_dep_strength": float(pois_dep_strength),
+                "poisson_v2_dc_rho": float(pois_dc_rho),
                 "mu_total": mu_h + mu_a,
+                "elo_hfa_used": home_adv_fixture,
                 "p_over25": probs["p_over25"],
                 "p_under25": probs["p_under25"],
                 "p_over_2_5": probs["p_over25"],
@@ -1520,6 +1608,11 @@ def main() -> None:
                 "odds_btts_no": odds_btts_no,
                 "EV_btts_yes": ev_btts_yes,
                 "EV_btts_no": ev_btts_no,
+                # Data quality flags (explicitly surface weak/missing evidence rows).
+                "quality_status": quality_status,
+                "quality_critical": quality_critical,
+                "quality_issue_count": int(len(quality_flags)),
+                "quality_flags": ";".join(quality_flags),
                 # Milestone 7.2 timing flags (risk gating only)
                 **timing_payload,
                 # Reliability/evidence (required by Milestone 4 pick engine)
@@ -1553,6 +1646,7 @@ def main() -> None:
                 "home",
                 "away",
                 "model_variant",
+                "mu_engine_mode",
                 "run_asof_datetime",
                 "scope_country",
                 "scope_league",
@@ -1575,7 +1669,24 @@ def main() -> None:
                 "mu_home_raw",
                 "mu_away_raw",
                 "mu_goal_multiplier",
+                "mu_anchor_home",
+                "mu_anchor_away",
+                "mu_elo_home",
+                "mu_elo_away",
+                "mu_xg_home",
+                "mu_xg_away",
+                "mu_pressure_home",
+                "mu_pressure_away",
+                "mu_weight_anchor",
+                "mu_weight_elo",
+                "mu_weight_xg",
+                "mu_weight_pressure",
+                "poisson_v2_enabled",
+                "poisson_v2_disp_alpha",
+                "poisson_v2_dep_strength",
+                "poisson_v2_dc_rho",
                 "mu_total",
+                "elo_hfa_used",
                 "p_over25",
                 "p_under25",
                 "p_over_2_5",
@@ -1594,6 +1705,10 @@ def main() -> None:
                 "odds_btts_no",
                 "EV_btts_yes",
                 "EV_btts_no",
+                "quality_status",
+                "quality_critical",
+                "quality_issue_count",
+                "quality_flags",
                 # Milestone 7.2 timing flags (risk gating only)
                 "timing_usable",
                 "timing_home_usable",
@@ -1633,7 +1748,8 @@ def main() -> None:
     _log_run({"task": "predict_upcoming", "history": str(Path(args.history).resolve()),
               "upcoming": str(primary_source.resolve()),
               "model_variant": model_variant,
-              "models": [str(model_h_path), str(model_a_path)],
+              "mu_engine_mode": mu_engine_mode,
+              "models": [],
               "windows": args.windows, "rows": len(out_df), "skipped": skipped[:10],
               "skipped_counts": skipped_reasons,
               "mu_total_min": float(mu_total.min()) if not mu_total.empty else None,
@@ -1657,19 +1773,23 @@ def main() -> None:
             "history_hash": hist_hash,
             "upcoming": str(primary_source),
             "upcoming_hash": file_hash(primary_source) if primary_source.exists() else None,
-            "models": {
-                "home": str(model_h_path),
-                "home_hash": model_h_hash,
-                "away": str(model_a_path),
-                "away_hash": model_a_hash,
-            },
+            "models": {},
             "config": {
+                "mu_engine_mode": mu_engine_mode,
+                "strict_module_mu_enabled": bool(strict_module_mu_enabled),
+                "strict_module_weights": strict_module_weights if isinstance(strict_module_weights, dict) else {},
                 "sigma_map": sigma_map,
                 "default_sigma": default_sigma,
                 "min_matches": args.min_matches,
                 "windows": args.windows,
+                "poisson_v2_enabled": bool(poisson_v2_enabled),
+                "poisson_v2_max_goals": int(poisson_v2_max_goals),
+                "poisson_v2_disp_alpha_default": float(poisson_v2_disp_alpha_default),
+                "poisson_v2_dep_strength_default": float(poisson_v2_dep_strength_default),
+                "poisson_v2_dc_rho_default": float(poisson_v2_dc_rho_default),
             },
             "rows": len(out_df),
+            "quality_status_counts": out_df["quality_status"].value_counts().to_dict() if ("quality_status" in out_df.columns and not out_df.empty) else {},
             "skipped_counts": skipped_reasons,
             "mu_total_min": float(mu_total.min()) if not mu_total.empty else None,
             "mu_total_max": float(mu_total.max()) if not mu_total.empty else None,

@@ -1,0 +1,86 @@
+{
+  "counts": {
+    "fixtures_finished": 10,
+    "fixtures_total": 10,
+    "fixtures_upcoming": 0
+  },
+  "coverage": {
+    "history": {
+      "rows": 10,
+      "with_btts_odds": 0,
+      "with_ou_odds": 0,
+      "with_stats": 10
+    },
+    "upcoming": {
+      "rows": 0,
+      "with_btts_odds": 0,
+      "with_ou_odds": 0,
+      "with_stats": 0
+    }
+  },
+  "errors": [],
+  "generated_at_utc": "2026-03-07T13:38:57Z",
+  "hydration": {
+    "budget_exhausted": false,
+    "odds_api_fetches": 0,
+    "odds_cache_hits": 0,
+    "odds_errors": 0,
+    "stats_api_fetches": 10,
+    "stats_cache_hits": 0,
+    "stats_errors": 0
+  },
+  "inputs": {
+    "data_dir": "data\\api_football_pressurev2_smoke",
+    "dry_run": false,
+    "fetch_odds": false,
+    "history_days": 5,
+    "horizon_days": 5,
+    "league_ids": [
+      39
+    ],
+    "max_requests": 100,
+    "rate_per_minute": 10,
+    "season": 2025
+  },
+  "missing_fixture_ids": {
+    "history_missing_ou_odds": [
+      1379250,
+      1379252,
+      1379254,
+      1379258,
+      1379249,
+      1379251,
+      1379253,
+      1379255,
+      1379256,
+      1379257
+    ],
+    "history_missing_stats": [],
+    "upcoming_missing_btts_odds": [],
+    "upcoming_missing_ou_odds": []
+  },
+  "quality_gate_passed": true,
+  "quality_gate_reasons": [],
+  "quality_metrics": {
+    "min_odds_coverage": 0.6,
+    "min_stats_coverage": 0.6,
+    "odds_coverage": 1.0,
+    "odds_gate_skipped_fetch_disabled": true,
+    "odds_gate_skipped_no_upcoming": true,
+    "stats_coverage": 1.0,
+    "upcoming_btts_odds_coverage": 1.0,
+    "upcoming_ou_odds_coverage": 1.0
+  },
+  "request_budget": {
+    "date_utc": "2026-03-07",
+    "max_requests_per_day": 100,
+    "process_request_attempts": 12,
+    "used_requests_today": 12
+  },
+  "windows": {
+    "history_from": "2026-03-02",
+    "history_to": "2026-03-07",
+    "upcoming_from": "2026-03-07",
+    "upcoming_to": "2026-03-12"
+  }
+}

@@ -1,0 +1,108 @@
+fixture_date,league,home,away,pred_ou_lbl,actual_score,actual_ou,mark
+2026-02-27,Bundesliga,FC Augsburg,1. FC Köln,OVER,2-0,UNDER,X
+2026-02-28,Bundesliga,1899 Hoffenheim,FC St. Pauli,OVER,0-1,UNDER,X
+2026-02-28,Bundesliga,Bayer Leverkusen,FSV Mainz 05,UNDER,1-1,UNDER,CHECK
+2026-02-28,Bundesliga,Borussia Dortmund,Bayern München,OVER,2-3,OVER,CHECK
+2026-02-28,Bundesliga,Borussia Mönchengladbach,Union Berlin,OVER,1-0,UNDER,X
+2026-02-28,Bundesliga,Werder Bremen,1. FC Heidenheim,OVER,2-0,UNDER,X
+2026-03-01,Bundesliga,Eintracht Frankfurt,SC Freiburg,OVER,2-0,UNDER,X
+2026-03-01,Bundesliga,Hamburger SV,RB Leipzig,OVER,1-2,OVER,CHECK
+2026-03-01,Bundesliga,VfB Stuttgart,VfL Wolfsburg,OVER,4-0,OVER,CHECK
+2026-02-27,Championship,Bristol City,Watford,OVER,1-2,OVER,CHECK
+2026-02-28,Championship,Charlton,Wrexham,OVER,0-1,UNDER,X
+2026-02-28,Championship,Coventry,Stoke City,OVER,2-1,OVER,CHECK
+2026-02-28,Championship,Derby,Blackburn,UNDER,3-1,OVER,X
+2026-02-28,Championship,Ipswich,Swansea,OVER,3-0,OVER,CHECK
+2026-02-28,Championship,Leicester,Norwich,UNDER,0-2,UNDER,CHECK
+2026-02-28,Championship,Oxford United,West Brom,OVER,2-1,OVER,CHECK
+2026-02-28,Championship,Portsmouth,Hull City,UNDER,0-1,UNDER,CHECK
+2026-02-28,Championship,Preston,Millwall,OVER,0-2,UNDER,X
+2026-02-28,Championship,QPR,Sheffield Utd,UNDER,0-2,UNDER,CHECK
+2026-02-28,Championship,Sheffield Wednesday,Southampton,UNDER,1-3,OVER,X
+2026-02-27,Eredivisie,Telstar,NAC Breda,OVER,3-0,OVER,CHECK
+2026-02-28,Eredivisie,Heerenveen,Sparta Rotterdam,OVER,2-1,OVER,CHECK
+2026-02-28,Eredivisie,Heracles,PSV Eindhoven,OVER,1-3,OVER,CHECK
+2026-02-28,Eredivisie,NEC Nijmegen,Fortuna Sittard,OVER,2-3,OVER,CHECK
+2026-03-01,Eredivisie,Excelsior,GO Ahead Eagles,OVER,0-1,UNDER,X
+2026-03-01,Eredivisie,FC Volendam,Groningen,OVER,3-2,OVER,CHECK
+2026-03-01,Eredivisie,PEC Zwolle,Ajax,OVER,0-0,UNDER,X
+2026-03-01,Eredivisie,Twente,Feyenoord,OVER,2-0,UNDER,X
+2026-03-01,Eredivisie,Utrecht,AZ Alkmaar,OVER,2-0,UNDER,X
+2026-02-27,La Liga,Levante,Alaves,UNDER,2-0,UNDER,CHECK
+2026-02-28,La Liga,Barcelona,Villarreal,OVER,4-1,OVER,CHECK
+2026-02-28,La Liga,Mallorca,Real Sociedad,UNDER,0-1,UNDER,CHECK
+2026-02-28,La Liga,Oviedo,Atletico Madrid,UNDER,0-1,UNDER,CHECK
+2026-02-28,La Liga,Rayo Vallecano,Athletic Club,UNDER,1-1,UNDER,CHECK
+2026-03-01,La Liga,Elche,Espanyol,UNDER,2-2,OVER,X
+2026-03-01,La Liga,Girona,Celta Vigo,OVER,1-2,OVER,CHECK
+2026-03-01,La Liga,Real Betis,Sevilla,UNDER,2-2,OVER,X
+2026-03-01,La Liga,Valencia,Osasuna,UNDER,1-0,UNDER,CHECK
+2026-02-27,Liga I,AFC Hermannstadt,FC Botosani,OVER,3-1,OVER,CHECK
+2026-02-27,Liga I,Universitatea Cluj,Oţelul,OVER,4-0,OVER,CHECK
+2026-02-28,Liga I,Farul Constanta,CFR 1907 Cluj,OVER,1-2,OVER,CHECK
+2026-02-28,Liga I,Universitatea Craiova,Metaloglobus,OVER,2-1,OVER,CHECK
+2026-03-01,Liga I,Dinamo Bucuresti,Arges Pitesti,OVER,0-1,UNDER,X
+2026-03-01,Liga I,Petrolul Ploiesti,Csikszereda,OVER,1-1,UNDER,X
+2026-03-01,Liga I,Uta Arad,FCSB,OVER,2-4,OVER,CHECK
+2026-02-27,Ligue 1,Strasbourg,Lens,UNDER,1-1,UNDER,CHECK
+2026-02-28,Ligue 1,Le Havre,Paris Saint Germain,UNDER,0-1,UNDER,CHECK
+2026-02-28,Ligue 1,Monaco,Angers,UNDER,2-0,UNDER,CHECK
+2026-02-28,Ligue 1,Rennes,Toulouse,UNDER,1-0,UNDER,CHECK
+2026-03-01,Ligue 1,Lille,Nantes,UNDER,1-0,UNDER,CHECK
+2026-03-01,Ligue 1,Lorient,Auxerre,UNDER,2-2,OVER,X
+2026-03-01,Ligue 1,Marseille,Lyon,UNDER,3-2,OVER,X
+2026-03-01,Ligue 1,Metz,Stade Brestois 29,UNDER,0-1,UNDER,CHECK
+2026-03-01,Ligue 1,Paris FC,Nice,UNDER,1-0,UNDER,CHECK
+2026-02-27,Ligue 2,Bastia,Annecy,OVER,0-2,UNDER,X
+2026-02-27,Ligue 2,Clermont Foot,Dunkerque,OVER,2-1,OVER,CHECK
+2026-02-27,Ligue 2,Grenoble,Boulogne,OVER,0-0,UNDER,X
+2026-02-27,Ligue 2,Laval,Nancy,OVER,1-1,UNDER,X
+2026-02-27,Ligue 2,Montpellier,Reims,OVER,0-0,UNDER,X
+2026-02-28,Ligue 2,Guingamp,Rodez,OVER,0-0,UNDER,X
+2026-02-28,Ligue 2,PAU,Saint Etienne,OVER,0-3,OVER,CHECK
+2026-02-28,Ligue 2,RED Star FC 93,Le Mans,OVER,0-0,UNDER,X
+2026-02-27,Premier League,Wolves,Aston Villa,UNDER,2-0,UNDER,CHECK
+2026-02-28,Premier League,Bournemouth,Sunderland,UNDER,1-1,UNDER,CHECK
+2026-02-28,Premier League,Burnley,Brentford,UNDER,3-4,OVER,X
+2026-02-28,Premier League,Leeds,Manchester City,UNDER,0-1,UNDER,CHECK
+2026-02-28,Premier League,Liverpool,West Ham,OVER,5-2,OVER,CHECK
+2026-02-28,Premier League,Newcastle,Everton,UNDER,2-3,OVER,X
+2026-03-01,Premier League,Arsenal,Chelsea,UNDER,2-1,OVER,X
+2026-03-01,Premier League,Brighton,Nottingham Forest,UNDER,2-1,OVER,X
+2026-03-01,Premier League,Fulham,Tottenham,UNDER,2-1,OVER,X
+2026-03-01,Premier League,Manchester United,Crystal Palace,UNDER,2-1,OVER,X
+2026-02-27,Primeira Liga,FC Porto,Arouca,OVER,3-1,OVER,CHECK
+2026-02-27,Primeira Liga,Sporting CP,Estoril,UNDER,3-0,OVER,X
+2026-02-28,Primeira Liga,AVS,Estrela,UNDER,0-0,UNDER,CHECK
+2026-02-28,Primeira Liga,Guimaraes,Alverca,OVER,1-1,UNDER,X
+2026-02-28,Primeira Liga,Nacional,SC Braga,OVER,1-2,OVER,CHECK
+2026-03-01,Primeira Liga,Casa Pia,Moreirense,OVER,1-1,UNDER,X
+2026-03-01,Primeira Liga,Rio Ave,Famalicao,OVER,0-0,UNDER,X
+2026-03-01,Primeira Liga,Tondela,Santa Clara,UNDER,2-2,OVER,X
+2026-02-27,Serie A,Parma,Cagliari,UNDER,1-1,UNDER,CHECK
+2026-02-28,Serie A,Como,Lecce,UNDER,3-1,OVER,X
+2026-02-28,Serie A,Hellas Verona,Napoli,UNDER,1-2,OVER,X
+2026-02-28,Serie A,Inter,Genoa,OVER,2-0,UNDER,X
+2026-03-01,Serie A,AS Roma,Juventus,UNDER,3-3,OVER,X
+2026-03-01,Serie A,Cremonese,AC Milan,UNDER,0-2,UNDER,CHECK
+2026-03-01,Serie A,Sassuolo,Atalanta,UNDER,2-1,OVER,X
+2026-03-01,Serie A,Torino,Lazio,UNDER,2-0,UNDER,CHECK
+2026-02-27,Serie B,Monza,Virtus Entella,UNDER,2-0,UNDER,CHECK
+2026-02-27,Serie B,Sampdoria,Bari,UNDER,0-2,UNDER,CHECK
+2026-02-28,Serie B,Avellino,Juve Stabia,UNDER,0-0,UNDER,CHECK
+2026-02-28,Serie B,Empoli,Cesena,UNDER,1-1,UNDER,CHECK
+2026-02-28,Serie B,Modena,Padova,UNDER,1-2,OVER,X
+2026-02-28,Serie B,Spezia,Reggiana,OVER,0-1,UNDER,X
+2026-02-28,Serie B,Sudtirol,Venezia,UNDER,1-1,UNDER,CHECK
+2026-03-01,Serie B,Catanzaro,Frosinone,UNDER,2-2,OVER,X
+2026-03-01,Serie B,Mantova,Carrarese,UNDER,1-1,UNDER,CHECK
+2026-03-01,Serie B,Pescara,Palermo,UNDER,2-1,OVER,X
+2026-02-27,Süper Lig,Başakşehir,Konyaspor,OVER,2-0,UNDER,X
+2026-02-27,Süper Lig,Trabzonspor,Fatih Karagümrük,UNDER,3-1,OVER,X
+2026-02-28,Süper Lig,Galatasaray,Alanyaspor,OVER,3-1,OVER,CHECK
+2026-02-28,Süper Lig,Göztepe,Eyüpspor,UNDER,0-0,UNDER,CHECK
+2026-02-28,Süper Lig,Kasımpaşa,Rizespor,OVER,0-3,OVER,CHECK
+2026-02-28,Süper Lig,Kocaelispor,Beşiktaş,OVER,0-1,UNDER,X
+2026-03-01,Süper Lig,Antalyaspor,Fenerbahçe,UNDER,2-2,OVER,X
+2026-03-01,Süper Lig,Gençlerbirliği S.K.,Kayserispor,UNDER,0-0,UNDER,CHECK
+2026-03-01,Süper Lig,Samsunspor,Gaziantep FK,OVER,0-0,UNDER,X

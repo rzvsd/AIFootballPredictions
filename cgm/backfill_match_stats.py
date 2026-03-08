@@ -48,6 +48,42 @@ STATS_COLS = [
     "pos_A",
 ]
 
+# Optional advanced stats (ingested when available; never required for core pressure gate)
+EXTRA_STATS_COLS = [
+    "shots_off_H",
+    "shots_off_A",
+    "blocked_shots_H",
+    "blocked_shots_A",
+    "goal_attempts_H",
+    "goal_attempts_A",
+    "attacks_H",
+    "attacks_A",
+    "dangerous_attacks_H",
+    "dangerous_attacks_A",
+    "counter_attacks_H",
+    "counter_attacks_A",
+    "cross_attacks_H",
+    "cross_attacks_A",
+    "goalkeeper_saves_H",
+    "goalkeeper_saves_A",
+    "fouls_H",
+    "fouls_A",
+    "offsides_H",
+    "offsides_A",
+    "free_kicks_H",
+    "free_kicks_A",
+    "throwins_H",
+    "throwins_A",
+    "yellow_cards_H",
+    "yellow_cards_A",
+    "red_cards_H",
+    "red_cards_A",
+    "substitutions_H",
+    "substitutions_A",
+]
+
+ALL_STATS_COLS = STATS_COLS + EXTRA_STATS_COLS
+
 
 def _read_table(path: Path) -> pd.DataFrame:
     """
@@ -161,7 +197,7 @@ def _dedupe_stats(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
     dup = df.duplicated(subset=keys, keep=False)
     if dup.any():
         # Keep the row with the most available stats (deterministic tie-breaker).
-        stat_cols = [c for c in STATS_COLS if c in df.columns]
+        stat_cols = [c for c in ALL_STATS_COLS if c in df.columns]
         if stat_cols:
             completeness = df[stat_cols].notna().sum(axis=1)
             df = df.assign(_completeness=completeness)
@@ -243,7 +279,7 @@ def backfill_match_stats(
 
     # Parse combined "H-A" stats to split numeric columns
     stats = ensure_pressure_inputs(stats)
-    for c in STATS_COLS:
+    for c in ALL_STATS_COLS:
         if c in stats.columns:
             stats[c] = pd.to_numeric(stats[c], errors="coerce")
 
@@ -269,8 +305,8 @@ def backfill_match_stats(
         stats["ft_away_stats"] = pd.to_numeric(stats["scor2"], errors="coerce")
         extra_cols = ["ft_home_stats", "ft_away_stats"]
 
-    stats_code = stats[["_date_only", "code_home", "code_away"] + extra_cols + STATS_COLS].copy()
-    stats_name = stats[["_date_only", "home", "away"] + extra_cols + STATS_COLS].copy()
+    stats_code = stats[["_date_only", "code_home", "code_away"] + extra_cols + ALL_STATS_COLS].copy()
+    stats_name = stats[["_date_only", "home", "away"] + extra_cols + ALL_STATS_COLS].copy()
     stats_code = stats_code.dropna(subset=["_date_only", "code_home", "code_away"], how="any")
     stats_name = stats_name.dropna(subset=["_date_only", "home", "away"], how="any")
 
@@ -286,7 +322,7 @@ def backfill_match_stats(
     )
     # If history already carries empty stat columns, merge will place right-side values
     # under *_stats suffixes. Promote those values into canonical columns.
-    for c in STATS_COLS + extra_cols:
+    for c in ALL_STATS_COLS + extra_cols:
         src_col = f"{c}_stats"
         if src_col in merged.columns:
             left = pd.to_numeric(merged[c], errors="coerce") if c in merged.columns else pd.Series(np.nan, index=merged.index)
@@ -303,7 +339,7 @@ def backfill_match_stats(
             on=["_date_only", "home", "away"],
             suffixes=("", "_stats2"),
         )
-        for c in STATS_COLS:
+        for c in ALL_STATS_COLS:
             src_col = f"{c}_stats2" if f"{c}_stats2" in m2.columns else c
             merged.loc[need, c] = pd.to_numeric(m2[src_col], errors="coerce").to_numpy()
         for c in extra_cols:
@@ -325,7 +361,7 @@ def backfill_match_stats(
             | (merged["ft_away"].astype(float) != merged["ft_away_stats"].astype(float))
         )
         if mismatch.any():
-            merged.loc[mismatch, STATS_COLS] = np.nan
+            merged.loc[mismatch, ALL_STATS_COLS] = np.nan
             merged.loc[mismatch, "_stats_src"] = "none_score_mismatch"
 
     # Simple gating flag: 1 only when all pressure inputs are present for the row.
@@ -339,8 +375,8 @@ def backfill_match_stats(
 
     # Drop intermediate join-only columns
     merged = merged.drop(columns=["ft_home_stats", "ft_away_stats"], errors="ignore")
-    merged = merged.drop(columns=[f"{c}_stats" for c in STATS_COLS], errors="ignore")
-    merged = merged.drop(columns=[f"{c}_stats2" for c in STATS_COLS], errors="ignore")
+    merged = merged.drop(columns=[f"{c}_stats" for c in ALL_STATS_COLS], errors="ignore")
+    merged = merged.drop(columns=[f"{c}_stats2" for c in ALL_STATS_COLS], errors="ignore")
     merged = merged.drop(columns=["_date_only"], errors="ignore")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -351,9 +387,12 @@ def backfill_match_stats(
     got = int(merged[STATS_COLS[0]].notna().sum()) if n else 0
     by_src = merged["_stats_src"].value_counts(dropna=False).to_dict() if n else {}
     cov = {c: float(merged[c].notna().mean()) for c in STATS_COLS} if n else {}
+    cov_extra = {c: float(merged[c].notna().mean()) for c in EXTRA_STATS_COLS if c in merged.columns} if n else {}
     print(f"[ok] wrote -> {out_path}")
     print(f"[join] rows={n} matched_rows={got} matched_rate={got/max(n,1):.3f} by_src={by_src}")
     print("[coverage]", {k: round(v, 4) for k, v in cov.items()})
+    if cov_extra:
+        print("[coverage_extra]", {k: round(v, 4) for k, v in cov_extra.items()})
     print(
         "[stats_src]",
         {

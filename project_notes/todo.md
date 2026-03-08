@@ -1,4 +1,4 @@
-TODO (Current Priorities)
+﻿TODO (Current Priorities)
 
 High Priority
 - [ ] Keep baseline strategy stable on `test`
@@ -25,7 +25,7 @@ High Priority
     - Liga I: `OU=0.26`, `BTTS=0.33` (recent-form pilot)
   - Batch-4 applied:
     - 2. Bundesliga: `OU=0.33`, `BTTS=0.29`
-    - Süper Lig: `OU=0.41` (BTTS kept default)
+    - SÃ¼per Lig: `OU=0.41` (BTTS kept default)
   - Keep monitoring before adding more league overrides.
 
 - [ ] Backtest validation gate for sterile override v1 (active mode)
@@ -45,13 +45,35 @@ High Priority
 - [ ] Validate stat-field coverage for xG proxy
   - Confirm shots, shots on goal, goals, corners are present for target leagues.
 
+- [ ] Poisson V2 league tuning and challenger validation
+  - Poisson V2 core is now active.
+  - Next step: tune per-league Poisson V2 params (`dispersion`, `dependence`, `dc_rho`) with time-split validation.
+  - Promotion rule remains champion-vs-challenger by log-loss/Brier/RPS + league no-regression checks.
+  - Reference:
+    - `project_notes/changes_2026_03_07_engine_ledger.md`
+
+- [ ] Monitor strict module weights by league (no legacy stacker path)
+  - Validate per-league stability on rolling backtests.
+  - Adjust only explicit config thresholds/Poisson V2 params when evidence is strong.
+
 - [ ] Improve round-scoped upcoming selection
   - Ensure next-round filtering matches league schedules.
 
 Medium Priority
 - [ ] Add weekly automation for reports and predictions export.
 - [ ] Add optional Telegram delivery for business report summary.
+- [ ] Monte Carlo roadmap (future rollout; not active yet)
+  - Follow `project_notes/monte_carlo_future_milestones.md`
+  - Start with Milestone 1 only (pre-match replay + confidence intervals)
+  - Keep current analytic pipeline as fallback during rollout
+
+- [ ] DEV full Poisson revamp research/implementation track
+  - Work only in `dev` branch.
+  - Use full plan reference:
+    - `project_notes/dev_poisson_full_revamp_plan.md`
+  - Promotion allowed only via champion-vs-challenger validation.
 
 Low Priority
 - [ ] UI polish and mobile-first read view for reports.
 - [ ] Optional cloud scheduler deployment.
+

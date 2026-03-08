@@ -1,0 +1,1278 @@
+{
+  "errors": [],
+  "get": "fixtures",
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "parameters": {
+    "from": "2026-03-02",
+    "league": "79",
+    "season": "2025",
+    "status": "NS",
+    "to": "2026-03-16"
+  },
+  "response": [
+    {
+      "fixture": {
+        "date": "2026-03-06T17:30:00+00:00",
+        "id": 1388838,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772818200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Gelsenkirchen",
+          "id": 741,
+          "name": "Veltins Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 188,
+          "logo": "https://media.api-sports.io/football/teams/188.png",
+          "name": "Arminia Bielefeld",
+          "winner": null
+        },
+        "home": {
+          "id": 174,
+          "logo": "https://media.api-sports.io/football/teams/174.png",
+          "name": "FC Schalke 04",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-06T17:30:00+00:00",
+        "id": 1388832,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772818200,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Spiesen-Elversberg",
+          "id": 710,
+          "name": "Waldstadion Kaiserlinde"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 179,
+          "logo": "https://media.api-sports.io/football/teams/179.png",
+          "name": "1. FC Magdeburg",
+          "winner": null
+        },
+        "home": {
+          "id": 1660,
+          "logo": "https://media.api-sports.io/football/teams/1660.png",
+          "name": "SV Elversberg",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-07T12:00:00+00:00",
+        "id": 1388835,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772884800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Nuremberg",
+          "id": 713,
+          "name": "Max-Morlock-Stadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 158,
+          "logo": "https://media.api-sports.io/football/teams/158.png",
+          "name": "Fortuna D\u00fcsseldorf",
+          "winner": null
+        },
+        "home": {
+          "id": 171,
+          "logo": "https://media.api-sports.io/football/teams/171.png",
+          "name": "1. FC N\u00fcrnberg",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-07T12:00:00+00:00",
+        "id": 1388831,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772884800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Darmstadt",
+          "id": 705,
+          "name": "Merck-Stadion am Bollenfalltor"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 191,
+          "logo": "https://media.api-sports.io/football/teams/191.png",
+          "name": "Holstein Kiel",
+          "winner": null
+        },
+        "home": {
+          "id": 181,
+          "logo": "https://media.api-sports.io/football/teams/181.png",
+          "name": "SV Darmstadt 98",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-07T12:00:00+00:00",
+        "id": 1388836,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772884800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Paderborn",
+          "id": 18622,
+          "name": "Home Deluxe Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 744,
+          "logo": "https://media.api-sports.io/football/teams/744.png",
+          "name": "Eintracht Braunschweig",
+          "winner": null
+        },
+        "home": {
+          "id": 185,
+          "logo": "https://media.api-sports.io/football/teams/185.png",
+          "name": "SC Paderborn 07",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-07T19:30:00+00:00",
+        "id": 1388830,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772911800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Bochum",
+          "id": 751,
+          "name": "Vonovia Ruhrstadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 745,
+          "logo": "https://media.api-sports.io/football/teams/745.png",
+          "name": "1. FC Kaiserslautern",
+          "winner": null
+        },
+        "home": {
+          "id": 176,
+          "logo": "https://media.api-sports.io/football/teams/176.png",
+          "name": "VfL Bochum",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-08T12:30:00+00:00",
+        "id": 1388833,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772973000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Hannover",
+          "id": 18858,
+          "name": "Heinz-von-Heiden-Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 178,
+          "logo": "https://media.api-sports.io/football/teams/178.png",
+          "name": "SpVgg Greuther F\u00fcrth",
+          "winner": null
+        },
+        "home": {
+          "id": 166,
+          "logo": "https://media.api-sports.io/football/teams/166.png",
+          "name": "Hannover 96",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-08T12:30:00+00:00",
+        "id": 1388834,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772973000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Karlsruhe",
+          "id": 11900,
+          "name": "BBBank Wildpark"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 183,
+          "logo": "https://media.api-sports.io/football/teams/183.png",
+          "name": "Dynamo Dresden",
+          "winner": null
+        },
+        "home": {
+          "id": 785,
+          "logo": "https://media.api-sports.io/football/teams/785.png",
+          "name": "Karlsruher SC",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-08T12:30:00+00:00",
+        "id": 1388837,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1772973000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Munster",
+          "id": null,
+          "name": "Preussenstadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 25",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 159,
+          "logo": "https://media.api-sports.io/football/teams/159.png",
+          "name": "Hertha BSC",
+          "winner": null
+        },
+        "home": {
+          "id": 1313,
+          "logo": "https://media.api-sports.io/football/teams/1313.png",
+          "name": "Preu\u00dfen M\u00fcnster",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-13T17:30:00+00:00",
+        "id": 1388841,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773423000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "F\u00fcrth",
+          "id": 718,
+          "name": "Sportpark Ronhof Thomas Sommer"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 1660,
+          "logo": "https://media.api-sports.io/football/teams/1660.png",
+          "name": "SV Elversberg",
+          "winner": null
+        },
+        "home": {
+          "id": 178,
+          "logo": "https://media.api-sports.io/football/teams/178.png",
+          "name": "SpVgg Greuther F\u00fcrth",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-13T17:30:00+00:00",
+        "id": 1388845,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773423000,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Magdeburg",
+          "id": null,
+          "name": "Avnet-Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 181,
+          "logo": "https://media.api-sports.io/football/teams/181.png",
+          "name": "SV Darmstadt 98",
+          "winner": null
+        },
+        "home": {
+          "id": 179,
+          "logo": "https://media.api-sports.io/football/teams/179.png",
+          "name": "1. FC Magdeburg",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T12:00:00+00:00",
+        "id": 1388839,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773489600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Bielefeld",
+          "id": 697,
+          "name": "Sch\u00fccoArena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 185,
+          "logo": "https://media.api-sports.io/football/teams/185.png",
+          "name": "SC Paderborn 07",
+          "winner": null
+        },
+        "home": {
+          "id": 188,
+          "logo": "https://media.api-sports.io/football/teams/188.png",
+          "name": "Arminia Bielefeld",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T12:00:00+00:00",
+        "id": 1388843,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773489600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Kiel",
+          "id": 725,
+          "name": "Holstein-Stadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 171,
+          "logo": "https://media.api-sports.io/football/teams/171.png",
+          "name": "1. FC N\u00fcrnberg",
+          "winner": null
+        },
+        "home": {
+          "id": 191,
+          "logo": "https://media.api-sports.io/football/teams/191.png",
+          "name": "Holstein Kiel",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T12:00:00+00:00",
+        "id": 1388840,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773489600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Braunschweig",
+          "id": 708,
+          "name": "Eintracht-Stadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 158,
+          "logo": "https://media.api-sports.io/football/teams/158.png",
+          "name": "Fortuna D\u00fcsseldorf",
+          "winner": null
+        },
+        "home": {
+          "id": 744,
+          "logo": "https://media.api-sports.io/football/teams/744.png",
+          "name": "Eintracht Braunschweig",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-14T19:30:00+00:00",
+        "id": 1388842,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773516600,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Berlin",
+          "id": 694,
+          "name": "Olympiastadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 176,
+          "logo": "https://media.api-sports.io/football/teams/176.png",
+          "name": "VfL Bochum",
+          "winner": null
+        },
+        "home": {
+          "id": 159,
+          "logo": "https://media.api-sports.io/football/teams/159.png",
+          "name": "Hertha BSC",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-15T12:30:00+00:00",
+        "id": 1388846,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773577800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Gelsenkirchen",
+          "id": 741,
+          "name": "Veltins Arena"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 166,
+          "logo": "https://media.api-sports.io/football/teams/166.png",
+          "name": "Hannover 96",
+          "winner": null
+        },
+        "home": {
+          "id": 174,
+          "logo": "https://media.api-sports.io/football/teams/174.png",
+          "name": "FC Schalke 04",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-15T12:30:00+00:00",
+        "id": 1388847,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773577800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Dresden",
+          "id": 707,
+          "name": "Rudolf-Harbig-Stadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 1313,
+          "logo": "https://media.api-sports.io/football/teams/1313.png",
+          "name": "Preu\u00dfen M\u00fcnster",
+          "winner": null
+        },
+        "home": {
+          "id": 183,
+          "logo": "https://media.api-sports.io/football/teams/183.png",
+          "name": "Dynamo Dresden",
+          "winner": null
+        }
+      }
+    },
+    {
+      "fixture": {
+        "date": "2026-03-15T12:30:00+00:00",
+        "id": 1388844,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "referee": null,
+        "status": {
+          "elapsed": null,
+          "extra": null,
+          "long": "Not Started",
+          "short": "NS"
+        },
+        "timestamp": 1773577800,
+        "timezone": "UTC",
+        "venue": {
+          "city": "Kaiserslautern",
+          "id": 728,
+          "name": "Fritz Walter Stadion"
+        }
+      },
+      "goals": {
+        "away": null,
+        "home": null
+      },
+      "league": {
+        "country": "Germany",
+        "flag": "https://media.api-sports.io/flags/de.svg",
+        "id": 79,
+        "logo": "https://media.api-sports.io/football/leagues/79.png",
+        "name": "2. Bundesliga",
+        "round": "Regular Season - 26",
+        "season": 2025,
+        "standings": true
+      },
+      "score": {
+        "extratime": {
+          "away": null,
+          "home": null
+        },
+        "fulltime": {
+          "away": null,
+          "home": null
+        },
+        "halftime": {
+          "away": null,
+          "home": null
+        },
+        "penalty": {
+          "away": null,
+          "home": null
+        }
+      },
+      "teams": {
+        "away": {
+          "id": 785,
+          "logo": "https://media.api-sports.io/football/teams/785.png",
+          "name": "Karlsruher SC",
+          "winner": null
+        },
+        "home": {
+          "id": 745,
+          "logo": "https://media.api-sports.io/football/teams/745.png",
+          "name": "1. FC Kaiserslautern",
+          "winner": null
+        }
+      }
+    }
+  ],
+  "results": 18
+}

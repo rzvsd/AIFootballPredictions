@@ -17,8 +17,54 @@ API_FOOTBALL_DEFAULT_HORIZON_DAYS = 7
 API_FOOTBALL_DEFAULT_LEAGUE_IDS = [39]  # EPL on free tier; extend gradually as cache grows
 API_FOOTBALL_FETCH_ODDS_DEFAULT = True
 
+# ---------------------------------------------------------------------------
+# Elo V2 (league-aware, weighted, traceable)
+# ---------------------------------------------------------------------------
+ELO_V2_ENABLED = True
+ELO_DEFAULTS = {
+    "start_elo": 1500.0,
+    "k_factor": 20.0,
+    "home_adv": 65.0,
+    "band_thresh": 150.0,
+    "margin_cap": 2.75,
+    "upset_expected_low": 0.35,
+    "upset_expected_high": 0.65,
+    "upset_multiplier": 1.20,
+    "new_team_games": 12,
+    "new_team_k_multiplier": 1.25,
+}
+
+# Per-league Elo controls. Values can be tuned later with walk-forward validation.
+ELO_LEAGUE_PARAMS = {
+    "Premier League": {"k_factor": 21.0, "home_adv": 58.0},
+    "Championship": {"k_factor": 22.0, "home_adv": 60.0},
+    "Bundesliga": {"k_factor": 21.0, "home_adv": 50.0},
+    "2. Bundesliga": {"k_factor": 22.0, "home_adv": 54.0},
+    "Serie A": {"k_factor": 20.0, "home_adv": 52.0},
+    "Serie B": {"k_factor": 21.0, "home_adv": 56.0},
+    "La Liga": {"k_factor": 20.0, "home_adv": 50.0},
+    "Ligue 1": {"k_factor": 20.0, "home_adv": 52.0},
+    "Ligue 2": {"k_factor": 21.0, "home_adv": 57.0},
+    "Eredivisie": {"k_factor": 21.0, "home_adv": 48.0},
+    "Primeira Liga": {"k_factor": 20.0, "home_adv": 52.0},
+    "Liga I": {"k_factor": 21.0, "home_adv": 58.0},
+    "S\u00fcper Lig": {"k_factor": 21.0, "home_adv": 56.0},
+    "S?per Lig": {"k_factor": 21.0, "home_adv": 56.0},
+    "Serie A Brazil": {"k_factor": 21.0, "home_adv": 52.0},
+    "Liga Profesional Argentina": {"k_factor": 21.0, "home_adv": 56.0},
+}
+
+# Match-type weighting for Elo K. Match type is inferred from columns/name when absent.
+ELO_MATCHTYPE_MULTIPLIERS = {
+    "league": 1.00,
+    "cup": 1.12,
+    "playoff": 1.15,
+    "friendly": 0.75,
+    "unknown": 1.00,
+}
+
 # Gaussian kernel width (sigma) per league for Elo-similarity features.
-# Used by: cgm/build_frankenstein.py and cgm/predict_upcoming.py
+# Used by: cgm/predict_upcoming.py
 ELO_SIM_SIGMA_PER_LEAGUE = {
     "E0": 50.0,
     "D1": 40.0,
@@ -66,6 +112,34 @@ LIVE_SCOPE_NEXT_ROUND_SPAN_DAYS = 3
 # Internal defaults: odds-aware flow with EV-based picks enabled.
 PIPELINE_DEFAULT_MODEL_VARIANT = "full"
 PIPELINE_EMIT_PICKS_DEFAULT = True
+# Global minimum effective similar-match evidence required by predict_upcoming
+# before a fixture is flagged with `elo_evidence_low`.
+PIPELINE_MIN_MATCHES = 3
+
+# ---------------------------------------------------------------------------
+# Strict Mu Engine (explicit 4-module weighted engine)
+# ---------------------------------------------------------------------------
+# mu is built only from:
+#   1) league anchor,
+#   2) Elo module,
+#   3) xG module,
+#   4) pressure module.
+STRICT_MODULE_MU_ENABLED = True
+STRICT_MODULE_WEIGHTS = {
+    "league_anchor": 0.40,
+    "elo": 0.10,
+    "xg": 0.25,
+    "pressure": 0.25,
+}
+STRICT_MODULE_DEFAULT_ANCHOR_HOME = 1.35
+STRICT_MODULE_DEFAULT_ANCHOR_AWAY = 1.15
+STRICT_MODULE_GOALS_CLIP_MIN = 0.20
+STRICT_MODULE_GOALS_CLIP_MAX = 3.50
+STRICT_MODULE_PRESSURE_SHARE_CLIP_MIN = 0.25
+STRICT_MODULE_PRESSURE_SHARE_CLIP_MAX = 0.75
+STRICT_MODULE_PRESSURE_TOTAL_CLIP_MIN = 0.85
+STRICT_MODULE_PRESSURE_TOTAL_CLIP_MAX = 1.15
+STRICT_MODULE_PRESSURE_TOTAL_STRENGTH = 0.70
 
 # ---------------------------------------------------------------------------
 # Pick Engine Gates (single source of truth)
@@ -114,12 +188,20 @@ ASSASSIN_XG_EVID_MIN_OU25 = 3.0
 ELO_SIM_MIN_EFF = 5.0           # Minimum effective sample size for blending
 
 # ---------------------------------------------------------------------------
-# Pressure Form Weights (must sum to 1.0)
+# Pressure Form Weights
+# Core weights are always used.
+# Optional V2 weights are only used when those stats exist, and the pressure
+# index is renormalized on available components (no forced fallback).
 # ---------------------------------------------------------------------------
 PRESSURE_W_SHOTS = 0.45
 PRESSURE_W_SOT = 0.30
 PRESSURE_W_CORNERS = 0.15
 PRESSURE_W_POSSESSION = 0.10
+PRESSURE_W_GOAL_ATTEMPTS = 0.12
+PRESSURE_W_SHOTS_OFF = 0.06
+PRESSURE_W_BLOCKED_SHOTS = 0.05
+PRESSURE_W_ATTACKS = 0.05
+PRESSURE_W_DANGEROUS_ATTACKS = 0.10
 
 # ---------------------------------------------------------------------------
 # Goal Timing Settings
@@ -136,6 +218,24 @@ TIMING_LATE_SHARE_MARGIN = 0.07   # Margin for late goal flag
 # Half-life = 5 means: match 5 ago has 50% weight, match 10 ago has 25% weight.
 DECAY_HALF_LIFE = 5               # Decay half-life in number of matches
 DECAY_ENABLED = True              # Toggle time decay on/off
+
+# ---------------------------------------------------------------------------
+# xG Proxy V2 (additive enhancement over legacy xG proxy)
+# ---------------------------------------------------------------------------
+# Feature set: "v1" (legacy) or "v2" (enhanced).
+# Safety default stays v1; promote v2 only after league-by-league validation.
+XG_PROXY_FEATURE_SET_DEFAULT = "v1"
+
+# League-level post-model calibration on xG outputs (walk-forward, train-only).
+XG_PROXY_LEAGUE_CALIBRATION_ENABLED = False
+XG_PROXY_LEAGUE_CALIBRATION_MIN_ROWS = 80
+XG_PROXY_LEAGUE_CALIBRATION_PRIOR_STRENGTH = 80.0
+XG_PROXY_LEAGUE_CALIBRATION_CLIP_MIN = 0.85
+XG_PROXY_LEAGUE_CALIBRATION_CLIP_MAX = 1.15
+
+# Opponent Elo factor guardrails.
+XG_PROXY_ELO_FACTOR_CLIP_MIN = 0.80
+XG_PROXY_ELO_FACTOR_CLIP_MAX = 1.20
 
 # ---------------------------------------------------------------------------
 # Milestone 10: Head-to-Head History
@@ -172,29 +272,44 @@ BTTS_YES_THRESHOLD_DEFAULT = 0.50
 # Per-league overrides (canonical league names from data/API)
 # Purpose: fix persistent directional bias without changing model training.
 OU25_OVER_THRESHOLD_BY_LEAGUE = {
-    "Bundesliga": 0.42,  # updated after 3-league threshold rescan (less over-bias)
-    "Premier League": 0.39,  # updated after 3-league threshold rescan (less under-bias)
-    "Serie A": 0.50,     # updated after 3-league threshold rescan (more balanced O/U split)
-    "Ligue 1": 0.52,     # batch-1 tuning window 2025-11-01..2026-02-22 (117 matches)
-    "La Liga": 0.46,     # batch-1 tuning window 2025-11-01..2026-02-23 (148 matches)
-    "Liga I": 0.26,      # temporary recent-form pilot (2 rounds): adapt to Feb scoring shift
-    "Championship": 0.32,  # batch-2 tuning window 2025-11-01..2026-02-22 (250 matches)
-    "Eredivisie": 0.23,    # batch-2 tuning window 2025-11-01..2026-02-22 (125 matches)
-    "Ligue 2": 0.32,       # batch-3 tuning window 2025-11-01..2026-02-23 (103 matches)
-    "Primeira Liga": 0.36, # batch-3 tuning window 2025-11-01..2026-02-23 (125 matches)
-    "2. Bundesliga": 0.33, # batch-4 balanced tuning window 2025-11-01..2026-02-22 (115 matches)
-    "Süper Lig": 0.41,     # batch-4 balanced tuning window 2025-11-01..2026-02-23 (116 matches)
+    # Full-season no-leak tuning (2025-2026 season-to-date) with conservative yes-rate guardrails.
+    "Premier League": 0.49,
+    "Championship": 0.47,
+    "Bundesliga": 0.61,
+    "2. Bundesliga": 0.53,
+    "Serie A": 0.44,
+    "Serie B": 0.46,
+    "La Liga": 0.49,
+    "Ligue 1": 0.53,
+    "Ligue 2": 0.45,
+    "Eredivisie": 0.61,
+    # Provisional (latest stable evidence pending full-season no-leak completion for these leagues):
+    "Primeira Liga": 0.53,
+    "Liga I": 0.41,
+    "S\u00fcper Lig": 0.24,
+    "S?per Lig": 0.24,
+    "Serie A Brazil": 0.79,
+    "Liga Profesional Argentina": 0.50,
 }
 BTTS_YES_THRESHOLD_BY_LEAGUE = {
-    "Bundesliga": 0.28,  # tuned on 2025-11-01..2026-02-22 backtest window (133 matches)
-    "Premier League": 0.31,  # reduces BTTS-NO bias from 2025-11-01..2026-02-23 window (181 matches)
-    "Ligue 1": 0.51,     # batch-1 tuning window 2025-11-01..2026-02-22 (117 matches)
-    "Liga I": 0.33,      # temporary recent-form pilot (2 rounds): adapt to Feb scoring shift
-    "Championship": 0.30,  # batch-2 tuning window 2025-11-01..2026-02-22 (250 matches)
-    "Eredivisie": 0.25,    # batch-2 tuning window 2025-11-01..2026-02-22 (125 matches)
-    "Serie B": 0.42,       # batch-3 tuning window 2025-11-01..2026-02-22 (161 matches)
-    "Ligue 2": 0.38,       # batch-3 tuning window 2025-11-01..2026-02-23 (103 matches)
-    "2. Bundesliga": 0.29, # batch-4 balanced tuning window 2025-11-01..2026-02-22 (115 matches)
+    # Full-season no-leak tuning (2025-2026 season-to-date) with conservative yes-rate guardrails.
+    "Premier League": 0.53,
+    "Championship": 0.52,
+    "Bundesliga": 0.61,
+    "2. Bundesliga": 0.55,
+    "Serie A": 0.48,
+    "Serie B": 0.50,
+    "La Liga": 0.52,
+    "Ligue 1": 0.54,
+    "Ligue 2": 0.51,
+    "Eredivisie": 0.63,
+    # Provisional (latest stable evidence pending full-season no-leak completion for these leagues):
+    "Primeira Liga": 0.48,
+    "Liga I": 0.40,
+    "S\u00fcper Lig": 0.50,
+    "S?per Lig": 0.50,
+    "Serie A Brazil": 0.50,
+    "Liga Profesional Argentina": 0.50,
 }
 
 # ---------------------------------------------------------------------------
@@ -209,6 +324,33 @@ MU_GOAL_MULTIPLIER_BY_LEAGUE = {
     # Baseline mu_total mean ~1.49 vs actual goals mean ~2.90.
     # 1.70 selected as conservative correction (keeps some under edge, restores over paths).
     "Serie A Brazil": 1.70,
+}
+
+# ---------------------------------------------------------------------------
+# Poisson V2 (incremental enhancement over independent Poisson)
+# ---------------------------------------------------------------------------
+# This layer adds:
+# 1) dispersion mixture (overdispersion control),
+# 2) light home-away score dependence,
+# 3) low-score correction (Dixon-Coles style rho).
+# Keep conservative defaults and tune per league with time-split validation.
+POISSON_V2_ENABLED = True
+POISSON_V2_MAX_GOALS = 12
+
+POISSON_V2_DISPERSION_ALPHA_DEFAULT = 0.06
+POISSON_V2_DISPERSION_ALPHA_BY_LEAGUE = {
+    # Add league overrides only after challenger validation.
+}
+
+POISSON_V2_DEP_STRENGTH_DEFAULT = 0.08
+POISSON_V2_DEP_STRENGTH_BY_LEAGUE = {
+    # Add league overrides only after challenger validation.
+}
+
+# Negative values increase 0-0 / 1-1 and reduce 1-0 / 0-1.
+POISSON_V2_DC_RHO_DEFAULT = -0.04
+POISSON_V2_DC_RHO_BY_LEAGUE = {
+    # Add league overrides only after challenger validation.
 }
 
 # ---------------------------------------------------------------------------

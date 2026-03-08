@@ -113,16 +113,38 @@ def _format_predictions(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["league", "date", "home", "away"], kind="mergesort")
 
 
-def _render_league_message(df_league: pd.DataFrame, league: str) -> List[str]:
-    header = [f"{league} - Next Round ({len(df_league)} games)"]
+def _apply_value_filter(df: pd.DataFrame, min_ev_pct: float, min_conf_pct: float) -> pd.DataFrame:
+    out = df.copy()
+    out["ou_is_value"] = (
+        pd.to_numeric(out["ou_ev_pct"], errors="coerce").gt(float(min_ev_pct))
+        & pd.to_numeric(out["ou_conf_pct"], errors="coerce").ge(float(min_conf_pct))
+    )
+    out["btts_is_value"] = (
+        pd.to_numeric(out["btts_ev_pct"], errors="coerce").gt(float(min_ev_pct))
+        & pd.to_numeric(out["btts_conf_pct"], errors="coerce").ge(float(min_conf_pct))
+    )
+    return out[(out["ou_is_value"]) | (out["btts_is_value"])].copy()
+
+
+def _render_league_message(df_league: pd.DataFrame, league: str, *, send_all: bool = False) -> List[str]:
+    title = "All Predictions" if send_all else "Value Bets"
+    header = [f"{league} - {title} ({len(df_league)} fixtures)"]
     body: List[str] = []
     for _, r in df_league.iterrows():
-        ou_ev = "N/A" if pd.isna(r["ou_ev_pct"]) else f"{r['ou_ev_pct']:+.1f}%"
-        bt_ev = "N/A" if pd.isna(r["btts_ev_pct"]) else f"{r['btts_ev_pct']:+.1f}%"
+        parts: List[str] = []
+        include_ou = send_all or bool(r.get("ou_is_value", False))
+        include_btts = send_all or bool(r.get("btts_is_value", False))
+        if include_ou:
+            ou_ev = "N/A" if pd.isna(r["ou_ev_pct"]) else f"{r['ou_ev_pct']:+.1f}%"
+            parts.append(f"OU: {r['ou_lbl']} ({r['ou_conf_pct']:.0f}%) EV {ou_ev}")
+        if include_btts:
+            bt_ev = "N/A" if pd.isna(r["btts_ev_pct"]) else f"{r['btts_ev_pct']:+.1f}%"
+            parts.append(f"BTTS: {r['btts_lbl']} ({r['btts_conf_pct']:.0f}%) EV {bt_ev}")
+        if not parts:
+            continue
         body.append(
             f"{r['date']} | {r['home']} vs {r['away']}\n"
-            f"OU: {r['ou_lbl']} ({r['ou_conf_pct']:.0f}%) EV {ou_ev} | "
-            f"BTTS: {r['btts_lbl']} ({r['btts_conf_pct']:.0f}%) EV {bt_ev}"
+            + " | ".join(parts)
         )
     return header + body
 
@@ -132,6 +154,9 @@ def main() -> int:
     parser.add_argument("--predictions", default="reports/cgm_upcoming_predictions.csv", help="Predictions CSV path")
     parser.add_argument("--league", action="append", default=[], help="Optional league filter (repeatable)")
     parser.add_argument("--max-chars", type=int, default=int(TELEGRAM_MESSAGE_MAX_CHARS or 3500), help="Telegram message max chars")
+    parser.add_argument("--min-ev-pct", type=float, default=0.0, help="Minimum EV %% required for a market to be sent")
+    parser.add_argument("--min-confidence-pct", type=float, default=58.0, help="Minimum confidence %% required for a market to be sent")
+    parser.add_argument("--send-all", action="store_true", help="Disable value-bet filtering and send all fixtures/markets")
     parser.add_argument("--dry-run", action="store_true", help="Print messages instead of sending")
     parser.add_argument("--sleep-sec", type=float, default=0.35, help="Delay between sends")
     parser.add_argument("--token", default="", help="Override Telegram bot token")
@@ -168,6 +193,13 @@ def main() -> int:
         allowed = set(args.league)
         df = df[df["league"].isin(allowed)].copy()
 
+    if not args.send_all:
+        df = _apply_value_filter(
+            df=df,
+            min_ev_pct=float(args.min_ev_pct),
+            min_conf_pct=float(args.min_confidence_pct),
+        )
+
     if df.empty:
         print("No predictions to send after filters.")
         return 0
@@ -176,7 +208,7 @@ def main() -> int:
     failed = 0
 
     for league, df_league in df.groupby("league", sort=True):
-        blocks = _render_league_message(df_league, str(league))
+        blocks = _render_league_message(df_league, str(league), send_all=bool(args.send_all))
         chunks = _split_messages(blocks, max_chars=max(500, int(args.max_chars)))
         for idx, msg in enumerate(chunks, start=1):
             if args.dry_run:
