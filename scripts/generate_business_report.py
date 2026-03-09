@@ -142,6 +142,16 @@ def _outcome_from_score(ft_home: Any, ft_away: Any) -> dict[str, str] | None:
     }
 
 
+def _classify_ou_from_probs(p_over: float | None, p_under: float | None) -> tuple[str, float | None]:
+    """Classify O/U side directly from model probabilities (no fixed threshold)."""
+    if p_over is None and p_under is None:
+        return "", None
+    po = p_over if p_over is not None else 0.0
+    pu = p_under if p_under is not None else (1.0 - po)
+    pred = "OU25_OVER" if po >= pu else "OU25_UNDER"
+    return pred, max(po, pu)
+
+
 def _build_backtest_lookup(df: pd.DataFrame) -> dict[tuple[str, str, str], dict[str, Any]]:
     if df.empty:
         return {}
@@ -158,11 +168,12 @@ def _build_backtest_lookup(df: pd.DataFrame) -> dict[tuple[str, str, str], dict[
 
     for _, row in bt.iterrows():
         p_over = _to_num(row.get("p_over25", row.get("p_over_2_5")))
+        p_under = _to_num(row.get("p_under25", row.get("p_under_2_5")))
         p_btts = _to_num(row.get("p_btts_yes"))
         if p_over is None and p_btts is None:
             continue
 
-        ou_pred = "OU25_OVER" if (p_over is not None and p_over >= 0.5) else "OU25_UNDER"
+        ou_pred, _ = _classify_ou_from_probs(p_over, p_under)
         btts_pred = "BTTS_YES" if (p_btts is not None and p_btts >= 0.5) else "BTTS_NO"
 
         outcomes = _outcome_from_score(
@@ -305,14 +316,7 @@ def _build_upcoming_summary(
         p_btts_yes = _to_num(row.get("p_btts_yes"))
         p_btts_no = _to_num(row.get("p_btts_no"))
 
-        if p_over is None and p_under is None:
-            ou_pred = ""
-            ou_conf = None
-        else:
-            po = p_over if p_over is not None else 0.0
-            pu = p_under if p_under is not None else (1.0 - po)
-            ou_pred = "OU25_OVER" if po >= pu else "OU25_UNDER"
-            ou_conf = max(po, pu)
+        ou_pred, ou_conf = _classify_ou_from_probs(p_over, p_under)
 
         if p_btts_yes is None and p_btts_no is None:
             btts_pred = ""
@@ -349,11 +353,12 @@ def _backtest_summary(backtest_df: pd.DataFrame) -> dict[str, Any]:
         if score is None:
             continue
         p_over = _to_num(row.get("p_over25", row.get("p_over_2_5")))
+        p_under = _to_num(row.get("p_under25", row.get("p_under_2_5")))
         p_btts_yes = _to_num(row.get("p_btts_yes"))
         if p_over is None and p_btts_yes is None:
             continue
 
-        ou_pred = "OU25_OVER" if (p_over is not None and p_over >= 0.5) else "OU25_UNDER"
+        ou_pred, _ = _classify_ou_from_probs(p_over, p_under)
         btts_pred = "BTTS_YES" if (p_btts_yes is not None and p_btts_yes >= 0.5) else "BTTS_NO"
 
         rows.append(

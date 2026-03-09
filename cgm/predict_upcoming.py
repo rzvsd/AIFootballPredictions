@@ -521,10 +521,8 @@ def main() -> None:
     if next_round_span_days < 0:
         next_round_span_days = 0
 
-    # League-specific post-probability classification thresholds.
-    ou25_over_threshold_default = float(getattr(config, "OU25_OVER_THRESHOLD_DEFAULT", 0.50))
+    # BTTS can still use league-specific classification thresholds.
     btts_yes_threshold_default = float(getattr(config, "BTTS_YES_THRESHOLD_DEFAULT", 0.50))
-    ou25_over_threshold_by_league = getattr(config, "OU25_OVER_THRESHOLD_BY_LEAGUE", {})
     btts_yes_threshold_by_league = getattr(config, "BTTS_YES_THRESHOLD_BY_LEAGUE", {})
     mu_goal_multiplier_default = float(getattr(config, "MU_GOAL_MULTIPLIER_DEFAULT", 1.0))
     mu_goal_multiplier_by_league = getattr(config, "MU_GOAL_MULTIPLIER_BY_LEAGUE", {})
@@ -1575,13 +1573,15 @@ def main() -> None:
                 "p_under25": probs["p_under25"],
                 "p_over_2_5": probs["p_over25"],
                 "p_under_2_5": probs["p_under25"],
+                # OU side selection is now pure probability comparison across all leagues.
+                # This removes per-league threshold forcing that could flip labels
+                # against the model's own p_over vs p_under signal.
                 "pred_ou25": (
                     "OU25_OVER"
-                    if float(probs["p_over25"])
-                    >= _league_threshold(
-                        str(league),
-                        default_value=ou25_over_threshold_default,
-                        overrides=ou25_over_threshold_by_league if isinstance(ou25_over_threshold_by_league, dict) else {},
+                    if np.isfinite(probs["p_over25"])
+                    and (
+                        (not np.isfinite(probs["p_under25"]))
+                        or float(probs["p_over25"]) >= float(probs["p_under25"])
                     )
                     else "OU25_UNDER"
                 ),
