@@ -1,21 +1,21 @@
 fixture_datetime,home,away,league,home_matches_total,away_matches_total,home_xg_ok_last_window,away_xg_ok_last_window,home_pressure_ok_last_window,away_pressure_ok_last_window,window_n
-2026-03-08 10:30:00,Rizespor,Antalyaspor,Süper Lig,12,12,10,10,10,10,10
-2026-03-08 10:30:00,Gaziantep FK,Fatih Karagümrük,Süper Lig,12,12,10,10,10,10,10
-2026-03-08 11:15:00,Sparta Rotterdam,PEC Zwolle,Eredivisie,12,13,10,10,10,10,10
-2026-03-08 11:30:00,Lecce,Cremonese,Serie A,14,14,10,10,10,10,10
-2026-03-08 12:30:00,Preußen Münster,Hertha BSC,2. Bundesliga,12,11,10,10,10,10,10
-2026-03-08 12:30:00,Hannover 96,SpVgg Greuther Fürth,2. Bundesliga,11,12,10,10,10,10,10
-2026-03-08 12:30:00,Karlsruher SC,Dynamo Dresden,2. Bundesliga,11,12,10,10,10,10,10
-2026-03-08 12:30:00,Oţelul,AFC Hermannstadt,Liga I,14,14,10,10,10,10,10
-2026-03-08 13:00:00,Villarreal,Elche,La Liga,13,12,10,10,10,10,10
-2026-03-08 13:00:00,Konyaspor,Kasımpaşa,Süper Lig,12,12,10,10,10,10,10
-2026-03-08 13:30:00,Fortuna Sittard,Telstar,Eredivisie,12,12,10,10,10,10,10
-2026-03-08 13:30:00,GO Ahead Eagles,Twente,Eredivisie,12,12,10,10,10,10,10
-2026-03-08 14:00:00,Lens,Metz,Ligue 1,12,12,10,10,10,10,10
-2026-03-08 14:00:00,Bologna,Hellas Verona,Serie A,13,14,10,10,10,10,10
-2026-03-08 14:00:00,Fiorentina,Parma,Serie A,13,13,10,10,10,10,10
-2026-03-08 14:00:00,Catanzaro,Empoli,Serie B,14,13,10,10,10,10,10
-2026-03-08 14:00:00,Mantova,Juve Stabia,Serie B,14,14,10,10,10,10,10
-2026-03-08 14:00:00,Frosinone,Sampdoria,Serie B,13,14,10,10,10,10,10
-2026-03-08 14:30:00,FC St. Pauli,Eintracht Frankfurt,Bundesliga,11,12,10,10,10,10,10
-2026-03-08 15:00:00,Arges Pitesti,Unirea Slobozia,Liga I,14,14,10,10,10,10,10
+2026-03-03 18:00:00,Padova,Spezia,Serie B,13,13,10,10,10,10,10
+2026-03-03 19:00:00,Cesena,Monza,Serie B,13,13,10,10,10,10,10
+2026-03-03 19:00:00,Venezia,Avellino,Serie B,13,13,10,10,10,10,10
+2026-03-03 19:00:00,Virtus Entella,Modena,Serie B,13,13,10,10,10,10,10
+2026-03-03 19:00:00,Reggiana,Sudtirol,Serie B,13,14,10,10,10,10,10
+2026-03-03 19:30:00,Bournemouth,Brentford,Premier League,14,14,10,10,10,10,10
+2026-03-03 19:30:00,Everton,Burnley,Premier League,14,14,10,10,10,10,10
+2026-03-03 19:30:00,Leeds,Sunderland,Premier League,14,14,10,10,10,10,10
+2026-03-03 19:45:00,Ipswich,Hull City,Championship,17,16,10,10,10,10,10
+2026-03-03 20:15:00,Wolves,Liverpool,Premier League,15,14,10,10,10,10,10
+2026-03-04 18:00:00,Rayo Vallecano,Oviedo,La Liga,12,12,10,10,10,10,10
+2026-03-04 18:00:00,Carrarese,Catanzaro,Serie B,13,13,10,10,10,10,10
+2026-03-04 19:00:00,Bari,Empoli,Serie B,13,12,10,10,10,10,10
+2026-03-04 19:00:00,Frosinone,Pescara,Serie B,12,13,10,10,10,10,10
+2026-03-04 19:00:00,Palermo,Mantova,Serie B,14,13,10,10,10,10,10
+2026-03-04 19:00:00,Juve Stabia,Sampdoria,Serie B,13,13,10,10,10,10,10
+2026-03-04 19:30:00,Hamburger SV,Bayer Leverkusen,Bundesliga,12,11,10,10,10,10,10
+2026-03-04 19:30:00,Fulham,West Ham,Premier League,14,14,10,10,10,10,10
+2026-03-04 19:30:00,Manchester City,Nottingham Forest,Premier League,14,14,10,10,10,10,10
+2026-03-04 19:30:00,Brighton,Arsenal,Premier League,14,15,10,10,10,10,10

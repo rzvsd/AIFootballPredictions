@@ -520,6 +520,7 @@ class APIFootballClient:
         fixture_id: int,
         *,
         cache_key: str | os.PathLike[str] | None = None,
+        max_age_seconds: int | None = None,
         force_refresh: bool = False,
     ) -> list[dict[str, Any]]:
         params = {"fixture": int(fixture_id)}
@@ -527,6 +528,7 @@ class APIFootballClient:
             "/odds",
             params=params,
             cache_key=cache_key,
+            max_age_seconds=max_age_seconds,
             force_refresh=force_refresh,
         )
         if isinstance(payload, dict):

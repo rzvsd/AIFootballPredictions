@@ -1,5 +1,0 @@
-fixture_datetime,league,home,away,market,odds,p_model,ev,ev_min_req,score,eligible,reasons,mu_total,is_low_scoring,selected
-2026-03-06T17:30:00,Liga I,Csikszereda,Farul Constanta,OU25_OVER,1.83,0.4611764040421165,-0.15604718060292677,0.04,,False,G4_FAIL_LOW_EV(-0.156<0.040),2.555684511212028,0,False
-2026-03-06T17:30:00,Liga I,Csikszereda,Farul Constanta,OU25_UNDER,1.91,0.5388235959578834,0.029153068279557326,0.04,,False,G4_FAIL_LOW_EV(0.029<0.040),2.555684511212028,0,False
-2026-03-06T17:30:00,Liga I,Csikszereda,Farul Constanta,BTTS_YES,,0.5197168382672475,,0.04,,False,G1_FAIL_MISSING_ODDS_BTTS|G4_FAIL_LOW_EV(nan<0.040),2.555684511212028,0,False
-2026-03-06T17:30:00,Liga I,Csikszereda,Farul Constanta,BTTS_NO,,0.48028316173275254,,0.04,,False,G1_FAIL_MISSING_ODDS_BTTS|G4_FAIL_LOW_EV(nan<0.040),2.555684511212028,0,False

@@ -56,9 +56,11 @@ python predict.py --max-date YYYY-MM-DD
 ```
 
 Pre-bet gate note:
-- When picks are enabled (`--emit-picks`, default `True`), `predict.py` automatically runs a mandatory critical-audit gate before pick generation:
+- When picks are enabled (`--emit-picks`, default from `config.PIPELINE_EMIT_PICKS_DEFAULT`), `predict.py` automatically runs a mandatory critical-audit gate before pick generation:
   - `python scripts/run_all_audits.py --critical-only --as-of-date YYYY-MM-DD --model-variant <variant>`
-- If any critical audit fails, pick generation is blocked for that run (`reports/picks.csv` is not updated).
+- If any critical audit fails, pick generation is blocked for that run. Old pick artifacts are cleared first, so stale picks are not left behind as if they were current.
+- Use `--no-emit-picks` to run predictions without picks/narrator output even when config enables picks.
+- Pick status is written to `reports/picks_status.json` (`pending_gate`, `blocked`, or `generated`).
 
 Default picks are goals-only: O/U 2.5 + BTTS.
 Legacy 1X2 pick engine and audits are archived under `archive/legacy_full_engine/`.
@@ -69,7 +71,7 @@ Legacy CSV mode (no API sync):
 python predict.py --data-source csv --max-date YYYY-MM-DD
 ```
 
-Odds-free internal model (mu/probabilities do NOT use odds/market probabilities as features; EV/picks still require odds in the upcoming feed):
+Odds-free internal model (mu/probabilities do NOT use odds/market probabilities as features; EV and odds are diagnostic in the current model-signal pick strategy):
 
 ```
 python predict.py --max-date YYYY-MM-DD --model-variant no_odds
@@ -83,6 +85,7 @@ python predict.py --predict-only
 
 Predict-only note:
 - If picks are enabled, the same mandatory critical-audit gate runs before pick generation.
+- Use `python predict.py --predict-only --no-emit-picks` for a predictions-only refresh.
 
 Live scope note: the pipeline filters upcoming fixtures strictly after `--max-date` (no retro predictions). If no fixtures are in horizon, output can be 0 predictions/picks.
 Narrator runs automatically after picks and writes `reports/picks_explained.csv` and `reports/picks_explained_preview.txt`.
@@ -107,6 +110,7 @@ Narrator runs automatically after picks and writes `reports/picks_explained.csv`
 - Picks:
   - `reports/picks.csv`
   - `reports/picks_debug.csv` (candidate-level gate/score debug)
+  - `reports/picks_status.json` (current pick generation status)
 - Narrator (Milestone 8):
   - `reports/picks_explained.csv` (picks + human-readable fields)
   - `reports/picks_explained_preview.txt` (quick text preview)
@@ -123,7 +127,17 @@ python -m cgm.pick_engine_goals --in reports/cgm_upcoming_predictions.csv --out 
 python -m scripts.audit_picks_goals --predictions reports/cgm_upcoming_predictions.csv
 ```
 
-Output note: `reports/picks.csv` includes a `score` column (EV + small reliability nudges) used to deterministically select the single best market per fixture, plus narrator-friendly columns (`model_prob`, `implied_prob`, `value_margin`, `risk_flags`).
+Output note: `reports/picks.csv` includes a `score` column used to deterministically select the single best market per fixture. The current strategy treats EV and missing odds as phantom diagnostics: a pick is ranked from model-side probability support, evidence gates, low-scoring adjustments, configured league/market adjustments, configured gate-tier adjustments, and a small bonus when usable odds above the configured floor are present. When real odds are present below the floor, that candidate is rejected. Picks are capped by league-round quota and tagged with `gate_tier` (`primary` or `fallback`).
+
+Current league tuning is explicit in `config.py`: Serie A boosts `BTTS_NO`, Ligue 1 blocks `BTTS_NO`, Ligue 1 does not force primary-gate candidates above better-scored fallback candidates, and Ligue 1 gives fallback candidates a small score bonus based on the reconstructed round backtest.
+
+Round strategy evaluation:
+
+```
+python scripts/evaluate_pick_strategy_rounds.py --out-dir reports/round_strategy_eval
+```
+
+This writes round, market, probability-band, odds-bucket, and loss-run diagnostics for the reconstructed EPL / Serie A / Ligue 1 backtests.
 
 Narrator (Milestone 8: human-readable explanations)
 

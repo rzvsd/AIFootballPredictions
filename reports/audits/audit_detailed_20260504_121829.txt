@@ -1,0 +1,138 @@
+DETAILED AUDIT LOG
+Generated: 2026-05-04 12:18:29 UTC
+
+How calculations work (plain language):
+- Elo:
+  - Start rating: 1500 (from calc_cgm_elo defaults)
+  - Update rule: expected score uses a logistic curve with home advantage.
+  - Home advantage: 65 Elo points.
+  - K-factor: 20, scaled by goal-difference multiplier.
+  - Margin multiplier: 1.0 for 0-1 goals, 1.5 for 2, 1.75 for 3, then +0.125 per extra goal.
+- Pressure (team dominance):
+  - Inputs: shots, shots on target, corners, possession.
+  - Weights: shots 0.45, shots on target 0.30, corners 0.15, possession 0.10.
+  - Pressure is only usable when all required inputs exist for a match.
+- xG proxy (internal, not true xG):
+  - Inputs: shots_for, shots_on_target_for, shots_against, shots_on_target_against, is_home.
+  - Model: Poisson regression trained walk-forward by ISO week.
+  - If not enough training rows, a prior mean (1.25 goals) is used.
+
+API sync quality report
+- Quality gate passed: True
+- Stats coverage: 1.0
+- Odds coverage: 0.6194331983805668
+- Errors: 0
+
+History data
+- Rows: 3422
+- Date range: 2025-07-11 16:00:00 -> 2026-03-13 20:00:00
+- Top leagues by rows:
+  - Championship: 442
+  - Premier League: 291
+  - Serie B: 291
+  - Serie A: 281
+  - La Liga: 271
+  - Liga I: 242
+  - Ligue 2: 238
+  - Eredivisie: 235
+  - 2. Bundesliga: 227
+  - Süper Lig: 227
+- Elo coverage: home missing=0.0%, away missing=0.0%
+  - Elo home min/med/max: 1263.9 / 1498.5 / 1723.2
+  - Elo away min/med/max: 1266.9 / 1499.0 / 1713.2
+- Pressure usable rate: 100.0%
+- xG proxy usable rate: 100.0%
+- Teams with fewer than 10 total history matches (sample):
+  - None
+
+Upcoming fixtures data
+- Rows: 247
+- Date range: 2026-03-02 19:45:00+00:00 -> 2026-03-16 20:00:00+00:00
+- Top leagues by rows:
+  - Championship: 36
+  - Serie B: 30
+  - La Liga: 22
+  - Serie A: 21
+  - Premier League: 20
+  - Ligue 2: 19
+  - Primeira Liga: 19
+  - Bundesliga: 19
+  - Eredivisie: 18
+  - Süper Lig: 18
+
+Predictions data
+- Rows: 23
+- Date range: 2026-03-03 18:00:00 -> 2026-03-05 20:00:00
+- Evidence window: last 10 matches (context-specific)
+- Sample per fixture (first N):
+  - Padova vs Spezia:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Cesena vs Monza:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Venezia vs Avellino:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Virtus Entella vs Modena:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Reggiana vs Sudtirol:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Bournemouth vs Brentford:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Everton vs Burnley:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Leeds vs Sunderland:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Ipswich vs Hull City:
+    - Home matches available: 17 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 16 (xG ok last 10: 10, Pressure ok: 10)
+  - Wolves vs Liverpool:
+    - Home matches available: 15 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Rayo Vallecano vs Oviedo:
+    - Home matches available: 12 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 12 (xG ok last 10: 10, Pressure ok: 10)
+  - Carrarese vs Catanzaro:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Bari vs Empoli:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 12 (xG ok last 10: 10, Pressure ok: 10)
+  - Frosinone vs Pescara:
+    - Home matches available: 12 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Palermo vs Mantova:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Juve Stabia vs Sampdoria:
+    - Home matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 13 (xG ok last 10: 10, Pressure ok: 10)
+  - Hamburger SV vs Bayer Leverkusen:
+    - Home matches available: 12 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 11 (xG ok last 10: 10, Pressure ok: 10)
+  - Fulham vs West Ham:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Manchester City vs Nottingham Forest:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+  - Brighton vs Arsenal:
+    - Home matches available: 14 (xG ok last 10: 10, Pressure ok: 10)
+    - Away matches available: 15 (xG ok last 10: 10, Pressure ok: 10)
+
+- Fixtures with low xG evidence (min < 3.0 in last 10): 0
+- Fixtures with low Pressure evidence (min < 3.0 in last 10): 0
+
+Summary
+- Status: OK
+
+Extra outputs
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_team_counts.csv
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_fixture_evidence.csv
+- C:\BOTS\AIFootballPredictions\reports\audits\audit_league_summary.csv

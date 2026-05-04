@@ -1,0 +1,8 @@
+{
+  "as_of_date": "2026-03-02",
+  "exit_code": 1,
+  "generated_at": "2026-05-04T12:17:25.658567+00:00",
+  "message": "Mandatory pre-bet gate failed; pick outputs were not generated.",
+  "model_variant": "full",
+  "status": "blocked"
+}

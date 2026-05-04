@@ -148,9 +148,52 @@ STRICT_MODULE_PRESSURE_TOTAL_STRENGTH = 0.70
 # Legacy full-engine values are retained for reference (archived).
 # ---------------------------------------------------------------------------
 
-# Odds sanity: reject odds below this value (too close to 1.0 = no edge)
+# Odds sanity. Odds are diagnostic in the current model-signal strategy, so
+# missing odds do not block a pick; when odds are present, very low prices are
+# still treated as unusable for priced-bet reporting.
 ODDS_MIN_FULL = 1.01        # Legacy full engine (1X2 + O/U)
-ODDS_MIN_GOALS = 1.05       # Used by pick_engine_goals.py (goals-only)
+ODDS_MIN_GOALS = 1.70       # Used by pick_engine_goals.py (goals-only)
+PICK_ENGINE_ODDS_PHANTOM_MODE = True
+PICK_ENGINE_EV_PHANTOM_MODE = True
+PICK_ENGINE_ROUND_QUOTA_ENABLED = True
+PICK_ENGINE_MAX_PICKS_PER_LEAGUE_ROUND = 5
+PICK_ENGINE_MIN_TARGET_PICKS_PER_LEAGUE_ROUND = 4
+PICK_ENGINE_PRICED_ODDS_BONUS = 0.08
+PICK_ENGINE_MIN_MODEL_PROB = 0.52
+PICK_ENGINE_EVIDENCE_GATES_BY_LEAGUE = {
+    # Primary gates prefer mature model evidence. The engine can still fall
+    # back below these when a round would otherwise miss the pick-volume target.
+    "Premier League": {"neff_min": 4.0, "press_min": 2.0, "xg_min": 2.0},
+    "Serie A": {"neff_min": 3.0, "press_min": 1.0, "xg_min": 1.0},
+    "Ligue 1": {"neff_min": 4.0, "press_min": 2.0, "xg_min": 2.0},
+}
+PICK_ENGINE_FALLBACK_EVIDENCE_GATE = {
+    "neff_min": 1.0,
+    "press_min": 1.0,
+    "xg_min": 1.0,
+}
+PICK_ENGINE_USE_GATE_PRIORITY_BY_LEAGUE = {
+    # Ligue 1 backtests showed the primary evidence gate ranking below the
+    # fallback pool; use raw model score for round ranking there.
+    "Ligue 1": False,
+}
+PICK_ENGINE_MARKET_BLOCKLIST_BY_LEAGUE = {
+    # Tiny but consistently bad in the current Ligue 1 reconstructed season.
+    "Ligue 1": ["BTTS_NO"],
+}
+PICK_ENGINE_GATE_SCORE_ADJUSTMENTS_BY_LEAGUE = {
+    # Ligue 1 fallback candidates outperformed primary-gate candidates in the
+    # reconstructed 2025-26 sample, especially BTTS_YES and OU25_OVER.
+    "Ligue 1": {"fallback": 0.06},
+}
+PICK_ENGINE_MARKET_SCORE_ADJUSTMENTS_BY_LEAGUE = {
+    # Round-eval v1/v2 showed EPL over calls underperforming versus BTTS/Under.
+    "Premier League": {"OU25_OVER": -0.18},
+    # Serie A sweep showed BTTS_NO improves the Under-heavy selection.
+    "Serie A": {"BTTS_NO": 0.18},
+    # Round-eval v1-v4 showed Ligue 1 unders and broad BTTS calls underperforming.
+    "Ligue 1": {"OU25_UNDER": -0.22, "BTTS_YES": -0.08},
+}
 
 # mu_total (expected total goals) must be in this range for a pick
 MU_TOTAL_MIN = 1.6
@@ -158,13 +201,13 @@ MU_TOTAL_MAX = 3.4
 
 # Evidence requirements (how much history we need before trusting a pick)
 NEFF_MIN_FULL = 6.0         # Effective sample size for full engine
-NEFF_MIN_GOALS = 8.0        # Stricter for goals-only engine
+NEFF_MIN_GOALS = 1.0        # Model-signal mode: allow early-round coverage
 
 PRESS_EVID_MIN_FULL = 2.0   # Pressure evidence minimum for full engine
-PRESS_EVID_MIN_GOALS = 3.0  # Stricter for goals-only engine
+PRESS_EVID_MIN_GOALS = 1.0  # Model-signal mode: allow early-round coverage
 
 XG_EVID_MIN_FULL = 2.0      # xG evidence minimum for full engine
-XG_EVID_MIN_GOALS = 3.0     # Stricter for goals-only engine
+XG_EVID_MIN_GOALS = 1.0     # Model-signal mode: allow early-round coverage
 
 # EV (Expected Value) thresholds
 EV_MIN_1X2 = 0.05           # Legacy full engine: minimum EV for 1X2 picks

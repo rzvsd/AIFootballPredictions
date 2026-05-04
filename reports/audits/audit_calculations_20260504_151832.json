@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-05-04T15:18:32.842199",
+  "summary": {
+    "passed": 6,
+    "warned": 0,
+    "failed": 0
+  },
+  "results": [
+    {
+      "name": "Elo Replay",
+      "status": "PASS",
+      "detail": "6844 pre-match Elo values verified within +/-1.0pt (trace checks=6844)"
+    },
+    {
+      "name": "Pressure Spot-Check",
+      "status": "PASS",
+      "detail": "Dominance ratios valid for 5 sample rows, press_form_H range OK"
+    },
+    {
+      "name": "xG Proxy Sanity",
+      "status": "PASS",
+      "detail": "xg_proxy_H: mean=1.49 | xg_proxy_A: mean=1.24"
+    },
+    {
+      "name": "Data Continuity",
+      "status": "PASS",
+      "detail": "3422 rows, 3 feature cols checked"
+    },
+    {
+      "name": "Mu Prediction Check",
+      "status": "PASS",
+      "detail": "23 predictions verified. mu_total range: [2.44, 3.10] sterile_trigger_count=0; under_boost_usage=0"
+    },
+    {
+      "name": "Row Count Chain",
+      "status": "PASS",
+      "detail": "cgm_match_history.csv=3429 -> with_elo=3422 -> with_elo_stats=3422 -> with_elo_stats_xg=3422"
+    }
+  ]
+}

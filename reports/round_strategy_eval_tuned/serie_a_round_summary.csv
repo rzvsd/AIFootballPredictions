@@ -1,0 +1,4 @@
+league,window,rounds,picks,avg_picks_per_round,min_picks_per_round,rounds_ge_4_picks,wins,losses,hit_rate,max_loss_run,max_drawdown_units,priced_picks_odds_gt_1_7,priced_roi_odds_gt_1_7,primary_gate_share
+Serie A,round_1,1,5,5.0,5,1,2,3,0.4,2,-2.0,0,,0.0
+Serie A,rounds_1_5,5,25,5.0,5,5,14,11,0.56,3,-3.0,0,,0.0
+Serie A,full_season,25,125,5.0,5,25,71,54,0.568,4,-6.0,12,0.07583333333333331,0.784

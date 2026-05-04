@@ -863,6 +863,7 @@ def _hydrate_fixtures(
     history_rows: list[dict[str, Any]] = []
     upcoming_rows: list[dict[str, Any]] = []
     errors: list[str] = []
+    upcoming_odds_cache_ttl_seconds = 6 * 60 * 60
 
     counters: dict[str, int | bool] = {
         "odds_cache_hits": 0,
@@ -892,11 +893,30 @@ def _hydrate_fixtures(
             try_odds = odds_cache_exists or not bool(counters["budget_exhausted"])
             if try_odds:
                 try:
+                    odds_force_refresh = False
+                    odds_max_age_seconds = None
+                    cached_odds_payload = None
+                    if status == UPCOMING_STATUS:
+                        odds_max_age_seconds = upcoming_odds_cache_ttl_seconds
+                        cached_odds_payload = client.read_json_cache(
+                            odds_cache_key,
+                            max_age_seconds=odds_max_age_seconds,
+                        )
+                        if cached_odds_payload is not None:
+                            cached_odds = _odds_from_payload(
+                                (cached_odds_payload.get("response", []) if isinstance(cached_odds_payload, dict) else [])
+                            )
+                            # Upcoming odds appear late. If a fresh cache is empty, refetch once instead
+                            # of letting an early "no odds yet" snapshot stick forever.
+                            if not any(v is not None for v in cached_odds.values()):
+                                odds_force_refresh = True
                     odds_payload = client.fixture_odds(
                         fixture_id=fixture_id,
                         cache_key=odds_cache_key,
+                        max_age_seconds=odds_max_age_seconds,
+                        force_refresh=odds_force_refresh,
                     )
-                    if odds_cache_exists:
+                    if odds_cache_exists and not odds_force_refresh and cached_odds_payload is not None:
                         counters["odds_cache_hits"] = int(counters["odds_cache_hits"]) + 1
                     else:
                         counters["odds_api_fetches"] = int(counters["odds_api_fetches"]) + 1

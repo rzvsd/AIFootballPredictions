@@ -1,0 +1,4 @@
+league,source_rows,engine_picks_all_odds,picks_odds_gt_1_7,wins,losses,hit_rate,profit_units_flat_1u,roi_flat_1u,avg_odds,first_fixture,last_fixture,detail_file
+Premier League,271,20,10,5,5,0.5,-0.6200000000000001,-0.06200000000000001,1.893,2026-02-21T15:00:00,2026-03-05T20:00:00,reports\backtest_current_strategy_ev_phantom_odds_gt_1_7\premier_league_picks_gt_1_7.csv
+Serie A,247,10,6,2,4,0.3333333333333333,-2.54,-0.42333333333333334,1.7966666666666666,2026-02-22T19:45:00,2026-03-06T19:45:00,reports\backtest_current_strategy_ev_phantom_odds_gt_1_7\serie_a_picks_gt_1_7.csv
+Ligue 1,197,6,4,0,4,0.0,-4.0,-1.0,2.0,2026-02-21T18:00:00,2026-02-28T16:00:00,reports\backtest_current_strategy_ev_phantom_odds_gt_1_7\ligue_1_picks_gt_1_7.csv

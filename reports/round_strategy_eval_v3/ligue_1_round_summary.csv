@@ -1,0 +1,4 @@
+league,window,rounds,picks,avg_picks_per_round,min_picks_per_round,rounds_ge_4_picks,wins,losses,hit_rate,priced_picks_odds_gt_1_7,priced_roi_odds_gt_1_7
+Ligue 1,round_1,1,5,5.0,5,1,3,2,0.6,0,
+Ligue 1,rounds_1_5,5,25,5.0,5,5,16,9,0.64,0,
+Ligue 1,full_season,22,110,5.0,5,22,54,56,0.4909090909090909,3,-0.42333333333333334

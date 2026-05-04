@@ -79,6 +79,15 @@ def main() -> int:
         help="As-of date (YYYY-MM-DD) forwarded to scope audit.",
     )
     ap.add_argument(
+        "--model-variant",
+        default="full",
+        choices=["full", "no_odds", "no_lgavg"],
+        help=(
+            "Accepted for compatibility with predict.py pre-bet gate. "
+            "Current audits infer prediction variants from the predictions CSV."
+        ),
+    )
+    ap.add_argument(
         "--timeout-sec",
         type=int,
         default=120,
@@ -129,7 +138,13 @@ def main() -> int:
             if result.returncode == 0:
                 results.append((name, "PASS", critical))
             else:
-                error_snippet = result.stderr[:200] if result.stderr else "Unknown error"
+                if result.stderr:
+                    error_snippet = result.stderr.strip()[:200]
+                elif result.stdout:
+                    stdout_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+                    error_snippet = stdout_lines[-1][:200] if stdout_lines else "Audit failed without output"
+                else:
+                    error_snippet = "Audit failed without output"
                 results.append((name, f"FAIL: {error_snippet}", critical))
                 if result.stderr:
                     print(f"\nError: {result.stderr[:500]}")

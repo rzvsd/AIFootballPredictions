@@ -1,0 +1,4 @@
+league,window,rounds,picks,avg_picks_per_round,min_picks_per_round,rounds_ge_4_picks,wins,losses,hit_rate,priced_picks_odds_gt_1_7,priced_roi_odds_gt_1_7
+Premier League,round_1,1,5,5.0,5,1,2,3,0.4,0,
+Premier League,rounds_1_5,5,25,5.0,5,5,16,9,0.64,0,
+Premier League,full_season,28,136,4.857142857142857,1,27,76,60,0.5588235294117647,6,0.37833333333333324

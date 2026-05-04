@@ -30,6 +30,13 @@ API_UPCOMING_FILENAME = "upcoming_fixtures.csv"
 API_QUALITY_REPORT_FILENAME = "fixture_quality_report.json"
 QUALITY_GATE_DEFAULT_MIN_ODDS_COVERAGE = 0.60
 QUALITY_GATE_DEFAULT_MIN_STATS_COVERAGE = 0.60
+PICK_OUTPUT_FILENAMES = (
+    "picks.csv",
+    "picks_debug.csv",
+    "picks_explained.csv",
+    "picks_explained_preview.txt",
+)
+PICK_STATUS_FILENAME = "picks_status.json"
 
 
 # Pipeline step tracking
@@ -100,6 +107,56 @@ def _print_pipeline_summary(reports_dir: Path) -> None:
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
     print(f"\nSummary written to: {summary_path}")
+
+
+def _write_pick_status(
+    reports_dir: Path,
+    *,
+    status: str,
+    as_of_date: str,
+    model_variant: str,
+    message: str,
+    exit_code: int | str | None = None,
+) -> None:
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    payload: Dict[str, Any] = {
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "status": status,
+        "as_of_date": str(as_of_date),
+        "model_variant": str(model_variant),
+        "message": message,
+    }
+    if exit_code is not None:
+        payload["exit_code"] = exit_code
+    status_path = reports_dir / PICK_STATUS_FILENAME
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
+def _clear_pick_outputs(reports_dir: Path, *, as_of_date: str, model_variant: str) -> None:
+    """
+    Remove old pick artifacts before the pre-bet gate.
+
+    If the gate fails, no stale pick CSV remains available for downstream users
+    to mistake for the current run.
+    """
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    removed: List[str] = []
+    for filename in PICK_OUTPUT_FILENAMES:
+        path = reports_dir / filename
+        if not path.exists():
+            continue
+        path.unlink()
+        removed.append(filename)
+    if removed:
+        print(f"[picks] cleared stale outputs before pre-bet gate: {', '.join(removed)}")
+    _write_pick_status(
+        reports_dir,
+        status="pending_gate",
+        as_of_date=as_of_date,
+        model_variant=model_variant,
+        message="Pick outputs were cleared and are waiting for the mandatory pre-bet gate.",
+    )
 
 
 def _utc_today_iso() -> str:
@@ -405,6 +462,64 @@ def _run_mandatory_pre_bet_gate(*, as_of_date: str, model_variant: str) -> None:
     print("[pre-bet-gate] PASSED")
 
 
+def _run_pick_outputs(
+    *,
+    reports_dir: Path,
+    pick_engine: str,
+    as_of_date: str,
+    model_variant: str,
+) -> None:
+    _clear_pick_outputs(reports_dir, as_of_date=as_of_date, model_variant=model_variant)
+    try:
+        _run_mandatory_pre_bet_gate(as_of_date=as_of_date, model_variant=model_variant)
+    except SystemExit as exc:
+        _write_pick_status(
+            reports_dir,
+            status="blocked",
+            as_of_date=as_of_date,
+            model_variant=model_variant,
+            message="Mandatory pre-bet gate failed; pick outputs were not generated.",
+            exit_code=exc.code,
+        )
+        print("[picks] BLOCKED: mandatory pre-bet gate failed; stale pick outputs were removed.")
+        raise
+
+    pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
+    _run(
+        [
+            sys.executable,
+            "-m",
+            pick_module,
+            "--in",
+            str(reports_dir / "cgm_upcoming_predictions.csv"),
+            "--out",
+            str(reports_dir / "picks.csv"),
+            "--debug-out",
+            str(reports_dir / "picks_debug.csv"),
+        ]
+    )
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "cgm.narrator",
+            "--in",
+            str(reports_dir / "picks.csv"),
+            "--out",
+            str(reports_dir / "picks_explained.csv"),
+            "--preview-out",
+            str(reports_dir / "picks_explained_preview.txt"),
+        ]
+    )
+    _write_pick_status(
+        reports_dir,
+        status="generated",
+        as_of_date=as_of_date,
+        model_variant=model_variant,
+        message="Pick outputs were generated after the mandatory pre-bet gate passed.",
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="API-first CGM pipeline runner")
     ap.add_argument(
@@ -432,12 +547,21 @@ def main() -> None:
         help="Model variant (feature set)",
     )
     ap.add_argument("--pick-engine", choices=["goals"], default="goals", help="Pick engine: goals-only (OU25+BTTS)")
-    ap.add_argument(
+    emit_picks_default = bool(getattr(config, "PIPELINE_EMIT_PICKS_DEFAULT", False))
+    pick_group = ap.add_mutually_exclusive_group()
+    pick_group.add_argument(
         "--emit-picks",
+        dest="emit_picks",
         action="store_true",
-        default=bool(getattr(config, "PIPELINE_EMIT_PICKS_DEFAULT", False)),
-        help="Run pick engine and narrator outputs (disabled by default).",
+        help=f"Run pick engine and narrator outputs (default: {emit_picks_default}).",
     )
+    pick_group.add_argument(
+        "--no-emit-picks",
+        dest="emit_picks",
+        action="store_false",
+        help="Skip pick engine and narrator outputs, even when config enables picks.",
+    )
+    ap.set_defaults(emit_picks=emit_picks_default)
     ap.add_argument(
         "--next-round-only",
         dest="next_round_only",
@@ -484,7 +608,9 @@ def main() -> None:
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     api_context: Optional[Dict[str, Path]] = None
-    if data_source == "api-football":
+    if data_source == "api-football" and args.predict_only:
+        print("[api-football] predict-only mode: reusing existing normalized fixture files; skipped API sync.")
+    elif data_source == "api-football":
         sync_script = ROOT / "scripts" / "sync_api_football.py"
         if not sync_script.exists():
             raise SystemExit(f"API data source requested but sync script not found: {sync_script}")
@@ -620,33 +746,11 @@ def main() -> None:
             ]
         )
         if args.emit_picks:
-            _run_mandatory_pre_bet_gate(as_of_date=max_date, model_variant=model_variant)
-            pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
-            _run(
-                [
-                    sys.executable,
-                    "-m",
-                    pick_module,
-                    "--in",
-                    str(reports_dir / "cgm_upcoming_predictions.csv"),
-                    "--out",
-                    str(reports_dir / "picks.csv"),
-                    "--debug-out",
-                    str(reports_dir / "picks_debug.csv"),
-                ]
-            )
-            _run(
-                [
-                    sys.executable,
-                    "-m",
-                    "cgm.narrator",
-                    "--in",
-                    str(reports_dir / "picks.csv"),
-                    "--out",
-                    str(reports_dir / "picks_explained.csv"),
-                    "--preview-out",
-                    str(reports_dir / "picks_explained_preview.txt"),
-                ]
+            _run_pick_outputs(
+                reports_dir=reports_dir,
+                pick_engine=pick_engine,
+                as_of_date=max_date,
+                model_variant=model_variant,
             )
         else:
             print("[predictions] emit-picks disabled; skipped pick engine and narrator.")
@@ -806,33 +910,11 @@ def main() -> None:
 
     # 9) Optional picks/narrator (disabled by default for internal-model-only workflow)
     if args.emit_picks:
-        _run_mandatory_pre_bet_gate(as_of_date=max_date, model_variant=model_variant)
-        pick_module = "cgm.pick_engine" if pick_engine == "full" else "cgm.pick_engine_goals"
-        _run(
-            [
-                sys.executable,
-                "-m",
-                pick_module,
-                "--in",
-                str(reports_dir / "cgm_upcoming_predictions.csv"),
-                "--out",
-                str(reports_dir / "picks.csv"),
-                "--debug-out",
-                str(reports_dir / "picks_debug.csv"),
-            ]
-        )
-        _run(
-            [
-                sys.executable,
-                "-m",
-                "cgm.narrator",
-                "--in",
-                str(reports_dir / "picks.csv"),
-                "--out",
-                str(reports_dir / "picks_explained.csv"),
-                "--preview-out",
-                str(reports_dir / "picks_explained_preview.txt"),
-            ]
+        _run_pick_outputs(
+            reports_dir=reports_dir,
+            pick_engine=pick_engine,
+            as_of_date=max_date,
+            model_variant=model_variant,
         )
     else:
         print("[predictions] emit-picks disabled; skipped pick engine and narrator.")

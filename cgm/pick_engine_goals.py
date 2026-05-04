@@ -59,7 +59,21 @@ NEFF_MIN = getattr(config, "NEFF_MIN_GOALS", 8.0)
 PRESS_EVID_MIN = getattr(config, "PRESS_EVID_MIN_GOALS", 3.0)
 XG_EVID_MIN = getattr(config, "XG_EVID_MIN_GOALS", 3.0)
 
-# EV thresholds - imported from config.py
+# EV thresholds are retained only for backwards-compatible report columns.
+# Current strategy treats EV as diagnostic metadata, not a gate or ranking input.
+EV_PHANTOM_MODE = getattr(config, "PICK_ENGINE_EV_PHANTOM_MODE", True)
+ODDS_PHANTOM_MODE = getattr(config, "PICK_ENGINE_ODDS_PHANTOM_MODE", True)
+ROUND_QUOTA_ENABLED = getattr(config, "PICK_ENGINE_ROUND_QUOTA_ENABLED", True)
+MAX_PICKS_PER_LEAGUE_ROUND = int(getattr(config, "PICK_ENGINE_MAX_PICKS_PER_LEAGUE_ROUND", 5) or 0)
+MIN_TARGET_PICKS_PER_LEAGUE_ROUND = int(getattr(config, "PICK_ENGINE_MIN_TARGET_PICKS_PER_LEAGUE_ROUND", 4) or 0)
+PRICED_ODDS_BONUS = float(getattr(config, "PICK_ENGINE_PRICED_ODDS_BONUS", 0.0) or 0.0)
+MIN_MODEL_PROB = float(getattr(config, "PICK_ENGINE_MIN_MODEL_PROB", 0.50) or 0.0)
+EVIDENCE_GATES_BY_LEAGUE = getattr(config, "PICK_ENGINE_EVIDENCE_GATES_BY_LEAGUE", {})
+FALLBACK_EVIDENCE_GATE = getattr(config, "PICK_ENGINE_FALLBACK_EVIDENCE_GATE", {})
+USE_GATE_PRIORITY_BY_LEAGUE = getattr(config, "PICK_ENGINE_USE_GATE_PRIORITY_BY_LEAGUE", {})
+MARKET_BLOCKLIST_BY_LEAGUE = getattr(config, "PICK_ENGINE_MARKET_BLOCKLIST_BY_LEAGUE", {})
+GATE_SCORE_ADJUSTMENTS_BY_LEAGUE = getattr(config, "PICK_ENGINE_GATE_SCORE_ADJUSTMENTS_BY_LEAGUE", {})
+MARKET_SCORE_ADJUSTMENTS_BY_LEAGUE = getattr(config, "PICK_ENGINE_MARKET_SCORE_ADJUSTMENTS_BY_LEAGUE", {})
 EV_MIN_OU25 = getattr(config, "EV_MIN_OU25", 0.04)
 EV_MIN_BTTS = getattr(config, "EV_MIN_BTTS", 0.04)
 EV_MIN_TIMING = getattr(config, "EV_MIN_TIMING", 0.05)
@@ -158,6 +172,74 @@ def _as_int_flag(x: object) -> int:
     if not np.isfinite(v):
         return 0
     return int(v > 0)
+
+
+def _gate_value(gate: object, key: str, default: float) -> float:
+    if not isinstance(gate, dict):
+        return float(default)
+    value = _num(gate.get(key, default))
+    return float(value if np.isfinite(value) else default)
+
+
+def _evidence_gate_for(league: str, *, fallback: bool = False) -> tuple[float, float, float]:
+    if fallback:
+        gate = FALLBACK_EVIDENCE_GATE
+    elif isinstance(EVIDENCE_GATES_BY_LEAGUE, dict):
+        gate = EVIDENCE_GATES_BY_LEAGUE.get(league, {})
+    else:
+        gate = {}
+    return (
+        _gate_value(gate, "neff_min", NEFF_MIN),
+        _gate_value(gate, "press_min", PRESS_EVID_MIN),
+        _gate_value(gate, "xg_min", XG_EVID_MIN),
+    )
+
+
+def _use_gate_priority_for(league: str) -> bool:
+    if not isinstance(USE_GATE_PRIORITY_BY_LEAGUE, dict):
+        return True
+    return bool(USE_GATE_PRIORITY_BY_LEAGUE.get(league, True))
+
+
+def _market_blocked_for_league(league: str, market: str) -> bool:
+    if not isinstance(MARKET_BLOCKLIST_BY_LEAGUE, dict):
+        return False
+    blocked = MARKET_BLOCKLIST_BY_LEAGUE.get(league, [])
+    if isinstance(blocked, str):
+        blocked = [blocked]
+    try:
+        return market in set(blocked)
+    except TypeError:
+        return False
+
+
+def _gate_score_adjustment(league: str, gate_tier: str) -> float:
+    if not isinstance(GATE_SCORE_ADJUSTMENTS_BY_LEAGUE, dict):
+        return 0.0
+    league_adjustments = GATE_SCORE_ADJUSTMENTS_BY_LEAGUE.get(league, {})
+    if not isinstance(league_adjustments, dict):
+        return 0.0
+    value = _num(league_adjustments.get(gate_tier, 0.0))
+    return float(value if np.isfinite(value) else 0.0)
+
+
+def _evidence_failures(
+    *,
+    neff_min: float,
+    press_n_min: float,
+    xg_n_min: float,
+    neff_gate: float,
+    press_gate: float,
+    xg_gate: float,
+) -> list[str]:
+    failures: list[str] = []
+    if not (np.isfinite(neff_min) and neff_min >= neff_gate):
+        failures.append("G3_FAIL_LOW_NEFF")
+    if not (np.isfinite(press_n_min) and press_n_min >= press_gate):
+        failures.append("G3_FAIL_LOW_PRESS_EVIDENCE")
+    if not (np.isfinite(xg_n_min) and xg_n_min >= xg_gate):
+        failures.append("G3_FAIL_LOW_XG_EVIDENCE")
+    return failures
 
 
 def _require_columns(df: pd.DataFrame, required: Iterable[str], *, context: str) -> None:
@@ -261,6 +343,7 @@ class Candidate:
     neff_min: float
     press_n_min: float
     xg_n_min: float
+    gate_tier: str
     low_scoring_scenario: int  # 1 if low-scoring scenario detected, 0 otherwise
 
 
@@ -454,15 +537,33 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
         timing_early_share = float(_num(r.get("timing_early_share")))
         timing_late_share = float(_num(r.get("timing_late_share")))
 
-        base_fail: list[str] = []
+        hard_fail: list[str] = []
         if not (np.isfinite(mu_total) and MU_TOTAL_MIN <= mu_total <= MU_TOTAL_MAX):
-            base_fail.append("G2_FAIL_LOW_MU_TOTAL" if (np.isfinite(mu_total) and mu_total < MU_TOTAL_MIN) else "G2_FAIL_HIGH_MU_TOTAL")
-        if not (np.isfinite(neff_min) and neff_min >= NEFF_MIN):
-            base_fail.append("G3_FAIL_LOW_NEFF")
-        if not (np.isfinite(press_n_min) and press_n_min >= PRESS_EVID_MIN):
-            base_fail.append("G3_FAIL_LOW_PRESS_EVIDENCE")
-        if not (np.isfinite(xg_n_min) and xg_n_min >= XG_EVID_MIN):
-            base_fail.append("G3_FAIL_LOW_XG_EVIDENCE")
+            hard_fail.append("G2_FAIL_LOW_MU_TOTAL" if (np.isfinite(mu_total) and mu_total < MU_TOTAL_MIN) else "G2_FAIL_HIGH_MU_TOTAL")
+        primary_neff_gate, primary_press_gate, primary_xg_gate = _evidence_gate_for(league)
+        fallback_neff_gate, fallback_press_gate, fallback_xg_gate = _evidence_gate_for(league, fallback=True)
+        primary_evidence_fail = _evidence_failures(
+            neff_min=neff_min,
+            press_n_min=press_n_min,
+            xg_n_min=xg_n_min,
+            neff_gate=primary_neff_gate,
+            press_gate=primary_press_gate,
+            xg_gate=primary_xg_gate,
+        )
+        fallback_evidence_fail = _evidence_failures(
+            neff_min=neff_min,
+            press_n_min=press_n_min,
+            xg_n_min=xg_n_min,
+            neff_gate=fallback_neff_gate,
+            press_gate=fallback_press_gate,
+            xg_gate=fallback_xg_gate,
+        )
+        if not primary_evidence_fail:
+            gate_tier = "primary"
+            base_fail = list(hard_fail)
+        else:
+            gate_tier = "fallback"
+            base_fail = list(hard_fail) + list(fallback_evidence_fail)
 
         # Detect low-scoring scenario
         is_low_scoring, low_scoring_reason = _is_low_scoring_scenario(
@@ -470,22 +571,39 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
         )
         low_scoring_flag_int = 1 if is_low_scoring else 0
 
-        def _score(ev_val: float) -> float:
+        def _score(p_model_val: float) -> float:
+            prob = p_model_val if np.isfinite(p_model_val) else 0.5
+            confidence_edge = max(prob - 0.50, 0.0) * 2.0
             return float(
-                ev_val
+                confidence_edge
                 + 0.01 * math.log(1.0 + max(neff_min, 0.0))
                 + 0.005 * (max(press_n_min, 0.0) + max(xg_n_min, 0.0))
             )
 
+        def _priced_bonus(odds_val: float) -> float:
+            return float(PRICED_ODDS_BONUS if _is_sane_odds(odds_val) else 0.0)
+
+        def _market_adjustment(market_name: str) -> float:
+            league_adjustments = MARKET_SCORE_ADJUSTMENTS_BY_LEAGUE.get(league, {})
+            if not isinstance(league_adjustments, dict):
+                return 0.0
+            try:
+                return float(league_adjustments.get(market_name, 0.0) or 0.0)
+            except Exception:
+                return 0.0
+
         def _emit_candidate(*, market: str, odds: float, p_model: float, ev_min_req: float, odds_reason: str) -> None:
             reasons: list[str] = list(base_fail)
+            if _market_blocked_for_league(league, market):
+                reasons.append("G7_FAIL_LEAGUE_MARKET_BLOCKED")
 
             # Apply low-scoring adjustments for Under 2.5
-            effective_ev_min = ev_min_req
+            effective_ev_min = 0.0 if EV_PHANTOM_MODE else ev_min_req
             score_bonus = 0.0
             
             if market == "OU25_UNDER" and is_low_scoring:
-                effective_ev_min = float(max(0.0, ev_min_req - LOW_SCORING_EV_THRESHOLD_REDUCTION))
+                if not EV_PHANTOM_MODE:
+                    effective_ev_min = float(max(0.0, ev_min_req - LOW_SCORING_EV_THRESHOLD_REDUCTION))
                 score_bonus = float(LOW_SCORING_UNDER_SCORE_BONUS)
             if market in {"OU25_OVER", "OU25_UNDER"} and calib_ou_thresh is not None:
                 if not np.isfinite(p_over_eff):
@@ -503,15 +621,23 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                     reasons.append("G6_FAIL_CALIB_BTTS_YES")
                 elif market == "BTTS_NO" and p_btts_yes > calib_btts_thresh:
                     reasons.append("G6_FAIL_CALIB_BTTS_NO")
-            if not (np.isfinite(odds) and odds > 1.0):
+            if ODDS_PHANTOM_MODE:
+                if np.isfinite(odds) and odds <= ODDS_MIN:
+                    reasons.append("G1_FAIL_LOW_ODDS")
+            elif not (np.isfinite(odds) and odds > 1.0):
                 reasons.append(odds_reason)
+            elif not _is_sane_odds(odds):
+                reasons.append("G1_FAIL_LOW_ODDS")
+
+            if not (np.isfinite(p_model) and p_model > MIN_MODEL_PROB):
+                reasons.append("G5_FAIL_LOW_MODEL_PROB")
             
             # Skip calculation if already failed hard gates (optimization)
             # But let's calculate to see EV in debug
             
             ev_val = _ev(p_model, odds)
             
-            if not (np.isfinite(ev_val) and ev_val >= effective_ev_min):
+            if not EV_PHANTOM_MODE and not (np.isfinite(ev_val) and ev_val >= effective_ev_min):
                 reasons.append(f"G4_FAIL_LOW_EV({ev_val:.3f}<{effective_ev_min:.3f})")
 
             # Add low scoring specific reasons if relevant
@@ -521,6 +647,13 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                pass
 
             eligible = len(reasons) == 0
+            candidate_score = (
+                _score(p_model)
+                + score_bonus
+                + _priced_bonus(odds)
+                + _market_adjustment(market)
+                + _gate_score_adjustment(league, gate_tier)
+            )
 
             if eligible:
                 candidates.append(
@@ -534,7 +667,7 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                         odds=odds,
                         p_model=p_model,
                         ev=ev_val,
-                        score=_score(ev_val) + score_bonus,
+                        score=candidate_score,
                         ev_min_required=effective_ev_min,
                         reason_codes=tuple(sorted(reasons)),
                         sterile_flag=sterile_flag,
@@ -550,6 +683,7 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                         neff_min=neff_min,
                         press_n_min=press_n_min,
                         xg_n_min=xg_n_min,
+                        gate_tier=gate_tier,
                         low_scoring_scenario=low_scoring_flag_int,
                     )
                 )
@@ -566,10 +700,17 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                     "p_model": p_model,
                     "ev": ev_val,
                     "ev_min_req": effective_ev_min,
-                    "score": _score(ev_val) + score_bonus if eligible else float("nan"),
+                    "score": candidate_score if eligible else float("nan"),
                     "eligible": eligible,
                     "reasons": "|".join(sorted(reasons)),
                     "mu_total": mu_total,
+                    "gate_tier": gate_tier,
+                    "primary_neff_gate": primary_neff_gate,
+                    "primary_press_gate": primary_press_gate,
+                    "primary_xg_gate": primary_xg_gate,
+                    "fallback_neff_gate": fallback_neff_gate,
+                    "fallback_press_gate": fallback_press_gate,
+                    "fallback_xg_gate": fallback_xg_gate,
                     "is_low_scoring": low_scoring_flag_int,
                 }
             )
@@ -643,12 +784,46 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
     if candidates:
         cand_df = pd.DataFrame([c.__dict__ for c in candidates])
         cand_df["market_priority"] = cand_df["market"].map(MARKET_PRIORITY_RANK).fillna(len(MARKET_PRIORITY)).astype(int)
-        cand_df = cand_df.sort_values(
-            ["fixture_idx", "score", "ev", "neff_min", "market_priority", "market"],
-            ascending=[True, False, False, False, True, True],
-            kind="mergesort",
-        )
-        top = cand_df.groupby("fixture_idx", as_index=False).head(1)
+        cand_df["gate_rank"] = cand_df["gate_tier"].map({"primary": 0, "fallback": 1}).fillna(1).astype(int)
+        fixture_groups: list[pd.DataFrame] = []
+        for _league, group in cand_df.groupby("league", sort=True):
+            if _use_gate_priority_for(str(_league)):
+                group = group.sort_values(
+                    ["fixture_idx", "gate_rank", "score", "p_model", "neff_min", "market_priority", "market"],
+                    ascending=[True, True, False, False, False, True, True],
+                    kind="mergesort",
+                )
+            else:
+                group = group.sort_values(
+                    ["fixture_idx", "score", "p_model", "gate_rank", "neff_min", "market_priority", "market"],
+                    ascending=[True, False, False, True, False, True, True],
+                    kind="mergesort",
+                )
+            fixture_groups.append(group.groupby("fixture_idx", as_index=False).head(1))
+        top = pd.concat(fixture_groups, ignore_index=True) if fixture_groups else cand_df.iloc[0:0]
+        if ROUND_QUOTA_ENABLED and MAX_PICKS_PER_LEAGUE_ROUND > 0 and not top.empty:
+            selected_groups: list[pd.DataFrame] = []
+            for _league, group in top.groupby("league", sort=True):
+                if _use_gate_priority_for(str(_league)):
+                    ordered = group.sort_values(
+                        ["gate_rank", "score", "p_model", "neff_min", "market_priority", "market"],
+                        ascending=[True, False, False, False, True, True],
+                        kind="mergesort",
+                    )
+                    primary = ordered[ordered["gate_tier"] == "primary"]
+                    if len(primary) >= MIN_TARGET_PICKS_PER_LEAGUE_ROUND:
+                        chosen = primary.head(MAX_PICKS_PER_LEAGUE_ROUND)
+                    else:
+                        chosen = ordered.head(MAX_PICKS_PER_LEAGUE_ROUND)
+                else:
+                    ordered = group.sort_values(
+                        ["score", "p_model", "gate_rank", "neff_min", "market_priority", "market"],
+                        ascending=[False, False, True, False, True, True],
+                        kind="mergesort",
+                    )
+                    chosen = ordered.head(MAX_PICKS_PER_LEAGUE_ROUND)
+                selected_groups.append(chosen)
+            top = pd.concat(selected_groups, ignore_index=True) if selected_groups else top.iloc[0:0]
         candidate_fields = set(Candidate.__dataclass_fields__.keys())
         selected = [
             Candidate(**{k: v for k, v in row.items() if k in candidate_fields})
@@ -663,7 +838,8 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
             * min(c.xg_n_min / 5.0, 1.0)
         )
         risk_penalty = 0.85 if (c.sterile_flag or c.assassin_flag) else 1.0
-        confidence = float(c.ev * rel * risk_penalty)
+        confidence_edge = max(0.0, float(c.p_model) - 0.50) if np.isfinite(c.p_model) else 0.0
+        confidence = float(confidence_edge * rel * risk_penalty)
 
         if confidence < 0.05:
             stake_units = 0.5
@@ -698,6 +874,8 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
             ]
         )
 
+        reason_codes = ["SELECT_TOP_SCORE", "EV_PHANTOM", c.gate_tier.upper(), stake_reason]
+
         picks_rows.append(
             {
                 "fixture_datetime": c.fixture_datetime,
@@ -725,10 +903,11 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                 "mu_total": float(c.mu_total),
                 "stake_units": float(stake_units),
                 "stake_tier": stake_tier,
-                "reason_codes": "|".join(("SELECT_TOP_SCORE", stake_reason)),
+                "reason_codes": "|".join(reason_codes),
                 "neff_min": float(c.neff_min),
                 "press_n_min": float(c.press_n_min),
                 "xg_n_min": float(c.xg_n_min),
+                "gate_tier": c.gate_tier,
                 "sterile_flag": int(c.sterile_flag),
                 "assassin_flag": int(c.assassin_flag),
                 "timing_usable": int(c.timing_usable),
@@ -784,6 +963,7 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                 "neff_min",
                 "press_n_min",
                 "xg_n_min",
+                "gate_tier",
                 "sterile_flag",
                 "assassin_flag",
                 "timing_usable",
@@ -832,6 +1012,7 @@ def build_picks(df: pd.DataFrame, *, input_hash: str, run_id: str) -> tuple[pd.D
                 "neff_min",
                 "press_n_min",
                 "xg_n_min",
+                "gate_tier",
                 "sterile_flag",
                 "assassin_flag",
                 "timing_usable",
